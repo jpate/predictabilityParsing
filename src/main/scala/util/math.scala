@@ -10,6 +10,7 @@ object Math {
       a + math.log( 1 + math.exp( b - a ) )
     else
       b + math.log( 1 + math.exp( a - b ) )
+
 }
 
 

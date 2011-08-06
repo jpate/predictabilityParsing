@@ -4,6 +4,7 @@ import predictabilityParsing.grammars.CCMGrammar
 import predictabilityParsing.partialCounts.CCMPartialCounts
 import predictabilityParsing.types.labels._
 import predictabilityParsing.util.Math
+import math.log
 
 class CCMEstimator {
 
@@ -34,6 +35,64 @@ class CCMEstimator {
 
   def setGrammar( givenGrammar:CCMGrammar ) { g = givenGrammar }
 
+  def setP_SplitGrammar( corpus:List[List[ObservedLabel]] ) {
+    def p_split( i:Int, j:Int, n:Int ) = {
+      val l = j - i
+      if( l == 0 || l < n )
+        0D
+      else if( l == 1 || l == n )
+        1D
+      else if( n == 3 )
+        0.5
+      else if( n == 4 )
+        0.4
+      else if( n == 5 )
+        if( l == 2 || l == 4 )
+          5D/14
+        else
+          4D/14
+      else
+        -1D
+    }
+
+    g = corpus.par.map{ s =>
+      val initPartialCounts = new CCMPartialCounts
+      ( 0 to (s.length-1) ).foreach{ i =>
+        ( i to (s.length-1) ).foreach{ j =>
+          val span = Yield( s.slice( i, j+1 ) )
+          val context =
+            Context(
+              if( i == 0 ) SentenceBoundary else s(i-1),
+              if( j == (s.length-1) ) SentenceBoundary else s(j+1)
+            )
+
+          val thisP_split = p_split( i, j, s.length )
+          initPartialCounts.incrementSpanCounts(
+            Constituent,
+            span,
+            thisP_split
+          )
+          initPartialCounts.incrementSpanCounts(
+            Distituent,
+            span,
+            1D - thisP_split
+          )
+          initPartialCounts.incrementContextCounts(
+            Constituent,
+            context,
+            thisP_split
+          )
+          initPartialCounts.incrementContextCounts(
+            Distituent,
+            context,
+            1D - thisP_split
+          )
+
+        }
+      }
+      initPartialCounts
+    }.reduceLeft(_+_).toCCMGrammar
+  }
 
   class Entry( val span:Yield, val context:Context ) {
     var iScore = Double.NegativeInfinity
