@@ -31,6 +31,11 @@ class CCMGrammar( spans:Iterable[Yield], contexts:Iterable[Context] ) {
     setP_context( updatedContexts )
   }
 
+  def normalize {
+    p_span.normalize
+    p_context.normalize
+  }
+
   private val epsilon = 0.00001
   def ==( otherGram:CCMGrammar ) = {
     p_span.parents.forall{ constStatus =>

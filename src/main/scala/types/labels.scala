@@ -31,4 +31,5 @@ case class Yield( y:List[ObservedLabel] ) extends ObservedLabel( y.mkString( "",
 case class Context( left:ObservedLabel, right:ObservedLabel )
   extends ObservedLabel( "←" + left + "," + "→" + right )
 
+case class Sentence( sentenceID:String, sentence: List[ObservedLabel] ) extends Yield( sentence )
 

@@ -137,7 +137,7 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
   def toLogCPT = {
     val toReturn = new LogCPT( parents, children )
     toReturn.setCPT( cpt )
-    toReturn.normalize
+    //toReturn.normalize
     toReturn
   }
 }

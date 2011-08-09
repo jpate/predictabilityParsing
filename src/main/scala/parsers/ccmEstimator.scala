@@ -38,32 +38,23 @@ class CCMEstimator {
   def setP_SplitGrammar( corpus:List[List[ObservedLabel]] ) {
     def p_split( i:Int, j:Int, n:Int ) = {
       val l = j - i
-      if( l == 0 || l < n )
+      if( l == 0 && l == n )
         0D
-      else if( l == 1 || l == n )
-        1D
-      else if( n == 3 )
-        0.5
-      else if( n == 4 )
-        0.4
-      else if( n == 5 )
-        if( l == 2 || l == 4 )
-          5D/14
-        else
-          4D/14
+      else if( i == 0 || j == n )
+        ( 1D/( j - i ) )
       else
-        -1D
+        ( 2/( (j - i ) * ( j - i + 1 ) ) )
     }
 
     g = corpus.par.map{ s =>
       val initPartialCounts = new CCMPartialCounts
       ( 0 to (s.length-1) ).foreach{ i =>
-        ( i to (s.length-1) ).foreach{ j =>
-          val span = Yield( s.slice( i, j+1 ) )
+        ( (i+1) to (s.length) ).foreach{ j =>
+          val span = Yield( s.slice( i, j ) )
           val context =
             Context(
               if( i == 0 ) SentenceBoundary else s(i-1),
-              if( j == (s.length-1) ) SentenceBoundary else s(j+1)
+              if( j == (s.length) ) SentenceBoundary else s(j)
             )
 
           val thisP_split = p_split( i, j, s.length )
@@ -97,6 +88,7 @@ class CCMEstimator {
   class Entry( val span:Yield, val context:Context ) {
     var iScore = Double.NegativeInfinity
     var oScore = Double.NegativeInfinity
+    var phiScore = phi( span, context )
 
     def setIScore( updatedScore:Double ) { iScore = updatedScore }
     def setOScore( updatedScore:Double ) { oScore = updatedScore }
@@ -143,11 +135,9 @@ class CCMEstimator {
         if( end == s.length ) SentenceBoundary else s( end )
       )
 
-      matrix( start )( end ) = 
-        new Entry(
-          thisSpan,
-          thisContext
-        )
+      matrix( start )( end ) = new Entry( thisSpan, thisContext )
+
+      //println( "Computing iScore for " + thisSpan + " (" + thisContext + ") from iScore for:" )
 
       matrix( start )( end ).setIScore(
         phi( thisSpan, thisContext ) +
@@ -170,7 +160,7 @@ class CCMEstimator {
         ( 0 to ( n - length ) ).foreach{ i =>
           val j = i + length
 
-          val thisSpan = Yield( s.slice( i, j ) )
+          val thisSpan = Yield( s.slice( i, j+1 ) )
           val thisContext = Context(
             if( i == 0 ) SentenceBoundary else s( i-1 ),
             if( j == s.length ) SentenceBoundary else s( j )
@@ -191,23 +181,40 @@ class CCMEstimator {
           )
         }
       )
-
     }
 
     def toPartialCounts = {
       val pc = new CCMPartialCounts
 
-      val stringScore = matrix(0)(s.length).iScore
+      val stringScore =
+        matrix(0)(s.length).iScore
 
       matrix.flatMap( x => x ).filter( _ != null).foreach{ entry =>
-        val entryConstituencyScore = entry.iScore + entry.oScore - stringScore
+        val entryConstituencyScore = entry.iScore + entry.oScore - ( matrix(0)(s.length).iScore )
+
+        println( "} " + entryConstituencyScore )
         pc.incrementSpanCounts( Constituent, entry.span, entryConstituencyScore )
-        pc.incrementSpanCounts( Distituent, entry.span, 1 - entryConstituencyScore )
+        pc.incrementSpanCounts(
+          Distituent,
+          entry.span,
+          math.log( 1D - math.exp( entryConstituencyScore ) )
+        )
         pc.incrementContextCounts( Constituent, entry.context, entryConstituencyScore )
-        pc.incrementContextCounts( Distituent, entry.context, 1 - entryConstituencyScore )
+        pc.incrementContextCounts(
+          Distituent,
+          entry.context,
+          math.log( 1D - math.exp( entryConstituencyScore ) )
+        )
       }
 
-      pc.totalScore = stringScore
+
+      pc.setTotalScore( stringScore )
+      println( "]] " + math.exp( stringScore ) )
+      println( "[[ " + math.exp( matrix(0)(s.length).oScore ) )
+      println( "Giving it a try... " + math.exp(
+          matrix(0)(s.length).oScore + matrix(0)(s.length).iScore - matrix(0)(s.length).iScore
+        )
+      )
       pc
     }
 
@@ -223,6 +230,7 @@ class CCMEstimator {
   * @return A parse chart with labels and inside and outside probabilities.
   */
   def populateChart( s:List[ObservedLabel] ) = {
+    //println( "<<<< " + s + " >>>>" )
     val chart = new Chart( s )
 
     (1 to ( s.size )) foreach{ j =>
@@ -240,8 +248,9 @@ class CCMEstimator {
   def computePartialCountsSingle( s:List[ObservedLabel] ) = populateChart( s ).toPartialCounts
 
   def computePartialCounts( corpus:List[List[ObservedLabel]] ) =
-    corpus.par.map{ s =>
+    corpus/*.par*/.map{ s =>
       val pc = populateChart(s).toPartialCounts
+      //println( pc )
       pc
     }.reduceLeft(_+_)
 

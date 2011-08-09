@@ -8,7 +8,13 @@ import predictabilityParsing.util.Math
 class CCMPartialCounts {
   val spanCounts = new Log2dTable( ccm.constituencyStatus, Set[Yield]() )
   val contextCounts = new Log2dTable( ccm.constituencyStatus, Set[Context]() )
-  var totalScore = Double.NegativeInfinity
+  var totalScore = 94D //Double.NegativeInfinity
+
+  def setTotalScore( updatedTotalScore: Double ) {
+    println( "jesus christ: " +  totalScore )
+    totalScore = updatedTotalScore
+    println( "jesus fucking christ: " + totalScore )
+  }
 
   def setSpanCounts( newSpans:AbstractLog2dTable[ConstituencyStatus,Yield] ) {
     spanCounts.setCPT( newSpans.cpt )
@@ -44,8 +50,8 @@ class CCMPartialCounts {
       contextCounts + otherCounts.contextCounts
     )
 
-    toReturn.totalScore = totalScore + otherCounts.totalScore
-
+    toReturn.setTotalScore( totalScore + otherCounts.totalScore )
+    println( ">> " + totalScore + " + " + otherCounts.totalScore + " = " + toReturn.totalScore )
     toReturn
   }
 
