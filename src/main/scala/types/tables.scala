@@ -123,6 +123,22 @@ class LogCPT[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:Itera
 class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:Iterable[U] )
   extends AbstractLog2dTable[T,U] {
 
+  def hallucinateCounts( hallucination:Map[T,Double] ) {
+    cpt = Map(
+      parents.map( parent =>
+        parent ->
+          Map(
+            children.map( child =>
+              child -> Math.sumLogProb(
+                cpt(parent)(child),
+                hallucination(parent)
+              )
+            ).toSeq: _*
+          ).withDefaultValue( hallucination( parent ) )
+      ).toSeq: _*
+    ).withDefaultValue( Map().withDefaultValue( Double.NegativeInfinity ) )
+  }
+
   var cpt = Map(
     passedParents.map( parent =>
         parent ->
@@ -134,10 +150,25 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
       ).toSeq: _*
     ).withDefaultValue( Map().withDefaultValue( Double.NegativeInfinity ) )
 
+  def divideBy( divisor: Double ) {
+    cpt.keySet.foreach{ parent =>
+      cpt(parent).keySet.foreach{ child =>
+        cpt(parent)(child) = cpt(parent)(child) - divisor
+      }
+    }
+  }
+  def multiplyBy( multiplicand: Double ) {
+    cpt.keySet.foreach{ parent =>
+      cpt(parent).keySet.foreach{ child =>
+        cpt(parent)(child) = cpt(parent)(child) + multiplicand
+      }
+    }
+  }
+
   def toLogCPT = {
     val toReturn = new LogCPT( parents, children )
     toReturn.setCPT( cpt )
-    //toReturn.normalize
+    toReturn.normalize
     toReturn
   }
 }

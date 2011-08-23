@@ -8,13 +8,9 @@ import predictabilityParsing.util.Math
 class CCMPartialCounts {
   val spanCounts = new Log2dTable( ccm.constituencyStatus, Set[Yield]() )
   val contextCounts = new Log2dTable( ccm.constituencyStatus, Set[Context]() )
-  var totalScore = 94D //Double.NegativeInfinity
+  var totalScore = 0D //Double.NegativeInfinity
 
-  def setTotalScore( updatedTotalScore: Double ) {
-    println( "jesus christ: " +  totalScore )
-    totalScore = updatedTotalScore
-    println( "jesus fucking christ: " + totalScore )
-  }
+  def setTotalScore( updatedTotalScore: Double ) { totalScore = updatedTotalScore }
 
   def setSpanCounts( newSpans:AbstractLog2dTable[ConstituencyStatus,Yield] ) {
     spanCounts.setCPT( newSpans.cpt )
@@ -36,11 +32,20 @@ class CCMPartialCounts {
     spanCounts(constituency)(span) =
       Math.sumLogProb( spanCounts(constituency)(span), increment )
   }
+  def setSpanCount( constituency:ConstituencyStatus, span:Yield, increment:Double ) {
+    spanCounts(constituency)(span) = increment
+  }
 
   def incrementContextCounts( constituency:ConstituencyStatus, context:Context, increment:Double ) {
     contextCounts(constituency)(context) =
       Math.sumLogProb( contextCounts(constituency)(context), increment )
   }
+  def setContextCount( constituency:ConstituencyStatus, context:Context, increment:Double ) {
+    contextCounts(constituency)(context) = increment
+  }
+
+  def divideSpanCounts( divisor:Double ) { spanCounts.divideBy( divisor ) }
+  def divideContextCounts( divisor:Double ) { contextCounts.divideBy( divisor ) }
 
   def +( otherCounts:CCMPartialCounts ) = {
     val toReturn = new CCMPartialCounts
@@ -51,7 +56,6 @@ class CCMPartialCounts {
     )
 
     toReturn.setTotalScore( totalScore + otherCounts.totalScore )
-    println( ">> " + totalScore + " + " + otherCounts.totalScore + " = " + toReturn.totalScore )
     toReturn
   }
 
@@ -82,10 +86,38 @@ class CCMPartialCounts {
    */
   def toCCMGrammar = {
     val toReturn = new CCMGrammar( spanCounts.children, contextCounts.children )
-    toReturn.setParams(
-      spanCounts.toLogCPT,
-      contextCounts.toLogCPT
+
+    /*
+    spanCounts.hallucinateCounts(
+      collection.mutable.Map[ConstituencyStatus,Double](
+        Constituent -> math.log( 0.2 ), Distituent -> math.log( 0.8 )
+      )
     )
+
+    contextCounts.hallucinateCounts(
+      collection.mutable.Map[ConstituencyStatus,Double](
+        Constituent -> math.log( 0.2 ), Distituent -> math.log( 0.8 )
+      )
+    )
+    */
+
+
+    val p_span = spanCounts.toLogCPT
+    val p_context = contextCounts.toLogCPT
+
+    // OK, this is a hack, but it seems to do the right thing with the probability of the data...
+    p_span(Constituent).keySet.foreach{ span =>
+      p_span(Distituent)(span) = math.log( 1D - math.exp( p_span(Constituent)(span) ) )
+    }
+    p_context(Constituent).keySet.foreach{ context =>
+      p_context(Distituent)(context) = math.log( 1D - math.exp( p_context(Constituent)(context) ) )
+    }
+
+    toReturn.setParams(
+      p_span,
+      p_context
+    )
+    toReturn.normalize
     toReturn
   }
 
@@ -108,6 +140,5 @@ class CCMPartialCounts {
     contextCounts(Distituent).keySet.toList.sortWith( (a,b) => a < b ).map{ context =>
       context + " ==> " + math.exp( contextCounts(Distituent)( context ) )
     }.mkString("\n\t","\n\t","\n\n")
-
 }
 

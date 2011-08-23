@@ -14,6 +14,31 @@ class CCMEstimator {
     g = new CCMGrammar( spans, contexts )
   }
 
+  def setUniformGrammar( spans:collection.mutable.Map[Yield,Double], contexts:collection.mutable.Map[Context,Double] ) {
+    val pc = new CCMPartialCounts
+
+    val totalSpans = spans.values.reduceLeft(_+_)
+    val totalContexts = contexts.values.reduceLeft(_+_)
+
+    spans.keySet.foreach{ span =>
+      pc.incrementSpanCounts( Constituent, span, log( spans(span) / totalSpans )  )
+      pc.incrementSpanCounts(
+        Distituent, span, log( 1D - ( spans(span) / totalSpans ) )
+      )
+    }
+
+    contexts.keySet.foreach{ context =>
+      pc.incrementContextCounts( Constituent, context, log( contexts(context) / totalContexts ) )
+      pc.incrementContextCounts(
+        Distituent, context, log( 1D - ( contexts(context) / totalContexts ) )
+      )
+    }
+
+
+    //g = new CCMGrammar( spans, contexts )
+    g = pc.toCCMGrammar
+  }
+
   def setRandomGrammar(
     spans:Iterable[Yield],
     contexts:Iterable[Context],
@@ -39,11 +64,11 @@ class CCMEstimator {
     def p_split( i:Int, j:Int, n:Int ) = {
       val l = j - i
       if( l == 0 && l == n )
-        0D
+        1D
       else if( i == 0 || j == n )
         ( 1D/( j - i ) )
       else
-        ( 2/( (j - i ) * ( j - i + 1 ) ) )
+        ( 2D/( (j - i ) * ( j - i + 1 ) ) )
     }
 
     g = corpus.par.map{ s =>
@@ -61,22 +86,22 @@ class CCMEstimator {
           initPartialCounts.incrementSpanCounts(
             Constituent,
             span,
-            thisP_split
+            math.log( thisP_split )
           )
           initPartialCounts.incrementSpanCounts(
             Distituent,
             span,
-            1D - thisP_split
+            math.log( 1D - thisP_split )
           )
           initPartialCounts.incrementContextCounts(
             Constituent,
             context,
-            thisP_split
+            math.log( thisP_split )
           )
           initPartialCounts.incrementContextCounts(
             Distituent,
             context,
-            1D - thisP_split
+            math.log( 1D - thisP_split )
           )
 
         }
@@ -86,8 +111,8 @@ class CCMEstimator {
   }
 
   class Entry( val span:Yield, val context:Context ) {
-    var iScore = Double.NegativeInfinity
-    var oScore = Double.NegativeInfinity
+    var iScore = 0D
+    var oScore = 0D
     var phiScore = phi( span, context )
 
     def setIScore( updatedScore:Double ) { iScore = updatedScore }
@@ -137,8 +162,6 @@ class CCMEstimator {
 
       matrix( start )( end ) = new Entry( thisSpan, thisContext )
 
-      //println( "Computing iScore for " + thisSpan + " (" + thisContext + ") from iScore for:" )
-
       matrix( start )( end ).setIScore(
         phi( thisSpan, thisContext ) +
         ( (start+1) to (end - 1 ) ).map{ k =>
@@ -146,6 +169,7 @@ class CCMEstimator {
         }.reduceLeft{ Math.sumLogProb( _, _ ) }
       )
 
+      //if( start == 0 && end == s.length )
     }
 
     def outsidePass {
@@ -168,59 +192,133 @@ class CCMEstimator {
 
           val leftSum =
               ( 0 to (i-1) ).foldLeft( Double.NegativeInfinity ){ (a, k) =>
-                Math.sumLogProb( a, matrix(k)(i).iScore + matrix(k)(j).oScore )
+                Math.sumLogProb(
+                  a,
+                  matrix(k)(i).iScore +
+                  matrix(k)(j).oScore +
+                  phi( matrix(k)(j).span, matrix(k)(j).context )
+                )
               }
 
           val rightSum =
               ( (j+1) to (n) ).foldLeft( Double.NegativeInfinity ){ (a, k) =>
-                Math.sumLogProb( a, matrix(j)(k).iScore + matrix(i)(k).oScore )
+                Math.sumLogProb(
+                  a,
+                  matrix(j)(k).iScore +
+                  matrix(i)(k).oScore +
+                  phi( matrix(i)(k).span, matrix(i)(k).context )
+                )
               }
 
           matrix(i)(j).setOScore(
-            phi( thisSpan, thisContext ) + Math.sumLogProb( leftSum, rightSum )
+            //phi( thisSpan, thisContext ) + Math.sumLogProb( leftSum, rightSum )
+            Math.sumLogProb( leftSum, rightSum )
           )
         }
       )
     }
 
     def toPartialCounts = {
+      import collection.mutable.HashMap
       val pc = new CCMPartialCounts
 
+      var distituentProduct = 0D //Double.NegativeInfinity
+      (0 to s.length-1).foreach{ i =>
+        ( i+1 to s.length ).foreach{ j =>
+          distituentProduct +=
+            g.p_span( Distituent )( matrix(i)(j).span ) +
+              g.p_context( Distituent )( matrix(i)(j).context )
+          // p_bracket(i)(j) = Math.sumLogProb(
+          //   p_bracket(i)(j),
+          //   matrix(i)(j).iScore + matrix(i)(j).oScore - matrix(0)(s.length).iScore
+          // )
+        }
+      }
+
       val stringScore =
-        matrix(0)(s.length).iScore
+        matrix(0)(s.length).iScore +
+          //math.log( Math.binary_bracketings_count( s.length ) ) +
+            distituentProduct
 
-      matrix.flatMap( x => x ).filter( _ != null).foreach{ entry =>
-        val entryConstituencyScore = entry.iScore + entry.oScore - ( matrix(0)(s.length).iScore )
 
-        println( "} " + entryConstituencyScore )
-        pc.incrementSpanCounts( Constituent, entry.span, entryConstituencyScore )
-        pc.incrementSpanCounts(
-          Distituent,
-          entry.span,
-          math.log( 1D - math.exp( entryConstituencyScore ) )
+      val rawSpanCounts = new HashMap[Yield,Int]().withDefaultValue( 0 )
+      val rawContextCounts = new HashMap[Context,Int]().withDefaultValue( 0 )
+      val p_bracket = Array.fill(s.length+1,s.length+1)( Double.NegativeInfinity )
+      (0 to s.length-1).foreach{ i =>
+        ( i+1 to s.length ).foreach{ j =>
+
+          rawSpanCounts( matrix(i)(j).span ) += 1
+          rawContextCounts( matrix(i)(j).context ) += 1
+
+          // println(
+          //   matrix(i)(j).span + ": p_bracket(" + i + ")(" + j + ") = " +
+          //   p_bracket(i)(j) + " + " +
+          //   matrix(i)(j).iScore + " + " + matrix(i)(j).oScore + " - " +
+          //     matrix(0)(s.length).iScore +
+          //   " = " + Math.sumLogProb(
+          //     p_bracket(i)(j),
+          //     matrix(i)(j).iScore + matrix(i)(j).oScore - matrix(0)(s.length).iScore
+          //   )
+          // )
+
+          p_bracket(i)(j) = Math.sumLogProb(
+            p_bracket(i)(j),
+            matrix(i)(j).iScore + matrix(i)(j).oScore - matrix(0)(s.length).iScore
+          )
+        }
+      }
+
+      val spanSums = new HashMap[Yield,Double]().withDefaultValue( Double.NegativeInfinity )
+      val contextSums = new HashMap[Context,Double]().withDefaultValue( Double.NegativeInfinity )
+      (0 to (s.length-1) ).foreach{ i =>
+        ( (i+1) to s.length ).foreach{ j =>
+          // println( ">>" + matrix(i)(j).span + ": " + p_bracket(i)(j) )
+          spanSums( matrix(i)(j).span ) = Math.sumLogProb(
+            spanSums( matrix(i)(j).span ),
+            p_bracket( i )( j )
+          )
+          contextSums( matrix(i)(j).context ) = Math.sumLogProb(
+            contextSums( matrix(i)(j).context ),
+            p_bracket( i )( j )
+          )
+
+        }
+      }
+
+      val commonMultiplicand = math.log( 1D/( ( 2 * s.length ) - 1 ) )
+      val numberOfSpans = ( s.length + 1 ) * (s.length + 2 ) / 2
+      val commonDividend = math.log( numberOfSpans - (2*s.length) + 1 )
+      spanSums.keySet.foreach{ span =>
+        pc.setSpanCount( Constituent, span, commonMultiplicand + spanSums( span ) )
+
+        // println( span + " >>\t" + 
+        //   "log( " + rawSpanCounts( span ) + " - " + "exp( " + spanSums( span ) + " )  ) - " + commonDividend
+        //   + " = " +
+        //   ( math.log( rawSpanCounts( span ) - math.exp( spanSums( span ) ) ) - commonDividend )
+        // )
+
+        pc.setSpanCount( Distituent, span,
+          math.log( rawSpanCounts( span ) - math.exp( spanSums( span ) ) ) - commonDividend
         )
-        pc.incrementContextCounts( Constituent, entry.context, entryConstituencyScore )
-        pc.incrementContextCounts(
-          Distituent,
-          entry.context,
-          math.log( 1D - math.exp( entryConstituencyScore ) )
+      }
+      contextSums.keySet.foreach{ context =>
+        pc.setContextCount( Constituent, context, commonMultiplicand + contextSums( context ) )
+        pc.setContextCount( Distituent, context,
+          math.log( rawContextCounts( context ) - math.exp( contextSums( context ) ) )-
+            commonDividend
         )
       }
 
 
       pc.setTotalScore( stringScore )
-      println( "]] " + math.exp( stringScore ) )
-      println( "[[ " + math.exp( matrix(0)(s.length).oScore ) )
-      println( "Giving it a try... " + math.exp(
-          matrix(0)(s.length).oScore + matrix(0)(s.length).iScore - matrix(0)(s.length).iScore
-        )
-      )
       pc
     }
 
     override def toString =
-      matrix.map{
-        _.map{ x => if( x == null ) "    " else x }.mkString("<",">\t\t<",">")
+      matrix.map{ row =>
+        row.map{ x => if( x == null ) "    " else x }.mkString("<",">\t\t<",">\n") +
+        row.map{ x => if( x == null ) "    " else x.iScore }.mkString("<",">\t\t<",">\n") +
+        row.map{ x => if( x == null ) "    " else x.oScore }.mkString("<",">\t\t<",">\n\n")
       }.mkString("\n","\n","\n\n")
   }
 
@@ -230,7 +328,6 @@ class CCMEstimator {
   * @return A parse chart with labels and inside and outside probabilities.
   */
   def populateChart( s:List[ObservedLabel] ) = {
-    //println( "<<<< " + s + " >>>>" )
     val chart = new Chart( s )
 
     (1 to ( s.size )) foreach{ j =>
@@ -248,9 +345,8 @@ class CCMEstimator {
   def computePartialCountsSingle( s:List[ObservedLabel] ) = populateChart( s ).toPartialCounts
 
   def computePartialCounts( corpus:List[List[ObservedLabel]] ) =
-    corpus/*.par*/.map{ s =>
+    corpus.par.map{ s =>
       val pc = populateChart(s).toPartialCounts
-      //println( pc )
       pc
     }.reduceLeft(_+_)
 
