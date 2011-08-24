@@ -9,7 +9,7 @@ object CorpusManipulation {
 
     ( 0 to s.length-1).foreach{ i =>
       (i+1 to s.length ).foreach{ j =>
-        allSpans += Yield( s.slice(i,j) )
+        allSpans += new Yield( s.slice(i,j) )
       }
     }
     allSpans.toList
@@ -21,7 +21,7 @@ object CorpusManipulation {
     ( 0 to s.length-1).foreach{ i =>
       (i to s.length-1 ).foreach{ j =>
         allContexts += 
-          Context(
+          new Context(
             if( i == 0 ) SentenceBoundary else s( i-1),
             if( j == s.length-1 ) SentenceBoundary else s( j+1 )
           )
@@ -36,7 +36,7 @@ object CorpusManipulation {
     corpus.foreach{ s =>
       ( 0 to s.length-1).foreach{ i =>
         (i+1 to s.length ).foreach{ j =>
-          allSpans( Yield( s.slice(i,j) ) ) += 1
+          allSpans( new Yield( s.slice(i,j) ) ) += 1
         }
       }
     }
@@ -50,7 +50,7 @@ object CorpusManipulation {
       ( 0 to s.length-1).foreach{ i =>
         (i to s.length-1 ).foreach{ j =>
           allContexts(
-            Context(
+            new Context(
               if( i == 0 ) SentenceBoundary else s( i-1),
               if( j == s.length-1 ) SentenceBoundary else s( j+1 )
             )

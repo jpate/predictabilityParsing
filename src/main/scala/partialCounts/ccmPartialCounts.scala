@@ -6,18 +6,18 @@ import predictabilityParsing.grammars.CCMGrammar
 import predictabilityParsing.util.Math
 
 class CCMPartialCounts {
-  val spanCounts = new Log2dTable( ccm.constituencyStatus, Set[Yield]() )
-  val contextCounts = new Log2dTable( ccm.constituencyStatus, Set[Context]() )
+  private val spanCounts = new Log2dTable( ccm.constituencyStatus, Set[Yield]() )
+  private val contextCounts = new Log2dTable( ccm.constituencyStatus, Set[Context]() )
   var totalScore = 0D //Double.NegativeInfinity
 
   def setTotalScore( updatedTotalScore: Double ) { totalScore = updatedTotalScore }
 
   def setSpanCounts( newSpans:AbstractLog2dTable[ConstituencyStatus,Yield] ) {
-    spanCounts.setCPT( newSpans.cpt )
+    spanCounts.setCPT( newSpans.getCPT )
   }
 
   def setContextCounts( newContexts:AbstractLog2dTable[ConstituencyStatus,Context] ) {
-    contextCounts.setCPT( newContexts.cpt )
+    contextCounts.setCPT( newContexts.getCPT )
   }
 
   def setSpansAndContexts(
@@ -28,9 +28,20 @@ class CCMPartialCounts {
     setContextCounts( updatedContexts )
   }
 
+  def getSpanCounts( constituency:ConstituencyStatus, span:Yield ) =
+    spanCounts( constituency ).getOrElse( span , Double.NegativeInfinity )
+  def getContextCounts( constituency:ConstituencyStatus, context:Context ) =
+    contextCounts( constituency ).getOrElse( context , Double.NegativeInfinity )
+
+  def getSpans( constituency:ConstituencyStatus ) = spanCounts( constituency ).keySet
+  def getContexts( constituency:ConstituencyStatus ) = contextCounts( constituency ).keySet
+
+  def getSpans = spanCounts( Constituent ).keySet
+  def getContexts = contextCounts( Constituent ).keySet
+
   def incrementSpanCounts( constituency:ConstituencyStatus, span:Yield, increment:Double ) {
     spanCounts(constituency)(span) =
-      Math.sumLogProb( spanCounts(constituency)(span), increment )
+      Math.sumLogProb( getSpanCounts(constituency, span), increment )
   }
   def setSpanCount( constituency:ConstituencyStatus, span:Yield, increment:Double ) {
     spanCounts(constituency)(span) = increment
@@ -38,14 +49,14 @@ class CCMPartialCounts {
 
   def incrementContextCounts( constituency:ConstituencyStatus, context:Context, increment:Double ) {
     contextCounts(constituency)(context) =
-      Math.sumLogProb( contextCounts(constituency)(context), increment )
+      Math.sumLogProb( getContextCounts(constituency, context), increment )
   }
   def setContextCount( constituency:ConstituencyStatus, context:Context, increment:Double ) {
     contextCounts(constituency)(context) = increment
   }
 
-  def divideSpanCounts( divisor:Double ) { spanCounts.divideBy( divisor ) }
-  def divideContextCounts( divisor:Double ) { contextCounts.divideBy( divisor ) }
+  // def divideSpanCounts( divisor:Double ) { spanCounts.divideBy( divisor ) }
+  // def divideContextCounts( divisor:Double ) { contextCounts.divideBy( divisor ) }
 
   def +( otherCounts:CCMPartialCounts ) = {
     val toReturn = new CCMPartialCounts
@@ -66,14 +77,14 @@ class CCMPartialCounts {
       ( spanCounts( constStatus ).keySet == otherPC.spanCounts( constStatus ).keySet ) &&
       spanCounts( constStatus ).keySet.forall{ span =>
         math.abs(
-          spanCounts( constStatus )( span ) - otherPC.spanCounts( constStatus )( span )
+          getSpanCounts( constStatus , span ) - otherPC.getSpanCounts( constStatus , span )
         ) < epsilon
       }
     } && contextCounts.parents.forall{ constStatus =>
       ( contextCounts( constStatus ).keySet == otherPC.contextCounts( constStatus ).keySet ) &&
       contextCounts( constStatus ).keySet.forall{ context =>
         math.abs(
-          contextCounts( constStatus )( context ) - otherPC.contextCounts( constStatus )( context)
+          getContextCounts( constStatus , context ) - otherPC.getContextCounts( constStatus , context)
         ) < epsilon
       }
     }

@@ -3,10 +3,10 @@ package predictabilityParsing.parsers
 import predictabilityParsing.grammars.CCMGrammar
 import predictabilityParsing.partialCounts.CCMPartialCounts
 import predictabilityParsing.types.labels._
-import predictabilityParsing.util.Math
+import predictabilityParsing.util.{Math,CorpusManipulation}
 import math.log
 
-class CCMEstimator {
+class CCMEstimator extends AbstractCCMParser {
 
   var g = new CCMGrammar( Set[Yield](), Set[Context]() )
 
@@ -88,26 +88,44 @@ class CCMEstimator {
             span,
             math.log( thisP_split )
           )
+          /*
           initPartialCounts.incrementSpanCounts(
             Distituent,
             span,
             math.log( 1D - thisP_split )
           )
+          */
           initPartialCounts.incrementContextCounts(
             Constituent,
             context,
             math.log( thisP_split )
           )
+          /*
           initPartialCounts.incrementContextCounts(
             Distituent,
             context,
             math.log( 1D - thisP_split )
           )
+          */
 
         }
       }
       initPartialCounts
     }.reduceLeft(_+_).toCCMGrammar
+
+    val spanCounts = CorpusManipulation.spanCounts( corpus )
+    val contextCounts = CorpusManipulation.contextCounts( corpus )
+
+    val pc = new CCMPartialCounts
+    spanCounts.keySet.foreach{ span =>
+      pc.setSpanCount( Constituent, span, spanCounts( span ) )
+    }
+    contextCounts.keySet.foreach{ context =>
+      pc.setContextCount( Constituent, context, contextCounts( context ) )
+    }
+
+
+    g = pc.toCCMGrammar
   }
 
   class Entry( val span:Yield, val context:Context ) {
@@ -127,13 +145,6 @@ class CCMEstimator {
   class LexEntry( span:Yield, context:Context ) extends Entry( span, context  ) {
     iScore = phi( span, context )
   }
-
-  /*
-   * Note that, as everywhere else, this is in LOG-SPACE.
-   */
-  private def phi( span:Yield, context:Context ) =
-    ( g.p_span( Constituent )( span ) + g.p_context( Constituent )( context ) ) -
-      ( g.p_span( Distituent )( span ) + g.p_context( Distituent )( context ) )
 
   /*
    * A class for charts to populate. For now, we'll only allow one constituent category, especially
@@ -289,22 +300,27 @@ class CCMEstimator {
       val numberOfSpans = ( s.length + 1 ) * (s.length + 2 ) / 2
       val commonDividend = math.log( numberOfSpans - (2*s.length) + 1 )
       spanSums.keySet.foreach{ span =>
-        pc.setSpanCount( Constituent, span, commonMultiplicand + spanSums( span ) )
-
-        // println( span + " >>\t" + 
-        //   "log( " + rawSpanCounts( span ) + " - " + "exp( " + spanSums( span ) + " )  ) - " + commonDividend
-        //   + " = " +
-        //   ( math.log( rawSpanCounts( span ) - math.exp( spanSums( span ) ) ) - commonDividend )
-        // )
-
-        pc.setSpanCount( Distituent, span,
+        pc.setSpanCount(
+          Constituent,
+          span,
+          commonMultiplicand + spanSums( span )
+        )
+        pc.setSpanCount(
+          Distituent,
+          span,
           math.log( rawSpanCounts( span ) - math.exp( spanSums( span ) ) ) - commonDividend
         )
       }
       contextSums.keySet.foreach{ context =>
-        pc.setContextCount( Constituent, context, commonMultiplicand + contextSums( context ) )
-        pc.setContextCount( Distituent, context,
-          math.log( rawContextCounts( context ) - math.exp( contextSums( context ) ) )-
+        pc.setContextCount(
+          Constituent,
+          context,
+          commonMultiplicand + contextSums( context )
+        )
+        pc.setContextCount(
+          Distituent,
+          context,
+          math.log( rawContextCounts( context ) - math.exp( contextSums( context ) ) ) -
             commonDividend
         )
       }
@@ -345,7 +361,7 @@ class CCMEstimator {
   def computePartialCountsSingle( s:List[ObservedLabel] ) = populateChart( s ).toPartialCounts
 
   def computePartialCounts( corpus:List[List[ObservedLabel]] ) =
-    corpus.par.map{ s =>
+    corpus/*.par*/.map{ s =>
       val pc = populateChart(s).toPartialCounts
       pc
     }.reduceLeft(_+_)

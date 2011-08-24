@@ -8,6 +8,11 @@ class CCMGrammar( spans:Iterable[Yield], contexts:Iterable[Context] ) {
   val p_span = new LogCPT( ccm.constituencyStatus, spans )
   val p_context = new LogCPT( ccm.constituencyStatus, contexts )
 
+  def spanScore( constituency:ConstituencyStatus, span:Yield ) =
+    p_span( constituency ).getOrElse( span , Double.NegativeInfinity )
+  def contextScore( constituency:ConstituencyStatus, context:Context ) =
+    p_context( constituency ).getOrElse( context , Double.NegativeInfinity )
+
   def setP_span( updatedSpans:LogCPT[ConstituencyStatus,Yield] ) {
     p_span.setCPT( updatedSpans.cpt )
   }
