@@ -40,5 +40,6 @@ case class Context( left:ObservedLabel, right:ObservedLabel )
   extends ObservedLabel( "←" + left + "," + "→" + right ) //with HashcodeCaching
 
 case class Sentence( sentenceID:String, sentence: List[ObservedLabel] )
-  extends Yield( sentence )// with HashcodeCaching
+  extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
+  //extends Yield( sentence )// with HashcodeCaching
 
