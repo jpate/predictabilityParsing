@@ -2,7 +2,7 @@ package predictabilityParsing.types.tables
 
 import predictabilityParsing.types.labels._
 import predictabilityParsing.util.Math
-import scala.collection.mutable.HashMap
+import scala.collection.mutable.Map
 import math.{exp,log}
 
 /*
@@ -20,28 +20,33 @@ abstract class AbstractTable {
 abstract class AbstractLog2dTable[T<:Label,U<:Label]
   extends AbstractTable {
 
-  protected var cpt:HashMap[T,HashMap[U,Double]]
+  protected var cpt:Map[T,Map[U,Double]]
 
   def apply( k:T ) = cpt( k )
   def apply( parent:T, child:U ) = cpt( parent ).getOrElse( child , Double.NegativeInfinity )
 
-  def setCPT( updatedCPT: HashMap[T,HashMap[U,Double]] ) {
+  def setCPT( updatedCPT: Map[T,Map[U,Double]] ) {
     cpt = updatedCPT
   }
 
+  def setValue( parent:T, child:U, newValue:Double ) {
+    //cpt = cpt.updated( parent , cpt(parent).updated( child, newValue ) )
+    cpt( parent )( child ) = newValue
+  }
+
   def normalize {
-    val maxes = HashMap(
+    val maxes = Map(
       cpt.keySet.map( parent =>
         if( cpt( parent ).values.size > 0 )
-          parent -> ( cpt(parent).values/*.par*/.reduceLeft( Math.sumLogProb(_,_) ) )
+          parent -> ( cpt(parent).values.par.reduce( Math.sumLogProb(_,_) ) )
         else
           parent -> Double.NegativeInfinity
       ).toSeq:_*
     )
 
-    cpt = HashMap(
+    cpt = Map(
       cpt.keySet.map{ parent =>
-        parent -> HashMap(
+        parent -> Map(
           cpt(parent).keySet.map{ child =>
             if( maxes( parent ) == Double.NegativeInfinity )
               child -> Double.NegativeInfinity
@@ -57,9 +62,9 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     import scala.util.Random
     val r = new Random( seed )
 
-    cpt = HashMap(
+    cpt = Map(
       cpt.keySet.map{ parent =>
-        parent -> HashMap(
+        parent -> Map(
           cpt(parent).keySet.map{ child =>
             child -> ( log( r.nextDouble + centeredOn ) )
           }.toSeq:_*
@@ -73,9 +78,9 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
   def +( otherCPT: AbstractLog2dTable[T,U] ) = {
     val parentsUnion = otherCPT.parents.toSet.union( parents.toSet )
     val childrenUnion = otherCPT.children.toSet.union( children.toSet )
-    val summedCPT = HashMap(
+    val summedCPT = Map(
       parentsUnion.map{ parent =>
-        parent -> HashMap(
+        parent -> Map(
           childrenUnion.map{ child =>
             child -> Math.sumLogProb(
               this( parent , child ),
@@ -84,7 +89,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
           }.toSeq:_*
         )//.withDefaultValue( Double.NegativeInfinity )
       }.toSeq:_*
-    )//.withDefaultValue( HashMap()//.withDefaultValue( Double.NegativeInfinity ) )
+    )//.withDefaultValue( Map()//.withDefaultValue( Double.NegativeInfinity ) )
 
     val toReturn = new Log2dTable( parentsUnion.toSet, childrenUnion.toSet )
     toReturn.setCPT( summedCPT )
@@ -111,16 +116,16 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
  */
 class LogCPT[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:Iterable[U] )
   extends AbstractLog2dTable[T,U] {
-  var cpt = HashMap(
+  var cpt = Map(
     passedParents.map{ parent =>
         parent ->
-          HashMap(
+          Map(
             passedChildren.map{ child =>
               child -> log( 1D/passedChildren.size )
             }.toSeq: _*
           )//.withDefaultValue( Double.NegativeInfinity )
       }.toSeq: _*
-    )//.withDefaultValue( HashMap()//.withDefaultValue( Double.NegativeInfinity ) )
+    )//.withDefaultValue( Map()//.withDefaultValue( Double.NegativeInfinity ) )
 }
 
 /*
@@ -129,11 +134,11 @@ class LogCPT[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:Itera
 class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:Iterable[U] )
   extends AbstractLog2dTable[T,U] {
 
-  def hallucinateCounts( hallucination:HashMap[T,Double] ) {
-    cpt = HashMap(
+  def hallucinateCounts( hallucination:Map[T,Double] ) {
+    cpt = Map(
       parents.map( parent =>
         parent ->
-          HashMap(
+          Map(
             children.map( child =>
               child -> Math.sumLogProb(
                 cpt(parent)(child),
@@ -142,19 +147,19 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
             ).toSeq: _*
           )//.withDefaultValue( hallucination( parent ) )
       ).toSeq: _*
-    )//.withDefaultValue( HashMap()//.withDefaultValue( Double.NegativeInfinity ) )
+    )//.withDefaultValue( Map()//.withDefaultValue( Double.NegativeInfinity ) )
   }
 
-  var cpt = HashMap(
+  var cpt = Map(
     passedParents.map( parent =>
         parent ->
-          HashMap(
+          Map(
             passedChildren.map( child =>
               child -> Double.NegativeInfinity
             ).toSeq: _*
           )//.withDefaultValue( Double.NegativeInfinity )
       ).toSeq: _*
-    )//.withDefaultValue( HashMap()//.withDefaultValue( Double.NegativeInfinity ) )
+    )//.withDefaultValue( Map()//.withDefaultValue( Double.NegativeInfinity ) )
 
   // def divideBy( divisor: Double ) {
   //   cpt.keySet.foreach{ parent =>
@@ -183,16 +188,16 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
  * Basic properties for a 1-dimensional table 
  */
 abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
-  var pt:HashMap[T,Double]
+  var pt:Map[T,Double]
 
-  def setPT( updatedPT: HashMap[T,Double] ) {
+  def setPT( updatedPT: Map[T,Double] ) {
     pt = updatedPT
   }
 
   def +( otherPT: AbstractLog1dTable[T] ) = {
     val domainUnion = otherPT.domain.union( domain )
 
-    val summedPT = HashMap(
+    val summedPT = Map(
       domainUnion.map{ element =>
         element -> Math.sumLogProb(
           pt( element ),
@@ -210,7 +215,7 @@ abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
   def normalize {
     val max = pt.values.reduceLeft( Math.sumLogProb( _ , _) )
 
-    pt = HashMap(
+    pt = Map(
       pt.keySet.map{ parent =>
           // by convention 0 / 0 = 0
         if( max == Double.NegativeInfinity )
@@ -225,7 +230,7 @@ abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
     import scala.util.Random
     val r = new Random( seed )
 
-    pt = HashMap(
+    pt = Map(
       pt.keySet.map{ parent =>
         parent ->  ( log( r.nextDouble + centeredOn ) )
       }.toSeq:_*
@@ -248,7 +253,7 @@ abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
  * everything sums to 1)
  */
 class LogPT[T<:Label]( passedDomain:Iterable[T] ) extends AbstractLog1dTable[T] {
-  var pt = HashMap(
+  var pt = Map(
     passedDomain.map( element =>
       element -> log( 1D/ passedDomain.size )
     ).toSeq: _*
@@ -259,7 +264,7 @@ class LogPT[T<:Label]( passedDomain:Iterable[T] ) extends AbstractLog1dTable[T] 
  * Basic properties for a 1-dimensional table (basically initialize everything to 0 in log space)
  */
 class Log1dTable[T<:Label]( passedDomain:Iterable[T] ) extends AbstractLog1dTable[T] {
-  var pt = HashMap(
+  var pt = Map(
     passedDomain.map( element =>
       element -> Double.NegativeInfinity
     ).toSeq: _*

@@ -40,19 +40,31 @@ class CCMPartialCounts {
   def getContexts = contextCounts( Constituent ).keySet
 
   def incrementSpanCounts( constituency:ConstituencyStatus, span:Yield, increment:Double ) {
-    spanCounts(constituency)(span) =
+    // spanCounts(constituency)(span) =
+    //   Math.sumLogProb( getSpanCounts(constituency, span), increment )
+    spanCounts.setValue(
+      constituency,
+      span,
       Math.sumLogProb( getSpanCounts(constituency, span), increment )
+    )
   }
-  def setSpanCount( constituency:ConstituencyStatus, span:Yield, increment:Double ) {
-    spanCounts(constituency)(span) = increment
+  def setSpanCount( constituency:ConstituencyStatus, span:Yield, newCount:Double ) {
+    //spanCounts(constituency)(span) = increment
+    spanCounts.setValue( constituency, span, newCount )
   }
 
   def incrementContextCounts( constituency:ConstituencyStatus, context:Context, increment:Double ) {
-    contextCounts(constituency)(context) =
+    // contextCounts(constituency)(context) =
+    //   Math.sumLogProb( getContextCounts(constituency, context), increment )
+    contextCounts.setValue(
+      constituency,
+      context,
       Math.sumLogProb( getContextCounts(constituency, context), increment )
+    )
   }
-  def setContextCount( constituency:ConstituencyStatus, context:Context, increment:Double ) {
-    contextCounts(constituency)(context) = increment
+  def setContextCount( constituency:ConstituencyStatus, context:Context, newCount:Double ) {
+    //contextCounts(constituency)(context) = increment
+    contextCounts.setValue( constituency, context, newCount )
   }
 
   // def divideSpanCounts( divisor:Double ) { spanCounts.divideBy( divisor ) }
@@ -118,10 +130,20 @@ class CCMPartialCounts {
 
     // OK, this is a hack, but it seems to do the right thing with the probability of the data...
     p_span(Constituent).keySet.foreach{ span =>
-      p_span(Distituent)(span) = math.log( 1D - math.exp( p_span(Constituent)(span) ) )
+      //p_span(Distituent)(span) = math.log( 1D - math.exp( p_span(Constituent)(span) ) )
+      p_span.setValue(
+        Distituent,
+        span,
+        math.log( 1D - math.exp( p_span(Constituent)(span) ) )
+      )
     }
     p_context(Constituent).keySet.foreach{ context =>
-      p_context(Distituent)(context) = math.log( 1D - math.exp( p_context(Constituent)(context) ) )
+      //p_context(Distituent)(context) = math.log( 1D - math.exp( p_context(Constituent)(context) ) )
+      p_context.setValue(
+        Distituent,
+        context,
+        math.log( 1D - math.exp( p_context(Constituent)(context) ) )
+      )
     }
 
     toReturn.setParams(

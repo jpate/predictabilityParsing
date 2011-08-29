@@ -71,13 +71,16 @@ class CCMEstimator extends AbstractCCMParser {
         ( 2D/( (j - i ) * ( j - i + 1 ) ) )
     }
 
+    //var i = 0
     g = corpus.par.map{ s =>
+      // println( i + " / " + corpus.size )
+      // i+=1
       val initPartialCounts = new CCMPartialCounts
       ( 0 to (s.length-1) ).foreach{ i =>
         ( (i+1) to (s.length) ).foreach{ j =>
-          val span = Yield( s.slice( i, j ) )
+          val span = new Yield( s.slice( i, j ) )
           val context =
-            Context(
+            new Context(
               if( i == 0 ) SentenceBoundary else s(i-1),
               if( j == (s.length) ) SentenceBoundary else s(j)
             )
@@ -111,7 +114,7 @@ class CCMEstimator extends AbstractCCMParser {
         }
       }
       initPartialCounts
-    }.reduceLeft(_+_).toCCMGrammar
+    }.reduce(_+_).toCCMGrammar
 
     val spanCounts = CorpusManipulation.spanCounts( corpus )
     val contextCounts = CorpusManipulation.contextCounts( corpus )
@@ -156,8 +159,8 @@ class CCMEstimator extends AbstractCCMParser {
     def lexFill( index:Int ) {
       matrix( index )( index+1 ) =
         new LexEntry(
-          Yield( s(index)::Nil ),
-          Context(
+          new Yield( s(index)::Nil ),
+          new Context(
             if( index == 0 ) SentenceBoundary else s( index-1 ),
             if( index == s.length-1) SentenceBoundary else s( index + 1 )
           )
@@ -165,8 +168,8 @@ class CCMEstimator extends AbstractCCMParser {
     }
 
     def synFill( start:Int, end:Int ) {
-      val thisSpan = Yield( s.slice( start, end ) )
-      val thisContext = Context(
+      val thisSpan = new Yield( s.slice( start, end ) )
+      val thisContext = new Context(
         if( start == 0 ) SentenceBoundary else s( start-1 ),
         if( end == s.length ) SentenceBoundary else s( end )
       )
@@ -195,8 +198,8 @@ class CCMEstimator extends AbstractCCMParser {
         ( 0 to ( n - length ) ).foreach{ i =>
           val j = i + length
 
-          val thisSpan = Yield( s.slice( i, j+1 ) )
-          val thisContext = Context(
+          val thisSpan = new Yield( s.slice( i, j+1 ) )
+          val thisContext = new Context(
             if( i == 0 ) SentenceBoundary else s( i-1 ),
             if( j == s.length ) SentenceBoundary else s( j )
           )
@@ -360,11 +363,11 @@ class CCMEstimator extends AbstractCCMParser {
 
   def computePartialCountsSingle( s:List[ObservedLabel] ) = populateChart( s ).toPartialCounts
 
-  def computePartialCounts( corpus:List[List[ObservedLabel]] ) =
-    corpus/*.par*/.map{ s =>
-      val pc = populateChart(s).toPartialCounts
-      pc
-    }.reduceLeft(_+_)
+  def computePartialCounts( corpus:Iterable[List[ObservedLabel]] ) =
+    corpus.par.map{ s =>
+      populateChart(s).toPartialCounts
+    }.reduce(_+_)
+    //}.reduceLeft(_+_)
 
 }
 

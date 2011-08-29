@@ -77,7 +77,7 @@ class CCMParser extends AbstractCCMParser {
           }
       }
 
-      id + ": " + chart.toString
+      id + " " + chart.toString
     }
   }
 
