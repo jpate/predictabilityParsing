@@ -30,7 +30,6 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
   }
 
   def setValue( parent:T, child:U, newValue:Double ) {
-    //cpt = cpt.updated( parent , cpt(parent).updated( child, newValue ) )
     cpt( parent )( child ) = newValue
   }
 
@@ -161,20 +160,29 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
       ).toSeq: _*
     )//.withDefaultValue( Map()//.withDefaultValue( Double.NegativeInfinity ) )
 
-  // def divideBy( divisor: Double ) {
-  //   cpt.keySet.foreach{ parent =>
-  //     cpt(parent).keySet.foreach{ child =>
-  //       cpt(parent)(child) = cpt(parent)(child) - divisor
-  //     }
-  //   }
-  // }
-  // def multiplyBy( multiplicand: Double ) {
-  //   cpt.keySet.foreach{ parent =>
-  //     cpt(parent).keySet.foreach{ child =>
-  //       cpt(parent)(child) = cpt(parent)(child) + multiplicand
-  //     }
-  //   }
-  // }
+  def divideBy( divisor: Double ) {
+    cpt.keySet.foreach{ parent =>
+      cpt(parent).keySet.foreach{ child =>
+        cpt(parent)(child) = cpt(parent)(child) - divisor
+      }
+    }
+  }
+
+  def divideBy( divisorMap: collection.immutable.Map[T,Double] ) {
+    cpt.keySet.foreach{ parent =>
+      cpt(parent).keySet.foreach{ child =>
+        cpt(parent)(child) = cpt(parent)(child) - divisorMap( parent )
+      }
+    }
+  }
+
+  def multiplyBy( multiplicand: Double ) {
+    cpt.keySet.foreach{ parent =>
+      cpt(parent).keySet.foreach{ child =>
+        cpt(parent)(child) = cpt(parent)(child) + multiplicand
+      }
+    }
+  }
 
   def toLogCPT = {
     val toReturn = new LogCPT( parents, children )

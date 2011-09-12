@@ -71,11 +71,10 @@ class CCMEstimator extends AbstractCCMParser {
         ( 2D/( (j - i ) * ( j - i + 1 ) ) )
     }
 
-    //var i = 0
-    // REDO ALL OF THIS SO WE DON'T USE PARTIAL COUNTS
+    var constituentDenominator = 0D
+    var distituentDenominator = 0D
+
     val corpusCounts = corpus.map{ s =>
-      // println( i + " / " + corpus.size )
-      // i+=1
       val initPartialCounts = new CCMPartialCounts
       ( 0 to (s.length-1) ).foreach{ i =>
         ( (i+1) to (s.length) ).foreach{ j =>
@@ -114,25 +113,34 @@ class CCMEstimator extends AbstractCCMParser {
         }
       }
 
+      val n_s = s.length
+      val totalSpanTokens = ( n_s + 1 ) * ( n_s + 2 ) / 2
+      constituentDenominator += ( 2 * n_s ) - 1
+      distituentDenominator += totalSpanTokens - ( ( 2 * n_s ) - 1 )
+
+      
+
       initPartialCounts
     }.reduce(_+_)//.divideBy.toCCMGrammar
 
+    corpusCounts.hallucinateCounts( 2D, 8D )
 
-    g = corpusCounts.toCCMGrammar
+    corpusCounts.divideSpanCounts(
+      Map(
+        Constituent -> constituentDenominator,
+        Distituent -> distituentDenominator
+      )
+    )
 
-    // val spanCounts = CorpusManipulation.spanCounts( corpus )
-    // val contextCounts = CorpusManipulation.contextCounts( corpus )
+    corpusCounts.divideContextCounts(
+      Map(
+        Constituent -> constituentDenominator,
+        Distituent -> distituentDenominator
+      )
+    )
 
-    // val pc = new CCMPartialCounts
-    // spanCounts.keySet.foreach{ span =>
-    //   pc.setSpanCount( Constituent, span, spanCounts( span ) )
-    // }
-    // contextCounts.keySet.foreach{ context =>
-    //   pc.setContextCount( Constituent, context, contextCounts( context ) )
-    // }
+    g = corpusCounts.toCCMGrammar( 0D, 0D )
 
-
-    // g = pc.toCCMGrammar
   }
 
   class Entry( val span:Yield, val context:Context ) {

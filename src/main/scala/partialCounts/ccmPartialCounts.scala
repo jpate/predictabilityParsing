@@ -61,6 +61,11 @@ class CCMPartialCounts {
     contextCounts.setValue( constituency, context, newCount )
   }
 
+  def divideSpanCounts( divisorMap:collection.immutable.Map[ConstituencyStatus,Double] )
+    { spanCounts.divideBy( divisorMap ) }
+  def divideContextCounts( divisorMap:collection.immutable.Map[ConstituencyStatus,Double] )
+    { contextCounts.divideBy( divisorMap ) }
+
   def +( otherCounts:CCMPartialCounts ) = {
     val toReturn = new CCMPartialCounts
 
@@ -92,6 +97,17 @@ class CCMPartialCounts {
     }
   }
 
+  def hallucinateCounts( hallucinateTrue:Double, hallucinateFalse:Double ) {
+    getSpans.foreach{ span =>
+      incrementSpanCounts( Constituent, span, hallucinateTrue )
+      incrementSpanCounts( Distituent, span, hallucinateFalse )
+    }
+    getContexts.foreach{ context =>
+      incrementContextCounts( Constituent, context, hallucinateTrue )
+      incrementContextCounts( Distituent, context, hallucinateFalse )
+    }
+  }
+
   // quick and easy/dirty default
   def toCCMGrammar:CCMGrammar = toCCMGrammar( 2D, 8D )
 
@@ -104,14 +120,16 @@ class CCMPartialCounts {
     val toReturn = new CCMGrammar( spanCounts.children, contextCounts.children )
 
 
-    getSpans.foreach{ span =>
-      incrementSpanCounts( Constituent, span, hallucinateTrue )
-      incrementSpanCounts( Distituent, span, hallucinateFalse )
-    }
-    getContexts.foreach{ context =>
-      incrementContextCounts( Constituent, context, hallucinateTrue )
-      incrementContextCounts( Distituent, context, hallucinateFalse )
-    }
+    hallucinateCounts( hallucinateTrue, hallucinateFalse )
+
+      // getSpans.foreach{ span =>
+      //   incrementSpanCounts( Constituent, span, hallucinateTrue )
+      //   incrementSpanCounts( Distituent, span, hallucinateFalse )
+      // }
+      // getContexts.foreach{ context =>
+      //   incrementContextCounts( Constituent, context, hallucinateTrue )
+      //   incrementContextCounts( Distituent, context, hallucinateFalse )
+      // }
 
     val p_span = spanCounts.toLogCPT
     val p_context = contextCounts.toLogCPT
