@@ -32,7 +32,7 @@ object Constituent extends ConstituencyStatus( "--Constituent--" )
 
 
 class Word( w:String ) extends ObservedLabel ( w ) {
-  override val hashCode = w.hashCode
+  override def hashCode = w.hashCode
   override def equals( other:Any ) = toString == other.toString
 }
 // {//with HashcodeCaching
@@ -40,7 +40,7 @@ class Word( w:String ) extends ObservedLabel ( w ) {
 //   override def equals( other:Any ) = toString == other.toString
 // }
 object SentenceBoundary extends ObservedLabel( "###" ) {
-  override val hashCode = "###".hashCode
+  override def hashCode = "###".hashCode
   override def equals( other:Any ) = toString == other.toString
 }
 
@@ -61,7 +61,7 @@ class Yield( y:List[ObservedLabel] )
 
 class Context( left:ObservedLabel, right:ObservedLabel )
   extends ObservedLabel( "←" + left + "," + "→" + right ) {
-  override val hashCode = ("←" + left + "," + "→" + right).hashCode
+  override def hashCode = ("←" + left + "," + "→" + right).hashCode
   override def equals( other:Any ) = toString == other.toString
 }
 // { //with HashcodeCaching

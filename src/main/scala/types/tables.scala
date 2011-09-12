@@ -86,9 +86,9 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
               otherCPT( parent , child )
             )
           }.toSeq:_*
-        )//.withDefaultValue( Double.NegativeInfinity )
+        )
       }.toSeq:_*
-    )//.withDefaultValue( Map()//.withDefaultValue( Double.NegativeInfinity ) )
+    )
 
     val toReturn = new Log2dTable( parentsUnion.toSet, childrenUnion.toSet )
     toReturn.setCPT( summedCPT )
