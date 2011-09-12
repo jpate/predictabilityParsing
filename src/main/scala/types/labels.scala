@@ -49,7 +49,8 @@ class WordPair( s1:String, s2:String ) extends ObservedLabel ( s1 + "^" + s2 ) w
 class Yield( y:List[ObservedLabel] )
   extends ObservedLabel( y.mkString( "", " ", "" ) )  {
   private val asString = y.mkString( "", " ", "" )
-  override val hashCode = asString.hashCode
+  val length = y.length
+  override def hashCode = asString.hashCode
   override def equals( other:Any ) = toString == other.toString
 }
 

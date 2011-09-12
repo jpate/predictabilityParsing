@@ -8,7 +8,7 @@ import predictabilityParsing.util.Math
 class CCMPartialCounts {
   private val spanCounts = new Log2dTable( ccm.constituencyStatus, Set[Yield]() )
   private val contextCounts = new Log2dTable( ccm.constituencyStatus, Set[Context]() )
-  var totalScore = 0D //Double.NegativeInfinity
+  var totalScore = 0D //Initialize to probability of 1 since we typically multiply this
 
   def setTotalScore( updatedTotalScore: Double ) { totalScore = updatedTotalScore }
 
@@ -40,8 +40,6 @@ class CCMPartialCounts {
   def getContexts = contextCounts( Constituent ).keySet
 
   def incrementSpanCounts( constituency:ConstituencyStatus, span:Yield, increment:Double ) {
-    // spanCounts(constituency)(span) =
-    //   Math.sumLogProb( getSpanCounts(constituency, span), increment )
     spanCounts.setValue(
       constituency,
       span,
@@ -49,13 +47,10 @@ class CCMPartialCounts {
     )
   }
   def setSpanCount( constituency:ConstituencyStatus, span:Yield, newCount:Double ) {
-    //spanCounts(constituency)(span) = increment
     spanCounts.setValue( constituency, span, newCount )
   }
 
   def incrementContextCounts( constituency:ConstituencyStatus, context:Context, increment:Double ) {
-    // contextCounts(constituency)(context) =
-    //   Math.sumLogProb( getContextCounts(constituency, context), increment )
     contextCounts.setValue(
       constituency,
       context,
@@ -63,12 +58,8 @@ class CCMPartialCounts {
     )
   }
   def setContextCount( constituency:ConstituencyStatus, context:Context, newCount:Double ) {
-    //contextCounts(constituency)(context) = increment
     contextCounts.setValue( constituency, context, newCount )
   }
-
-  // def divideSpanCounts( divisor:Double ) { spanCounts.divideBy( divisor ) }
-  // def divideContextCounts( divisor:Double ) { contextCounts.divideBy( divisor ) }
 
   def +( otherCounts:CCMPartialCounts ) = {
     val toReturn = new CCMPartialCounts
@@ -81,7 +72,6 @@ class CCMPartialCounts {
     toReturn.setTotalScore( totalScore + otherCounts.totalScore )
     toReturn
   }
-
 
   private val epsilon = 0.00001
   def ==( otherPC:CCMPartialCounts ) = {
@@ -102,54 +92,35 @@ class CCMPartialCounts {
     }
   }
 
+  // quick and easy/dirty default
+  def toCCMGrammar:CCMGrammar = toCCMGrammar( 2D, 8D )
+
   /*
    * For now, we just normalize. In the future, we can sum up the denominator and pass through a
    * digamma function for variational bayes.
    *
    */
-  def toCCMGrammar = {
+  def toCCMGrammar( hallucinateTrue:Double, hallucinateFalse:Double ) = {
     val toReturn = new CCMGrammar( spanCounts.children, contextCounts.children )
 
-    /*
-    spanCounts.hallucinateCounts(
-      collection.mutable.Map[ConstituencyStatus,Double](
-        Constituent -> math.log( 0.2 ), Distituent -> math.log( 0.8 )
-      )
-    )
 
-    contextCounts.hallucinateCounts(
-      collection.mutable.Map[ConstituencyStatus,Double](
-        Constituent -> math.log( 0.2 ), Distituent -> math.log( 0.8 )
-      )
-    )
-    */
-
+    getSpans.foreach{ span =>
+      incrementSpanCounts( Constituent, span, hallucinateTrue )
+      incrementSpanCounts( Distituent, span, hallucinateFalse )
+    }
+    getContexts.foreach{ context =>
+      incrementContextCounts( Constituent, context, hallucinateTrue )
+      incrementContextCounts( Distituent, context, hallucinateFalse )
+    }
 
     val p_span = spanCounts.toLogCPT
     val p_context = contextCounts.toLogCPT
-
-    // OK, this is a hack, but it seems to do the right thing with the probability of the data...
-    p_span(Constituent).keySet.foreach{ span =>
-      //p_span(Distituent)(span) = math.log( 1D - math.exp( p_span(Constituent)(span) ) )
-      p_span.setValue(
-        Distituent,
-        span,
-        math.log( 1D - math.exp( p_span(Constituent)(span) ) )
-      )
-    }
-    p_context(Constituent).keySet.foreach{ context =>
-      //p_context(Distituent)(context) = math.log( 1D - math.exp( p_context(Constituent)(context) ) )
-      p_context.setValue(
-        Distituent,
-        context,
-        math.log( 1D - math.exp( p_context(Constituent)(context) ) )
-      )
-    }
 
     toReturn.setParams(
       p_span,
       p_context
     )
+
     toReturn.normalize
     toReturn
   }

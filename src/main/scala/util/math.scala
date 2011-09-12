@@ -1,4 +1,5 @@
 package predictabilityParsing.util
+import math.{exp,log,abs}
 
 object Math {
   def sumLogProb( a:Double, b:Double ) =
@@ -7,9 +8,16 @@ object Math {
     else if( b == Double.NegativeInfinity )
       a
     else if( b < a )
-      a + math.log( 1 + math.exp( b - a ) )
+      a + log( 1 + exp( b - a ) )
     else
-      b + math.log( 1 + math.exp( a - b ) )
+      b + log( 1 + exp( a - b ) )
+
+  // subtraction isn't commutative so I think I just need to do this straight
+  def subtractLogProb( a:Double, b:Double ) =
+    if( abs( a - b ) < 0.0000001 ) // Sigh, still getting some underflow >_<
+      Double.NegativeInfinity
+    else
+      a + log( 1 - exp( b - a ) )
 
   def binary_bracketings_count( n:Int ) =
     catalan( n-1 )

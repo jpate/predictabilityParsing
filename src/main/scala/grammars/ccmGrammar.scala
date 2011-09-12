@@ -64,20 +64,20 @@ class CCMGrammar( spans:Iterable[Yield], contexts:Iterable[Context] ) {
     "P_Span:\n" +
     "Constituents:" +
     p_span(Constituent).keySet.toList.sortWith( (a,b) => a < b ).map{ span =>
-      span + " ==> " + math.exp( p_span(Constituent)( span ) )
+      span + " ==> " + math.exp( p_span(Constituent)( span ) ) + " (" + p_span(Constituent)( span ) +  ")"
     }.mkString("\n\t","\n\t","\n\n") +
     "Distituents:" +
     p_span(Distituent).keySet.toList.sortWith( (a,b) => a < b ).map{ span =>
-      span + " ==> " + math.exp( p_span(Distituent)( span ) )
+      span + " ==> " + math.exp( p_span(Distituent)( span ) ) + " (" + p_span(Distituent)( span ) + ")"
     }.mkString("\n\t","\n\t","\n\n") +
     "P_Context:\n" +
     "Constituents" +
     p_context(Constituent).keySet.toList.sortWith( (a,b) => a < b ).map{ context =>
-      context + " ==> " + math.exp( p_context(Constituent)( context ) )
+      context + " ==> " + math.exp( p_context(Constituent)( context ) ) + " (" + p_context(Constituent)( context )+ ")"
     }.mkString("\n\t","\n\t","\n\n") +
     "Distituents" +
     p_context(Distituent).keySet.toList.sortWith( (a,b) => a < b ).map{ context =>
-      context + " ==> " + math.exp( p_context(Distituent)( context ) )
+      context + " ==> " + math.exp( p_context(Distituent)( context ) ) + " (" + p_context(Distituent)( context )+ ")"
     }.mkString("\n\t","\n\t","\n\n")
 
 

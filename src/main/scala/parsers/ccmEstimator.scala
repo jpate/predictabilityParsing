@@ -72,7 +72,8 @@ class CCMEstimator extends AbstractCCMParser {
     }
 
     //var i = 0
-    g = corpus.par.map{ s =>
+    // REDO ALL OF THIS SO WE DON'T USE PARTIAL COUNTS
+    val corpusCounts = corpus.map{ s =>
       // println( i + " / " + corpus.size )
       // i+=1
       val initPartialCounts = new CCMPartialCounts
@@ -91,44 +92,47 @@ class CCMEstimator extends AbstractCCMParser {
             span,
             math.log( thisP_split )
           )
-          /*
+
           initPartialCounts.incrementSpanCounts(
             Distituent,
             span,
             math.log( 1D - thisP_split )
           )
-          */
+
+
           initPartialCounts.incrementContextCounts(
             Constituent,
             context,
             math.log( thisP_split )
           )
-          /*
           initPartialCounts.incrementContextCounts(
             Distituent,
             context,
             math.log( 1D - thisP_split )
           )
-          */
 
         }
       }
+
       initPartialCounts
-    }.reduce(_+_).toCCMGrammar
-
-    val spanCounts = CorpusManipulation.spanCounts( corpus )
-    val contextCounts = CorpusManipulation.contextCounts( corpus )
-
-    val pc = new CCMPartialCounts
-    spanCounts.keySet.foreach{ span =>
-      pc.setSpanCount( Constituent, span, spanCounts( span ) )
-    }
-    contextCounts.keySet.foreach{ context =>
-      pc.setContextCount( Constituent, context, contextCounts( context ) )
-    }
+    }.reduce(_+_)//.divideBy.toCCMGrammar
 
 
-    g = pc.toCCMGrammar
+    g = corpusCounts.toCCMGrammar
+
+    // val spanCounts = CorpusManipulation.spanCounts( corpus )
+    // val contextCounts = CorpusManipulation.contextCounts( corpus )
+
+    // val pc = new CCMPartialCounts
+    // spanCounts.keySet.foreach{ span =>
+    //   pc.setSpanCount( Constituent, span, spanCounts( span ) )
+    // }
+    // contextCounts.keySet.foreach{ context =>
+    //   pc.setContextCount( Constituent, context, contextCounts( context ) )
+    // }
+
+
+    // g = pc.toCCMGrammar
   }
 
   class Entry( val span:Yield, val context:Context ) {
@@ -242,10 +246,6 @@ class CCMEstimator extends AbstractCCMParser {
           distituentProduct +=
             g.p_span( Distituent )( matrix(i)(j).span ) +
               g.p_context( Distituent )( matrix(i)(j).context )
-          // p_bracket(i)(j) = Math.sumLogProb(
-          //   p_bracket(i)(j),
-          //   matrix(i)(j).iScore + matrix(i)(j).oScore - matrix(0)(s.length).iScore
-          // )
         }
       }
 
@@ -264,17 +264,6 @@ class CCMEstimator extends AbstractCCMParser {
           rawSpanCounts( matrix(i)(j).span ) += 1
           rawContextCounts( matrix(i)(j).context ) += 1
 
-          // println(
-          //   matrix(i)(j).span + ": p_bracket(" + i + ")(" + j + ") = " +
-          //   p_bracket(i)(j) + " + " +
-          //   matrix(i)(j).iScore + " + " + matrix(i)(j).oScore + " - " +
-          //     matrix(0)(s.length).iScore +
-          //   " = " + Math.sumLogProb(
-          //     p_bracket(i)(j),
-          //     matrix(i)(j).iScore + matrix(i)(j).oScore - matrix(0)(s.length).iScore
-          //   )
-          // )
-
           p_bracket(i)(j) = Math.sumLogProb(
             p_bracket(i)(j),
             matrix(i)(j).iScore + matrix(i)(j).oScore - matrix(0)(s.length).iScore
@@ -286,7 +275,6 @@ class CCMEstimator extends AbstractCCMParser {
       val contextSums = new HashMap[Context,Double]().withDefaultValue( Double.NegativeInfinity )
       (0 to (s.length-1) ).foreach{ i =>
         ( (i+1) to s.length ).foreach{ j =>
-          // println( ">>" + matrix(i)(j).span + ": " + p_bracket(i)(j) )
           spanSums( matrix(i)(j).span ) = Math.sumLogProb(
             spanSums( matrix(i)(j).span ),
             p_bracket( i )( j )
@@ -302,34 +290,43 @@ class CCMEstimator extends AbstractCCMParser {
       val commonMultiplicand = math.log( 1D/( ( 2 * s.length ) - 1 ) )
       val numberOfSpans = ( s.length + 1 ) * (s.length + 2 ) / 2
       val commonDividend = math.log( numberOfSpans - (2*s.length) + 1 )
+
+
+      // Adding up P_span( span | c, s )
       spanSums.keySet.foreach{ span =>
         pc.setSpanCount(
           Constituent,
           span,
           commonMultiplicand + spanSums( span )
         )
+
         pc.setSpanCount(
           Distituent,
           span,
-          math.log( rawSpanCounts( span ) - math.exp( spanSums( span ) ) ) - commonDividend
+          Math.subtractLogProb( math.log( rawSpanCounts( span ) ) , spanSums( span ) ) - commonDividend
         )
       }
+
+
+      // Adding up P_context( context | c, s )
       contextSums.keySet.foreach{ context =>
         pc.setContextCount(
           Constituent,
           context,
           commonMultiplicand + contextSums( context )
         )
+
         pc.setContextCount(
           Distituent,
           context,
-          math.log( rawContextCounts( context ) - math.exp( contextSums( context ) ) ) -
-            commonDividend
+          Math.subtractLogProb( math.log( rawContextCounts( context ) ) , contextSums( context ) ) -
+          commonDividend
         )
       }
 
 
       pc.setTotalScore( stringScore )
+
       pc
     }
 
@@ -364,10 +361,7 @@ class CCMEstimator extends AbstractCCMParser {
   def computePartialCountsSingle( s:List[ObservedLabel] ) = populateChart( s ).toPartialCounts
 
   def computePartialCounts( corpus:Iterable[List[ObservedLabel]] ) =
-    corpus.par.map{ s =>
-      populateChart(s).toPartialCounts
-    }.reduce(_+_)
-    //}.reduceLeft(_+_)
+    corpus.par.map{ s => populateChart(s).toPartialCounts }.reduce(_+_)
 
 }
 
