@@ -121,7 +121,9 @@ class CCMEstimator extends AbstractCCMParser {
       
 
       initPartialCounts
-    }.reduce(_+_)//.divideBy.toCCMGrammar
+    }.reduceLeft{ (a,b) => a.destructivePlus(b); a }
+    // }.reduceLeft( _.destructivePlus(_) )
+    //}.reduceLeft(_+_)//.divideBy.toCCMGrammar
 
     corpusCounts.hallucinateCounts( 2D, 8D )
 
@@ -140,7 +142,6 @@ class CCMEstimator extends AbstractCCMParser {
     )
 
     g = corpusCounts.toCCMGrammar( 0D, 0D )
-
   }
 
   class Entry( val span:Yield, val context:Context ) {
@@ -369,7 +370,10 @@ class CCMEstimator extends AbstractCCMParser {
   def computePartialCountsSingle( s:List[ObservedLabel] ) = populateChart( s ).toPartialCounts
 
   def computePartialCounts( corpus:Iterable[List[ObservedLabel]] ) =
-    corpus.par.map{ s => populateChart(s).toPartialCounts }.reduce(_+_)
+    corpus.par.map{ s => populateChart(s).toPartialCounts }.reduceLeft{(a,b) =>
+    a.destructivePlus(b); a}
+    //corpus.par.map{ s => populateChart(s).toPartialCounts }.reduceLeft( _.destructivePlus(_) )
+    //corpus.par.map{ s => populateChart(s).toPartialCounts }.reduce(_+_)
 
 }
 

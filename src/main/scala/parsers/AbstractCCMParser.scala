@@ -9,7 +9,6 @@ abstract class AbstractCCMParser {
 
   /*
    * Note that, as everywhere else, this is in LOG-SPACE.
-   * TODO: have an abstract parser class so I don't just copy-paste phi
    */
   protected def phi( span:Yield, context:Context ) =
     ( g.p_span( Constituent )( span ) + g.p_context( Constituent )( context ) ) -

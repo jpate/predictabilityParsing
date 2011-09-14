@@ -37,7 +37,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     val maxes = Map(
       cpt.keySet.map( parent =>
         if( cpt( parent ).values.size > 0 )
-          parent -> ( cpt(parent).values.par.reduce( Math.sumLogProb(_,_) ) )
+          parent -> ( cpt(parent).values/*.par*/.reduce( Math.sumLogProb(_,_) ) )
         else
           parent -> Double.NegativeInfinity
       ).toSeq:_*

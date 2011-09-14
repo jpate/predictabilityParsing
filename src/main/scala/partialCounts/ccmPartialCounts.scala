@@ -8,9 +8,13 @@ import predictabilityParsing.util.Math
 class CCMPartialCounts {
   private val spanCounts = new Log2dTable( ccm.constituencyStatus, Set[Yield]() )
   private val contextCounts = new Log2dTable( ccm.constituencyStatus, Set[Context]() )
-  var totalScore = 0D //Initialize to probability of 1 since we typically multiply this
+  private var totalScore = 0D //Initialize to probability of 1 since we typically multiply this
 
   def setTotalScore( updatedTotalScore: Double ) { totalScore = updatedTotalScore }
+  def incrementTotalScore( increment: Double ) 
+    { totalScore = Math.sumLogProb( totalScore, increment) }
+  def multiplyTotalScore( multiplicand: Double ) { totalScore += multiplicand }
+  def getTotalScore = totalScore
 
   def setSpanCounts( newSpans:AbstractLog2dTable[ConstituencyStatus,Yield] ) {
     spanCounts.setCPT( newSpans.getCPT )
@@ -74,8 +78,22 @@ class CCMPartialCounts {
       contextCounts + otherCounts.contextCounts
     )
 
-    toReturn.setTotalScore( totalScore + otherCounts.totalScore )
+    toReturn.setTotalScore( totalScore + otherCounts.getTotalScore )
     toReturn
+  }
+
+  def destructivePlus( otherCounts:CCMPartialCounts ) {
+    otherCounts.getSpans.foreach{ span =>
+      incrementSpanCounts( Constituent, span, otherCounts.getSpanCounts( Constituent, span ) )
+      incrementSpanCounts( Distituent, span, otherCounts.getSpanCounts( Distituent, span ) )
+    }
+
+    otherCounts.getContexts.foreach{ context =>
+      incrementContextCounts( Constituent, context, otherCounts.getContextCounts( Constituent, context ) )
+      incrementContextCounts( Distituent, context, otherCounts.getContextCounts( Distituent, context ) )
+    }
+
+    multiplyTotalScore( otherCounts.getTotalScore )
   }
 
   private val epsilon = 0.00001
