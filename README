@@ -1,0 +1,5 @@
+This is an implementation of CCM. I plan to extend it to run on two simultaneous input streams. One
+of these streams will be (a quantization of) word duration. The idea is to learn something about
+constituency structure by exploiting predictability effects. That is why this library is called
+"predictabilityParsing."
+
