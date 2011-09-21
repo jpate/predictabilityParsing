@@ -64,8 +64,8 @@ class CCMPartialCountsTestSuite extends AssertionsForJUnit with Suite {
 
     val g = new CCMGrammar( someSpans, someContexts )
 
-    pc1.setSpansAndContexts( g.p_span, g.p_context )
-    pc2.setSpansAndContexts( g.p_span, g.p_context )
+    pc1.setSpansAndContexts( g.getPSpan, g.getPContext )
+    pc2.setSpansAndContexts( g.getPSpan, g.getPContext )
 
     val pc3 = pc1 + pc2
 

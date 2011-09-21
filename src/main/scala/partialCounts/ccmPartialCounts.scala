@@ -5,7 +5,7 @@ import predictabilityParsing.types.tables._
 import predictabilityParsing.grammars.CCMGrammar
 import predictabilityParsing.util.Math
 
-class CCMPartialCounts {
+class CCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D ) {
   private val spanCounts = new Log2dTable( ccm.constituencyStatus, Set[Yield]() )
   private val contextCounts = new Log2dTable( ccm.constituencyStatus, Set[Context]() )
   private var totalScore = 0D //Initialize to probability of 1 since we typically multiply this
@@ -36,6 +36,9 @@ class CCMPartialCounts {
     spanCounts( constituency ).getOrElse( span , Double.NegativeInfinity )
   def getContextCounts( constituency:ConstituencyStatus, context:Context ) =
     contextCounts( constituency ).getOrElse( context , Double.NegativeInfinity )
+
+  def getSpanCounts() = spanCounts
+  def getContextCounts() = contextCounts
 
   def getSpans( constituency:ConstituencyStatus ) = spanCounts( constituency ).keySet
   def getContexts( constituency:ConstituencyStatus ) = contextCounts( constituency ).keySet
@@ -127,7 +130,7 @@ class CCMPartialCounts {
   }
 
   // quick and easy/dirty default
-  def toCCMGrammar:CCMGrammar = toCCMGrammar( 2D, 8D )
+  def toCCMGrammar:CCMGrammar = toCCMGrammar( math.log( smoothTrue ), math.log( smoothFalse ) )
 
   /*
    * For now, we just normalize. In the future, we can sum up the denominator and pass through a
@@ -139,15 +142,6 @@ class CCMPartialCounts {
 
 
     hallucinateCounts( hallucinateTrue, hallucinateFalse )
-
-      // getSpans.foreach{ span =>
-      //   incrementSpanCounts( Constituent, span, hallucinateTrue )
-      //   incrementSpanCounts( Distituent, span, hallucinateFalse )
-      // }
-      // getContexts.foreach{ context =>
-      //   incrementContextCounts( Constituent, context, hallucinateTrue )
-      //   incrementContextCounts( Distituent, context, hallucinateFalse )
-      // }
 
     val p_span = spanCounts.toLogCPT
     val p_context = contextCounts.toLogCPT

@@ -46,13 +46,13 @@ class EstimatorTestSuite extends AssertionsForJUnit with Suite {
     // println( estimator.g )
 
     var i = 0
-    var lastLogProb = Double.NegativeInfinity
+    var lastLogProb = 1D
     var logProbDeltas = List[Double]()
     while( i < 10 ) {
 
       val newPartialCounts = estimator.computePartialCounts( testCorpus )
 
-      val corpusLogProb = newPartialCounts.totalScore
+      val corpusLogProb = newPartialCounts.getTotalScore
 
       val deltaLogProb = ( (lastLogProb - corpusLogProb ) / lastLogProb )
 
@@ -64,7 +64,7 @@ class EstimatorTestSuite extends AssertionsForJUnit with Suite {
       // println( newPartialCounts )
 
       val updatedGrammar = newPartialCounts.toCCMGrammar
-      updatedGrammar.normalize
+      // updatedGrammar.normalize
       estimator.setGrammar( updatedGrammar )
       lastLogProb = corpusLogProb
       i += 1

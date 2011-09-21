@@ -37,7 +37,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     val maxes = Map(
       cpt.keySet.map( parent =>
         if( cpt( parent ).values.size > 0 )
-          parent -> ( cpt(parent).values/*.par*/.reduce( Math.sumLogProb(_,_) ) )
+          parent -> ( cpt(parent).values.reduce( Math.sumLogProb(_,_) ) )
         else
           parent -> Double.NegativeInfinity
       ).toSeq:_*
@@ -81,10 +81,8 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       parentsUnion.map{ parent =>
         parent -> Map(
           childrenUnion.map{ child =>
-            child -> Math.sumLogProb(
-              this( parent , child ),
-              otherCPT( parent , child )
-            )
+            child ->
+              Math.sumLogProb( this( parent , child ), otherCPT( parent , child ) )
           }.toSeq:_*
         )
       }.toSeq:_*
@@ -122,9 +120,9 @@ class LogCPT[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:Itera
             passedChildren.map{ child =>
               child -> log( 1D/passedChildren.size )
             }.toSeq: _*
-          )//.withDefaultValue( Double.NegativeInfinity )
+          )
       }.toSeq: _*
-    )//.withDefaultValue( Map()//.withDefaultValue( Double.NegativeInfinity ) )
+    )
 }
 
 /*
@@ -144,9 +142,9 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
                 hallucination(parent)
               )
             ).toSeq: _*
-          )//.withDefaultValue( hallucination( parent ) )
+          )
       ).toSeq: _*
-    )//.withDefaultValue( Map()//.withDefaultValue( Double.NegativeInfinity ) )
+    )
   }
 
   var cpt = Map(
@@ -156,9 +154,9 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
             passedChildren.map( child =>
               child -> Double.NegativeInfinity
             ).toSeq: _*
-          )//.withDefaultValue( Double.NegativeInfinity )
+          )
       ).toSeq: _*
-    )//.withDefaultValue( Map()//.withDefaultValue( Double.NegativeInfinity ) )
+    )
 
   def divideBy( divisor: Double ) {
     cpt.keySet.foreach{ parent =>
@@ -212,7 +210,7 @@ abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
           otherPT( element )
         )
       }.toSeq:_*
-    )//.withDefaultValue( Double.NegativeInfinity )
+    )
 
     val toReturn = new Log1dTable[T]( domainUnion.toSet ) 
 
@@ -225,7 +223,6 @@ abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
 
     pt = Map(
       pt.keySet.map{ parent =>
-          // by convention 0 / 0 = 0
         if( max == Double.NegativeInfinity )
           parent -> Double.NegativeInfinity
         else

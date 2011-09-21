@@ -2,16 +2,42 @@ package predictabilityParsing.grammars
 
 import predictabilityParsing.types.labels._
 import predictabilityParsing.types.tables._
+import predictabilityParsing.util.Math
 
-class CCMGrammar( spans:Iterable[Yield], contexts:Iterable[Context] ) {
+class CCMGrammar(
+  spans:Iterable[Yield],
+  contexts:Iterable[Context],
+  var hallucinatedTrue:Double = 2D,
+  var hallucinatedFalse:Double = 8D
+) {
 
-  val p_span = new LogCPT( ccm.constituencyStatus, spans )
-  val p_context = new LogCPT( ccm.constituencyStatus, contexts )
+  private val p_span = new LogCPT( ccm.constituencyStatus, spans )
+  private val p_context = new LogCPT( ccm.constituencyStatus, contexts )
 
   def spanScore( constituency:ConstituencyStatus, span:Yield ) =
     p_span( constituency ).getOrElse( span , Double.NegativeInfinity )
   def contextScore( constituency:ConstituencyStatus, context:Context ) =
     p_context( constituency ).getOrElse( context , Double.NegativeInfinity )
+
+
+  private def defaultTrue = hallucinatedTrue / ( hallucinatedTrue + hallucinatedFalse )
+  private def defaultFalse = hallucinatedFalse / ( hallucinatedTrue + hallucinatedFalse )
+
+
+  def getSpans = p_span.children
+  def getContexts = p_context.children
+
+
+  def smoothedSpanScore( constituency:ConstituencyStatus, span:Yield ) =
+    constituency match {
+      case Constituent => p_span( Constituent ).getOrElse( span, math.log( defaultTrue ) )
+      case Distituent => p_span( Distituent ).getOrElse( span, math.log( defaultFalse ) )
+    }
+  def smoothedContextScore( constituency:ConstituencyStatus, context:Context ) =
+    constituency match {
+      case Constituent => p_context( Constituent ).getOrElse( context, math.log( defaultTrue ) )
+      case Distituent => p_context( Distituent ).getOrElse( context, math.log( defaultFalse ) )
+    }
 
   def setP_span( updatedSpans:LogCPT[ConstituencyStatus,Yield] ) {
     p_span.setCPT( updatedSpans.cpt )
@@ -20,9 +46,21 @@ class CCMGrammar( spans:Iterable[Yield], contexts:Iterable[Context] ) {
     p_context.setCPT( updatedContexts.cpt )
   }
 
+  def getPSpan() = p_span
+  def getPContext() = p_context
+
   def randomize( seed:Int, centeredOn:Int ) {
     p_span.randomize( seed, centeredOn )
     p_context.randomize( seed, centeredOn )
+
+    getSpans.foreach( span =>
+      p_span(Distituent)(span) = Math.subtractLogProb( 0D, p_span(Constituent)(span) )
+    )
+    getContexts.foreach( context =>
+      p_context(Distituent)(context) = Math.subtractLogProb( 0D, p_context(Constituent)(context) )
+    )
+
+    normalize
   }
   def randomize( seed:Int ) {
     randomize( seed, 0 )

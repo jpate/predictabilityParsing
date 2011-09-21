@@ -26,11 +26,10 @@ class CCMParser extends AbstractCCMParser {
     private val matrix = Array.ofDim[ViterbiEntry]( s.length+1, s.length+1 )
 
     def lexFill( index:Int ) {
-      matrix( index )( index+1 ) = new ViterbiLex(
-        s(index),
+      matrix( index )( index+1 ) = new ViterbiLex( s(index),
         phi(
-          new Yield( s(index)::Nil ),
-          new Context(
+          Yield( s(index)::Nil ),
+          Context(
             if( index == 0 ) SentenceBoundary else s( index-1 ),
             if( index == s.length-1) SentenceBoundary else s( index + 1 )
           )
@@ -40,8 +39,8 @@ class CCMParser extends AbstractCCMParser {
     }
 
     def synFill( start:Int, end:Int ) {
-      val thisSpan = new Yield( s.slice( start, end ) )
-      val thisContext = new Context(
+      val thisSpan = Yield( s.slice( start, end ) )
+      val thisContext = Context(
         if( start == 0 ) SentenceBoundary else s( start-1 ),
         if( end == s.length ) SentenceBoundary else s( end )
       )
