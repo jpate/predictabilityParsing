@@ -1,20 +1,21 @@
 package predictabilityParsing.parsers
 
-import predictabilityParsing.grammars.CCMGrammar
+import predictabilityParsing.grammars.AbstractCCMGrammar
 import predictabilityParsing.util.Math
 import predictabilityParsing.types.labels._
 
-abstract class AbstractCCMParser {
-  var g:CCMGrammar
+abstract class AbstractCCMParser[T<:Parameterization] {
+  //type G<:AbstractCCMParser[T]
+  //type G<:AbstractCCMGrammar[T]
+  val g:AbstractCCMGrammar[T]
+
+  //def setGrammar( givenGrammar:AbstractCCMGrammar[T] ) { g.setParams( givenGrammar ) }
 
   /*
    * Note that, as everywhere else, this is in LOG-SPACE.
    */
-  protected def phi( span:Yield, context:Context ) =
-    ( g.smoothedSpanScore( Constituent , span ) + g.smoothedContextScore( Constituent , context ) ) -
-      ( g.smoothedSpanScore( Distituent , span ) + g.smoothedContextScore( Distituent , context ) )
   // protected def phi( span:Yield, context:Context ) =
-  //   ( g.p_span( Constituent )( span ) + g.p_context( Constituent )( context ) ) -
-  //     ( g.p_span( Distituent )( span ) + g.p_context( Distituent )( context ) )
+  //   ( g.smoothedSpanScore( Constituent , span ) + g.smoothedContextScore( Constituent , context ) ) -
+  //     ( g.smoothedSpanScore( Distituent , span ) + g.smoothedContextScore( Distituent , context ) )
 }
 

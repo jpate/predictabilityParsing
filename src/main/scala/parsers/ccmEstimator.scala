@@ -6,14 +6,28 @@ import predictabilityParsing.types.labels._
 import predictabilityParsing.util.{Math,CorpusManipulation}
 import math.log
 
-class CCMEstimator( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D ) extends AbstractCCMParser {
+class CCMEstimator(
+  smoothTrue:Double = 2D,
+  smoothFalse:Double = 8D
+) extends AbstractCCMParser[BaseCCM] {
 
-  var g = new CCMGrammar( spans = Set[Yield](), contexts = Set[Context]() )
+  val g = new CCMGrammar( spans = Set[Yield](), contexts = Set[Context]() )
 
+    /*
+     * Sets an initial grammar where each span is equiprobable and each context is equiprobable.
+     * @param spans the spans to define the grammar over.
+     * @param contexts the contexts to define the grammar over.
+     */
   def setUniformGrammar( spans:Iterable[Yield], contexts:Iterable[Context] ) {
-    g = new CCMGrammar( spans, contexts )
+    g.setParams( new CCMGrammar( spans, contexts ) )
   }
 
+    /*
+     * Sets an initial grammar where the probability of each span or context is it's relative
+     * frequency in the given maps.
+     * @param spans a map giving a count for each span.
+     * @param contexts a map giving a count for each context.
+     */
   def setUniformGrammar( spans:collection.mutable.Map[Yield,Double], contexts:collection.mutable.Map[Context,Double] ) {
     val pc = new CCMPartialCounts
 
@@ -35,29 +49,43 @@ class CCMEstimator( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D ) ex
     }
 
 
-    g = pc.toCCMGrammar( math.log( smoothTrue ), math.log( smoothFalse ) ) 
+    g.setParams( pc.toCCMGrammar( math.log( smoothTrue ), math.log( smoothFalse ) ) )
   }
 
+    /*
+     * Sets an initial grammar where probabilities are determined randomly.
+     * @param spans possible spans
+     * @param contexts possible contexts
+     * @param seed seed for the psueudorandom number generator.
+     * @param centeredOn This is added to each random number (which are in [0,1]). Should be
+     * large-ish for an approximately uniform grammar.
+     */
   def setRandomGrammar(
     spans:Iterable[Yield],
     contexts:Iterable[Context],
     seed:Int,
     centeredOn:Int
   ) {
-    g = new CCMGrammar( spans, contexts )
+    g.setParams( new CCMGrammar( spans, contexts ) )
     g.randomize( seed, centeredOn )
   }
 
+    /*
+     * Sets an initial grammar where probabilities are determined randomly.
+     * @param spans possible spans
+     * @param contexts possible contexts
+     * @param seed seed for the psueudorandom number generator.
+     */
   def setRandomGrammar(
     spans:Iterable[Yield],
     contexts:Iterable[Context],
     seed:Int
   ) {
-    g = new CCMGrammar( spans, contexts )
+    g.setParams( new CCMGrammar( spans, contexts ) )
     g.randomize( seed )
   }
 
-  def setGrammar( givenGrammar:CCMGrammar ) { g = givenGrammar }
+  def setGrammar( givenGrammar:CCMGrammar ) { g.setParams( givenGrammar ) }
 
   def setP_SplitGrammar( corpus:List[List[ObservedLabel]] ) {
     def p_split( i:Int, j:Int, n:Int ) = {
@@ -116,13 +144,13 @@ class CCMEstimator( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D ) ex
       initPartialCounts
     }.reduceLeft{ (a,b) => a.destructivePlus(b); a }
 
-    g = corpusCounts.toCCMGrammar( math.log( smoothTrue ), math.log( smoothFalse ) )
+    g.setParams( corpusCounts.toCCMGrammar( math.log( smoothTrue ), math.log( smoothFalse ) ) )
   }
 
   class Entry( val span:Yield, val context:Context ) {
     var iScore = 0D
     var oScore = 0D
-    var phiScore = phi( span, context )
+    var phiScore = g.phi( BaseCCM( span, context ) )
 
     def setIScore( updatedScore:Double ) { iScore = updatedScore }
     def setOScore( updatedScore:Double ) { oScore = updatedScore }
@@ -134,7 +162,7 @@ class CCMEstimator( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D ) ex
   }
 
   class LexEntry( span:Yield, context:Context ) extends Entry( span, context  ) {
-    iScore = phi( span, context )
+    iScore = g.phi( BaseCCM( span, context ) )
   }
 
   /*
@@ -165,7 +193,7 @@ class CCMEstimator( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D ) ex
       matrix( start )( end ) = new Entry( thisSpan, thisContext )
 
       matrix( start )( end ).setIScore(
-        phi( thisSpan, thisContext ) +
+        g.phi( BaseCCM( thisSpan, thisContext ) ) +
         ( (start+1) to (end - 1 ) ).map{ k =>
           matrix( start )( k ).iScore + matrix( k )( end ).iScore
         }.reduceLeft{ Math.sumLogProb( _, _ ) }
@@ -196,7 +224,7 @@ class CCMEstimator( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D ) ex
                 a,
                 matrix(k)(i).iScore +
                 matrix(k)(j).oScore +
-                phi( matrix(k)(j).span, matrix(k)(j).context )
+                g.phi( BaseCCM( matrix(k)(j).span, matrix(k)(j).context ) )
               )
             }
 
@@ -206,7 +234,7 @@ class CCMEstimator( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D ) ex
                 a,
                 matrix(j)(k).iScore +
                 matrix(i)(k).oScore +
-                phi( matrix(i)(k).span, matrix(i)(k).context )
+                g.phi( BaseCCM( matrix(i)(k).span, matrix(i)(k).context ) )
               )
             }
 

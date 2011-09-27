@@ -1,14 +1,14 @@
 package predictabilityParsing.parsers
 
-import predictabilityParsing.grammars.CCMGrammar
+import predictabilityParsing.grammars.TwoContextCCMGrammar
 import predictabilityParsing.types.labels._
 import predictabilityParsing.util.Math
 import math.log
 
-class CCMParser {
-  val g = new CCMGrammar( Set[Yield](), Set[Context]() )
+class TwoContextCCMParser {
+  val g = new TwoContextCCMGrammar( Set[Yield](), Set[Context](), Set[Context]() )
 
-  def setGrammar( givenGrammar:CCMGrammar ) { g.setParams( givenGrammar ) }
+  def setGrammar( givenGrammar:TwoContextCCMGrammar ) { g.setParams( givenGrammar ) }
 
   class ViterbiEntry(
     val bestLeftChild:Option[ViterbiEntry],
@@ -18,21 +18,25 @@ class CCMParser {
     override def toString = "(NT " + bestLeftChild.get + " " + bestRightChild.get + " )"
   }
 
-  class ViterbiLex( lex:ObservedLabel, score:Double ) extends ViterbiEntry( None, None, score ) {
+  class ViterbiLex( lex:WordPair, score:Double ) extends ViterbiEntry( None, None, score ) {
     override def toString = "(TERM " + lex + ")"
   }
 
-  class ViterbiChart( s:List[ObservedLabel] ) {
+  class ViterbiChart( s:List[WordPair] ) {
     private val matrix = Array.ofDim[ViterbiEntry]( s.length+1, s.length+1 )
 
     def lexFill( index:Int ) {
       matrix( index )( index+1 ) = new ViterbiLex( s(index),
         g.phi(
-          BaseCCM(
-            Yield( s(index)::Nil ),
+          TwoContextCCM(
+            Yield( (s(index)::Nil) ),
             Context(
-              if( index == 0 ) SentenceBoundary else s( index-1 ),
-              if( index == s.length-1) SentenceBoundary else s( index + 1 )
+              if( index == 0 ) SentenceBoundary else s( index-1 ).obsA,
+              if( index == s.length-1) SentenceBoundary else s( index + 1 ).obsA
+            ),
+            Context(
+              if( index == 0 ) SentenceBoundary else s( index-1 ).obsB,
+              if( index == s.length-1) SentenceBoundary else s( index + 1 ).obsB
             )
           )
         )
@@ -42,9 +46,13 @@ class CCMParser {
 
     def synFill( start:Int, end:Int ) {
       val thisSpan = Yield( s.slice( start, end ) )
-      val thisContext = Context(
-        if( start == 0 ) SentenceBoundary else s( start-1 ),
-        if( end == s.length ) SentenceBoundary else s( end )
+      val thisContextA = Context(
+        if( start == 0 ) SentenceBoundary else s( start-1 ).obsA,
+        if( end == s.length ) SentenceBoundary else s( end ).obsA
+      )
+      val thisContextB = Context(
+        if( start == 0 ) SentenceBoundary else s( start-1 ).obsB,
+        if( end == s.length ) SentenceBoundary else s( end ).obsB
       )
 
       val Tuple2( bestSplit, bestSplitScore ) =
@@ -59,15 +67,15 @@ class CCMParser {
       matrix(start)(end) = new ViterbiEntry(
         Some( matrix(start)(bestSplit) ),
         Some( matrix(bestSplit)(end) ),
-        bestSplitScore + g.phi( BaseCCM( thisSpan, thisContext ) )
+        bestSplitScore + g.phi( TwoContextCCM( thisSpan, thisContextA, thisContextB ) )
       )
     }
 
     override def toString = matrix(0)(s.length).toString
   }
 
-  def parse( toParse:List[Sentence] ) = {
-    toParse.map{ case Sentence( id, s ) =>
+  def parse( toParse:List[TwoStreamSentence] ) = {
+    toParse.map{ case TwoStreamSentence( id, s ) =>
       val chart = new ViterbiChart( s )
 
       (1 to ( s.size )) foreach{ j =>
@@ -83,4 +91,3 @@ class CCMParser {
   }
 
 }
-

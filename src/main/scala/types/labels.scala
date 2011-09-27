@@ -24,9 +24,16 @@ object Constituent extends ConstituencyStatus( "--Constituent--" )
 case class Word( w:String ) extends ObservedLabel ( w ) {
   override def hashCode = w.hashCode
 }
+case class WordPair( val w1:String, val w2:String )
+  extends ObservedLabel ( w1 + "^" + w2 ) with StatePair {
+  private val asString = w1 + "^" + w2
+  override def hashCode = asString.hashCode
+  val obsA = Word( w1 )
+  val obsB = Word( w2 )
+}
+
 object SentenceBoundary extends ObservedLabel( "###" )
 
-case class WordPair( s1:String, s2:String ) extends ObservedLabel ( s1 + "^" + s2 ) with StatePair
 
 case class Yield( y:List[ObservedLabel] )
   extends ObservedLabel( y.mkString( "", " ", "" ) ) {
@@ -42,4 +49,11 @@ case class Context( left:ObservedLabel, right:ObservedLabel )
 
 case class Sentence( sentenceID:String, sentence: List[ObservedLabel] )
   extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
+case class TwoStreamSentence( sentenceID:String, sentence: List[WordPair] )
+  extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
+
+abstract class Parameterization
+case class BaseCCM( span:Yield, context:Context ) extends Parameterization
+case class TwoContextCCM( span:Yield, contextA:Context, contextB:Context ) extends Parameterization
+
 

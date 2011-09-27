@@ -7,21 +7,24 @@ import predictabilityParsing.util.Math
 class CCMGrammar(
   spans:Iterable[Yield],
   contexts:Iterable[Context],
-  var hallucinatedTrue:Double = 2D,
-  var hallucinatedFalse:Double = 8D
-) {
+  hallucinatedTrue:Double = 2D,
+  hallucinatedFalse:Double = 8D
+) extends AbstractCCMGrammar[BaseCCM]( hallucinatedTrue, hallucinatedFalse ) {
 
   private val p_span = new LogCPT( ccm.constituencyStatus, spans )
   private val p_context = new LogCPT( ccm.constituencyStatus, contexts )
+
+  def phi[BaseCCM]( elements:BaseCCM ) = {
+    val BaseCCM( span, context ) = elements
+    ( smoothedSpanScore( Constituent , span ) + smoothedContextScore( Constituent , context ) ) -
+      ( smoothedSpanScore( Distituent , span ) + smoothedContextScore( Distituent , context ) )
+  }
 
   def spanScore( constituency:ConstituencyStatus, span:Yield ) =
     p_span( constituency ).getOrElse( span , Double.NegativeInfinity )
   def contextScore( constituency:ConstituencyStatus, context:Context ) =
     p_context( constituency ).getOrElse( context , Double.NegativeInfinity )
 
-
-  private def defaultTrue = hallucinatedTrue / ( hallucinatedTrue + hallucinatedFalse )
-  private def defaultFalse = hallucinatedFalse / ( hallucinatedTrue + hallucinatedFalse )
 
 
   def getSpans = p_span.children
@@ -48,6 +51,11 @@ class CCMGrammar(
 
   def getPSpan() = p_span
   def getPContext() = p_context
+
+  def setParams( otherGram:CCMGrammar ) {
+    p_span.setCPT( otherGram.getPSpan.getCPT )
+    p_context.setCPT( otherGram.getPContext.getCPT )
+  }
 
   def randomize( seed:Int, centeredOn:Int ) {
     p_span.randomize( seed, centeredOn )
