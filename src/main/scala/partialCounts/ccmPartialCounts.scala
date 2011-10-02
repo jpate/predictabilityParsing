@@ -74,7 +74,7 @@ class CCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D 
     { contextCounts.divideBy( divisorMap ) }
 
   def +( otherCounts:CCMPartialCounts ) = {
-    val toReturn = new CCMPartialCounts
+    val toReturn = new CCMPartialCounts( smoothTrue, smoothFalse )
 
     toReturn.setSpansAndContexts(
       spanCounts + otherCounts.spanCounts,
@@ -118,7 +118,8 @@ class CCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D 
     }
   }
 
-  def hallucinateCounts( hallucinateTrue:Double, hallucinateFalse:Double ) {
+  // made private because arguments are in log-space
+  private def hallucinateCounts( hallucinateTrue:Double, hallucinateFalse:Double ) {
     getSpans.foreach{ span =>
       incrementSpanCounts( Constituent, span, hallucinateTrue )
       incrementSpanCounts( Distituent, span, hallucinateFalse )
@@ -130,7 +131,7 @@ class CCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D 
   }
 
   // quick and easy/dirty default
-  def toCCMGrammar:CCMGrammar = toCCMGrammar( math.log( smoothTrue ), math.log( smoothFalse ) )
+  def toCCMGrammar:CCMGrammar = toCCMGrammar( smoothTrue, smoothFalse )
 
   /*
    * For now, we just normalize. In the future, we can sum up the denominator and pass through a
@@ -138,10 +139,11 @@ class CCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D 
    *
    */
   def toCCMGrammar( hallucinateTrue:Double, hallucinateFalse:Double ) = {
-    val toReturn = new CCMGrammar( spanCounts.children, contextCounts.children )
+    val toReturn =
+      new CCMGrammar( spanCounts.children, contextCounts.children, hallucinateTrue, hallucinateFalse )
 
 
-    hallucinateCounts( hallucinateTrue, hallucinateFalse )
+    hallucinateCounts( math.log( hallucinateTrue ), math.log( hallucinateFalse ) )
 
     val p_span = spanCounts.toLogCPT
     val p_context = contextCounts.toLogCPT

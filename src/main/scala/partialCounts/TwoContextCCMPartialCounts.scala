@@ -87,7 +87,7 @@ class TwoContextCCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Do
   }
 
   def +( otherCounts:TwoContextCCMPartialCounts ) = {
-    val toReturn = new TwoContextCCMPartialCounts
+    val toReturn = new TwoContextCCMPartialCounts( smoothTrue, smoothFalse )
 
     toReturn.setSpansAndContexts(
       spanCounts + otherCounts.spanCounts,
@@ -122,7 +122,8 @@ class TwoContextCCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Do
     multiplyTotalScore( otherCounts.getTotalScore )
   }
 
-  def hallucinateCounts( hallucinateTrue:Double, hallucinateFalse:Double ) {
+  // made private because arguments are in log-space
+  private def hallucinateCounts( hallucinateTrue:Double, hallucinateFalse:Double ) {
     getSpans.foreach{ span =>
       incrementSpanCounts( Constituent, span, hallucinateTrue )
       incrementSpanCounts( Distituent, span, hallucinateFalse )
@@ -138,17 +139,19 @@ class TwoContextCCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Do
   }
 
   def toTwoContextCCMGrammar:TwoContextCCMGrammar =
-    toTwoContextCCMGrammar( math.log( smoothTrue ), math.log( smoothFalse) )
+    toTwoContextCCMGrammar( smoothTrue , smoothFalse )
 
   def toTwoContextCCMGrammar( hallucinateTrue:Double, hallucinateFalse:Double ) = {
     val toReturn = new TwoContextCCMGrammar(
       spanCounts.children,
       contextCountsA.children,
-      contextCountsB.children
+      contextCountsB.children,
+      hallucinateTrue,
+      hallucinateFalse
     )
 
 
-    hallucinateCounts( hallucinateTrue, hallucinateFalse )
+    hallucinateCounts( math.log( hallucinateTrue ), math.log( hallucinateFalse ) )
 
     val p_span = spanCounts.toLogCPT
     val p_context_a = contextCountsA.toLogCPT

@@ -29,7 +29,7 @@ class TwoContextCCMParser {
       matrix( index )( index+1 ) = new ViterbiLex( s(index),
         g.phi(
           TwoContextCCM(
-            Yield( (s(index)::Nil) ),
+            Yield( (s(index).obsA::Nil) ),
             Context(
               if( index == 0 ) SentenceBoundary else s( index-1 ).obsA,
               if( index == s.length-1) SentenceBoundary else s( index + 1 ).obsA
@@ -45,7 +45,7 @@ class TwoContextCCMParser {
     }
 
     def synFill( start:Int, end:Int ) {
-      val thisSpan = Yield( s.slice( start, end ) )
+      val thisSpan = Yield( s.slice( start, end ).map( _.obsA ) )
       val thisContextA = Context(
         if( start == 0 ) SentenceBoundary else s( start-1 ).obsA,
         if( end == s.length ) SentenceBoundary else s( end ).obsA

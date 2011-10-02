@@ -42,7 +42,7 @@ class TwoContextCCMEstimator(
       val initPartialCounts = new TwoContextCCMPartialCounts
       ( 0 to (s.length-1) ).foreach{ i =>
         ( (i+1) to (s.length) ).foreach{ j =>
-          val span = Yield( s.slice( i, j ) )
+          val span = Yield( s.slice( i, j ).map( _.obsA ) )
 
           val contextA =
             Context(
@@ -57,41 +57,43 @@ class TwoContextCCMEstimator(
             )
 
 
-          val thisP_split = math.log( p_split( i, j, s.length ) )
+          //val thisP_split = math.log( p_split( i, j, s.length ) )
+          val thisP_split = p_split( i, j, s.length )
 
 
           initPartialCounts.incrementSpanCounts(
             Constituent,
             span,
-            thisP_split
+            math.log( thisP_split )
           )
           initPartialCounts.incrementSpanCounts(
             Distituent,
             span,
-            Math.subtractLogProb( 0D , thisP_split )
+            math.log( 1D - thisP_split )
           )
 
 
           initPartialCounts.incrementContextCountsA(
             Constituent,
             contextA,
-            thisP_split
+            math.log( thisP_split )
           )
           initPartialCounts.incrementContextCountsA(
             Distituent,
             contextA,
-            Math.subtractLogProb( 0D , thisP_split )
+            math.log( 1D - thisP_split )
           )
+
 
           initPartialCounts.incrementContextCountsB(
             Constituent,
             contextB,
-            thisP_split
+            math.log( thisP_split )
           )
           initPartialCounts.incrementContextCountsB(
             Distituent,
             contextB,
-            Math.subtractLogProb( 0D , thisP_split )
+            math.log( 1D - thisP_split )
           )
 
         }
@@ -100,7 +102,7 @@ class TwoContextCCMEstimator(
       initPartialCounts
     }.reduceLeft{ (a,b) => a.destructivePlus(b); a }
 
-    g.setParams( corpusCounts.toTwoContextCCMGrammar( math.log( smoothTrue ), math.log( smoothFalse ) ) )
+    g.setParams( corpusCounts.toTwoContextCCMGrammar( smoothTrue, smoothFalse ) )
   }
 
   class Entry( val span:Yield, val contextA:Context, val contextB: Context ) {
@@ -134,7 +136,7 @@ class TwoContextCCMEstimator(
     def lexFill( index:Int ) {
       matrix( index )( index+1 ) =
         new LexEntry(
-          Yield( ( s(index)::Nil ) ),
+          Yield( ( s(index).obsA::Nil ) ),
           Context(
             if( index == 0 ) SentenceBoundary else s( index-1 ).obsA,
             if( index == s.length-1) SentenceBoundary else s( index + 1 ).obsA
@@ -147,7 +149,7 @@ class TwoContextCCMEstimator(
     }
 
     def synFill( start:Int, end:Int ) {
-      val thisSpan = Yield( s.slice( start, end ) )
+      val thisSpan = Yield( s.slice( start, end ).map( _.obsA ) )
       val thisContextA = Context(
         if( start == 0 ) SentenceBoundary else s( start-1 ).obsA,
         if( end == s.length ) SentenceBoundary else s( end ).obsA
@@ -179,7 +181,7 @@ class TwoContextCCMEstimator(
         ( 0 to ( n - length ) ).foreach{ i =>
           val j = i + length
 
-          val thisSpan = Yield( s.slice( i, j+1 ) )
+          val thisSpan = Yield( s.slice( i, j+1 ).map( _.obsA ) )
           val thisContextA = Context(
             if( i == 0 ) SentenceBoundary else s( i-1 ).obsA,
             if( j == s.length ) SentenceBoundary else s( j ).obsA
@@ -230,7 +232,7 @@ class TwoContextCCMEstimator(
 
     def toPartialCounts = {
       import collection.mutable.HashMap
-      val pc = new TwoContextCCMPartialCounts
+      val pc = new TwoContextCCMPartialCounts( smoothTrue, smoothFalse )
 
       var distituentProduct = 0D
       (0 to s.length-1).foreach{ i =>
