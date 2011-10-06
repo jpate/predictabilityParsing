@@ -7,8 +7,8 @@ import predictabilityParsing.util.Math
 
 class TwoContextCCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D ) {
   private val spanCounts = new Log2dTable( ccm.constituencyStatus, Set[Yield]() )
-  private val contextCountsA = new Log2dTable( ccm.constituencyStatus, Set[Context]() )
-  private val contextCountsB = new Log2dTable( ccm.constituencyStatus, Set[Context]() )
+  private val contextCountsA = new Log2dTable( ccm.constituencyStatus, Set[AbstractContext]() )
+  private val contextCountsB = new Log2dTable( ccm.constituencyStatus, Set[AbstractContext]() )
   private var totalScore = 0D //Initialize to probability of 1 since we typically multiply this
 
   // TODO: factor this out
@@ -22,18 +22,18 @@ class TwoContextCCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Do
     spanCounts.setCPT( newSpans.getCPT )
   }
 
-  def setContextCountsA( newContextsA:AbstractLog2dTable[ConstituencyStatus,Context] ) {
+  def setContextCountsA( newContextsA:AbstractLog2dTable[ConstituencyStatus,AbstractContext] ) {
     contextCountsA.setCPT( newContextsA.getCPT )
   }
-  def setContextCountsB( newContextsB:AbstractLog2dTable[ConstituencyStatus,Context] ) {
+  def setContextCountsB( newContextsB:AbstractLog2dTable[ConstituencyStatus,AbstractContext] ) {
     contextCountsB.setCPT( newContextsB.getCPT )
   }
 
   def getSpanCounts( constituency:ConstituencyStatus, span:Yield ) =
     spanCounts( constituency ).getOrElse( span , Double.NegativeInfinity )
-  def getContextCountsA( constituency:ConstituencyStatus, contextA:Context ) =
+  def getContextCountsA( constituency:ConstituencyStatus, contextA:AbstractContext ) =
     contextCountsA( constituency ).getOrElse( contextA , Double.NegativeInfinity )
-  def getContextCountsB( constituency:ConstituencyStatus, contextB:Context ) =
+  def getContextCountsB( constituency:ConstituencyStatus, contextB:AbstractContext ) =
     contextCountsB( constituency ).getOrElse( contextB , Double.NegativeInfinity )
 
   def getSpans( constituency:ConstituencyStatus ) = spanCounts( constituency ).keySet
@@ -51,14 +51,14 @@ class TwoContextCCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Do
       Math.sumLogProb( getSpanCounts(constituency, span), increment )
     )
   }
-  def incrementContextCountsA( constituency:ConstituencyStatus, contextA:Context, increment:Double ) {
+  def incrementContextCountsA( constituency:ConstituencyStatus, contextA:AbstractContext, increment:Double ) {
     contextCountsA.setValue(
       constituency,
       contextA,
       Math.sumLogProb( getContextCountsA(constituency, contextA), increment )
     )
   }
-  def incrementContextCountsB( constituency:ConstituencyStatus, contextB:Context, increment:Double ) {
+  def incrementContextCountsB( constituency:ConstituencyStatus, contextB:AbstractContext, increment:Double ) {
     contextCountsB.setValue(
       constituency,
       contextB,
@@ -69,17 +69,17 @@ class TwoContextCCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Do
   def setSpanCount( constituency:ConstituencyStatus, span:Yield, newCount:Double ) {
     spanCounts.setValue( constituency, span, newCount )
   }
-  def setContextCountA( constituency:ConstituencyStatus, contextA:Context, newCount:Double ) {
+  def setContextCountA( constituency:ConstituencyStatus, contextA:AbstractContext, newCount:Double ) {
     contextCountsA.setValue( constituency, contextA, newCount )
   }
-  def setContextCountB( constituency:ConstituencyStatus, contextB:Context, newCount:Double ) {
+  def setContextCountB( constituency:ConstituencyStatus, contextB:AbstractContext, newCount:Double ) {
     contextCountsB.setValue( constituency, contextB, newCount )
   }
 
   def setSpansAndContexts(
     updatedSpans:AbstractLog2dTable[ConstituencyStatus,Yield],
-    updatedContextsA:AbstractLog2dTable[ConstituencyStatus,Context],
-    updatedContextsB:AbstractLog2dTable[ConstituencyStatus,Context]
+    updatedContextsA:AbstractLog2dTable[ConstituencyStatus,AbstractContext],
+    updatedContextsB:AbstractLog2dTable[ConstituencyStatus,AbstractContext]
   ) {
     setSpanCounts( updatedSpans )
     setContextCountsA( updatedContextsA )
@@ -87,7 +87,7 @@ class TwoContextCCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Do
   }
 
   def +( otherCounts:TwoContextCCMPartialCounts ) = {
-    val toReturn = new TwoContextCCMPartialCounts
+    val toReturn = new TwoContextCCMPartialCounts( smoothTrue, smoothFalse )
 
     toReturn.setSpansAndContexts(
       spanCounts + otherCounts.spanCounts,
@@ -122,7 +122,7 @@ class TwoContextCCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Do
     multiplyTotalScore( otherCounts.getTotalScore )
   }
 
-  def hallucinateCounts( hallucinateTrue:Double, hallucinateFalse:Double ) {
+  private def hallucinateCounts( hallucinateTrue:Double, hallucinateFalse:Double ) {
     getSpans.foreach{ span =>
       incrementSpanCounts( Constituent, span, hallucinateTrue )
       incrementSpanCounts( Distituent, span, hallucinateFalse )
@@ -138,17 +138,19 @@ class TwoContextCCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Do
   }
 
   def toTwoContextCCMGrammar:TwoContextCCMGrammar =
-    toTwoContextCCMGrammar( math.log( smoothTrue ), math.log( smoothFalse) )
+    toTwoContextCCMGrammar( smoothTrue, smoothFalse )
 
   def toTwoContextCCMGrammar( hallucinateTrue:Double, hallucinateFalse:Double ) = {
     val toReturn = new TwoContextCCMGrammar(
       spanCounts.children,
       contextCountsA.children,
-      contextCountsB.children
+      contextCountsB.children,
+      hallucinateTrue,
+      hallucinateFalse
     )
 
 
-    hallucinateCounts( hallucinateTrue, hallucinateFalse )
+    hallucinateCounts( math.log( hallucinateTrue ), math.log( hallucinateFalse ) )
 
     val p_span = spanCounts.toLogCPT
     val p_context_a = contextCountsA.toLogCPT

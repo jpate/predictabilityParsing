@@ -41,8 +41,16 @@ case class Yield( y:List[ObservedLabel] )
   override def hashCode = asString.hashCode
 }
 
+abstract class AbstractContext( context:String ) extends ObservedLabel( context )
+
+case class RightContext( right:ObservedLabel )
+  extends AbstractContext(  "→" + right ) {
+  private val asString = ( "→" + right )
+  override def hashCode = asString.hashCode
+}
+
 case class Context( left:ObservedLabel, right:ObservedLabel )
-  extends ObservedLabel( "←" + left + "," + "→" + right ) {
+  extends AbstractContext( "←" + left + "," + "→" + right ) {
   private val asString = ("←" + left + "," + "→" + right)
   override def hashCode = asString.hashCode
 }
@@ -54,6 +62,6 @@ case class TwoStreamSentence( sentenceID:String, sentence: List[WordPair] )
 
 abstract class Parameterization
 case class BaseCCM( span:Yield, context:Context ) extends Parameterization
-case class TwoContextCCM( span:Yield, contextA:Context, contextB:Context ) extends Parameterization
+case class TwoContextCCM( span:Yield, contextA:AbstractContext, contextB:AbstractContext ) extends Parameterization
 
 
