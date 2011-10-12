@@ -6,8 +6,8 @@ import predictabilityParsing.util.Math
 
 class TwoContextCCMGrammar(
   spans:Iterable[Yield],
-  contextsA:Iterable[Context],
-  contextsB:Iterable[Context],
+  contextsA:Iterable[AbstractContext],
+  contextsB:Iterable[AbstractContext],
   hallucinatedTrue:Double = 2D,
   hallucinatedFalse:Double = 8D
 ) extends AbstractCCMGrammar[TwoContextCCM]( hallucinatedTrue, hallucinatedFalse ) {
@@ -41,8 +41,8 @@ class TwoContextCCMGrammar(
 
   def setParams(
     updatedSpans:LogCPT[ConstituencyStatus,Yield],
-    updatedContextsA:LogCPT[ConstituencyStatus,Context],
-    updatedContextsB:LogCPT[ConstituencyStatus,Context]
+    updatedContextsA:LogCPT[ConstituencyStatus,AbstractContext],
+    updatedContextsB:LogCPT[ConstituencyStatus,AbstractContext]
   ) {
     setP_span( updatedSpans )
     setP_contextA( updatedContextsA )
@@ -56,10 +56,10 @@ class TwoContextCCMGrammar(
   def setP_span( updatedSpans:LogCPT[ConstituencyStatus,Yield] ) {
     p_span.setCPT( updatedSpans.cpt )
   }
-  def setP_contextA( updatedContextsA:LogCPT[ConstituencyStatus,Context] ) {
+  def setP_contextA( updatedContextsA:LogCPT[ConstituencyStatus,AbstractContext] ) {
     p_context_a.setCPT( updatedContextsA.cpt )
   }
-  def setP_contextB( updatedContextsB:LogCPT[ConstituencyStatus,Context] ) {
+  def setP_contextB( updatedContextsB:LogCPT[ConstituencyStatus,AbstractContext] ) {
     p_context_b.setCPT( updatedContextsB.cpt )
   }
 
@@ -69,13 +69,13 @@ class TwoContextCCMGrammar(
       case Distituent => p_span( Distituent ).getOrElse( span, math.log( defaultFalse ) )
     }
 
-  def smoothedContextScoreA( constituency:ConstituencyStatus, context:Context ) =
+  def smoothedContextScoreA( constituency:ConstituencyStatus, context:AbstractContext ) =
     constituency match {
       case Constituent => p_context_a( Constituent ).getOrElse( context, math.log( defaultTrue ) )
       case Distituent => p_context_a( Distituent ).getOrElse( context, math.log( defaultFalse ) )
     }
 
-  def smoothedContextScoreB( constituency:ConstituencyStatus, context:Context ) =
+  def smoothedContextScoreB( constituency:ConstituencyStatus, context:AbstractContext ) =
     constituency match {
       case Constituent => p_context_b( Constituent ).getOrElse( context, math.log( defaultTrue ) )
       case Distituent => p_context_b( Distituent ).getOrElse( context, math.log( defaultFalse ) )

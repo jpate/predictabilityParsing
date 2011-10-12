@@ -3,10 +3,10 @@ package predictabilityParsing.parsers
 import predictabilityParsing.grammars.TwoContextCCMGrammar
 import predictabilityParsing.partialCounts.TwoContextCCMPartialCounts
 import predictabilityParsing.types.labels._
-import predictabilityParsing.util.{Math,CorpusManipulation}
+import predictabilityParsing.util.Math
 import math.log
 
-class TwoContextCCMEstimator(
+class IndependentContextJointSpansEstimator(
   val smoothTrue:Double = 2D,
   val smoothFalse:Double = 8D
 ) extends AbstractCCMParser[TwoContextCCM] {
@@ -14,19 +14,67 @@ class TwoContextCCMEstimator(
 
   def setGrammar( givenGrammar:TwoContextCCMGrammar ) { g.setParams( givenGrammar ) }
 
+    /*
+     * Sets an initial grammar where each span is equiprobable and each context is equiprobable.
+     * @param spans the spans to define the grammar over.
+     * @param contextsA the contextsA to define the grammar over.
+     * @param contextsB the contextsB to define the grammar over.
+     */
+  def setUniformGrammar(
+    spans:Iterable[Yield],
+    contextsA:Iterable[Context],
+    contextsB:Iterable[Context]
+  ) {
+    g.setParams( new TwoContextCCMGrammar( spans, contextsA, contextsB ) )
+  }
+
+    /*
+     * Sets an initial grammar where the probability of each span or context is its relative
+     * frequency in the given maps.
+     * @param spans a map giving a count for each span.
+     * @param contextsA a map giving a count for each contextA.
+     * @param contextsB a map giving a count for each contextB.
+     */
+  def setUniformGrammar(
+    spans:collection.mutable.Map[Yield,Double],
+    contextsA:collection.mutable.Map[Context,Double],
+    contextsB:collection.mutable.Map[Context,Double]
+  ) {
+    val pc = new TwoContextCCMPartialCounts( smoothTrue, smoothFalse )
+
+    val totalSpans = spans.values.reduceLeft(_+_)
+    val totalContextsA = contextsA.values.reduceLeft(_+_)
+    val totalContextsB = contextsB.values.reduceLeft(_+_)
+
+    spans.keySet.foreach{ span =>
+      pc.incrementSpanCounts( Constituent, span, log( spans(span) / totalSpans )  )
+      pc.incrementSpanCounts(
+        Distituent, span, log( 1D - ( spans(span) / totalSpans ) )
+      )
+    }
+
+    contextsA.keySet.foreach{ context =>
+      pc.incrementContextCountsA( Constituent, context, log( contextsA(context) / totalContextsA ) )
+      pc.incrementContextCountsA(
+        Distituent, context, log( 1D - ( contextsA(context) / totalContextsA ) )
+      )
+    }
+
+    contextsB.keySet.foreach{ context =>
+      pc.incrementContextCountsB( Constituent, context, log( contextsB(context) / totalContextsB ) )
+      pc.incrementContextCountsB(
+        Distituent, context, log( 1D - ( contextsB(context) / totalContextsB ) )
+      )
+    }
+
+
+    g.setParams( pc.toTwoContextCCMGrammar( smoothTrue , smoothFalse ) )
+  }
+
   def setP_SplitGrammar( corpus:List[List[WordPair]] ) {
     // Do this in log space?
     def p_split( i:Int, j:Int, n:Int ) = {
       val l = j - i
-      // if( i == j )
-      //   0D
-      //else
-      // if( i == 0 && j == n )
-      //   0D
-      // else if( 0 < i && i < j && j < n )
-      //   math.log( 2D ) - math.log(j - i ) + math.log( j - i + 1 )
-      // else
-      //   0D - math.log( j - i )
       if( i == 0 && j == n )
         1D
       else if( 0 < i && i < j && j < n )
@@ -39,7 +87,7 @@ class TwoContextCCMEstimator(
     var distituentDenominator = 0D
 
     val corpusCounts = corpus.map{ s =>
-      val initPartialCounts = new TwoContextCCMPartialCounts
+      val initPartialCounts = new TwoContextCCMPartialCounts( smoothTrue, smoothFalse )
       ( 0 to (s.length-1) ).foreach{ i =>
         ( (i+1) to (s.length) ).foreach{ j =>
           val span = Yield( s.slice( i, j ).map( _.obsA ) )
@@ -50,14 +98,9 @@ class TwoContextCCMEstimator(
               if( j == (s.length) ) SentenceBoundary else s(j).obsA
             )
 
-          val contextB =
-            Context(
-              if( i == 0 ) SentenceBoundary else s(i-1).obsB,
-              if( j == (s.length) ) SentenceBoundary else s(j).obsB
-            )
+          val contextB = Context( s(i).obsB, s(j-1).obsB)
 
 
-          //val thisP_split = math.log( p_split( i, j, s.length ) )
           val thisP_split = p_split( i, j, s.length )
 
 
@@ -141,10 +184,7 @@ class TwoContextCCMEstimator(
             if( index == 0 ) SentenceBoundary else s( index-1 ).obsA,
             if( index == s.length-1) SentenceBoundary else s( index + 1 ).obsA
           ),
-          Context(
-            if( index == 0 ) SentenceBoundary else s( index-1 ).obsB,
-            if( index == s.length-1) SentenceBoundary else s( index + 1 ).obsB
-          )
+          Context( s( index ).obsB, s( index ).obsB )
         )
     }
 
@@ -154,10 +194,7 @@ class TwoContextCCMEstimator(
         if( start == 0 ) SentenceBoundary else s( start-1 ).obsA,
         if( end == s.length ) SentenceBoundary else s( end ).obsA
       )
-      val thisContextB = Context(
-        if( start == 0 ) SentenceBoundary else s( start-1 ).obsB,
-        if( end == s.length ) SentenceBoundary else s( end ).obsB
-      )
+      val thisContextB = Context( s( start ).obsB, s( end-1 ).obsB )
 
       matrix( start )( end ) = new Entry( thisSpan, thisContextA, thisContextB )
 
@@ -186,10 +223,7 @@ class TwoContextCCMEstimator(
             if( i == 0 ) SentenceBoundary else s( i-1 ).obsA,
             if( j == s.length ) SentenceBoundary else s( j ).obsA
           )
-          val thisContextB = Context(
-            if( i == 0 ) SentenceBoundary else s( i-1 ).obsB,
-            if( j == s.length ) SentenceBoundary else s( j ).obsB
-          )
+          val thisContextB = Context( s( i ).obsB, s( j-1 ).obsB )
 
           val leftSum =
             ( 0 to (i-1) ).foldLeft( Double.NegativeInfinity ){ (a, k) =>
@@ -331,3 +365,93 @@ class TwoContextCCMEstimator(
 
 }
 
+class IndependentContextJointSpansParser {
+  val g = new TwoContextCCMGrammar( Set[Yield](), Set[Context](), Set[Context]() )
+
+  def setGrammar( givenGrammar:TwoContextCCMGrammar ) { g.setParams( givenGrammar ) }
+
+  class ViterbiEntry(
+    val bestLeftChild:Option[ViterbiEntry],
+    val bestRightChild:Option[ViterbiEntry],
+    val score:Double
+  ) {
+    override def toString = "(NT " + bestLeftChild.get + " " + bestRightChild.get + " )"
+  }
+
+  class ViterbiLex( lex:WordPair, score:Double ) extends ViterbiEntry( None, None, score ) {
+    override def toString = "(TERM " + lex + ")"
+  }
+
+  class ViterbiChart( s:List[WordPair] ) {
+    private val matrix = Array.ofDim[ViterbiEntry]( s.length+1, s.length+1 )
+
+    def lexFill( index:Int ) {
+      matrix( index )( index+1 ) = new ViterbiLex( s(index),
+        g.phi(
+          TwoContextCCM(
+            Yield( (s(index)::Nil) ),
+            Context(
+              if( index == 0 ) SentenceBoundary else s( index-1 ).obsA,
+              if( index == s.length-1) SentenceBoundary else s( index + 1 ).obsA
+            ),
+            Context(
+              s( index ).obsB,
+              s( index ).obsB
+              // if( index == 0 ) SentenceBoundary else s( index-1 ).obsB,
+              // if( index == s.length-1) SentenceBoundary else s( index + 1 ).obsB
+            )
+          )
+        )
+      )
+
+    }
+
+    def synFill( start:Int, end:Int ) {
+      val thisSpan = Yield( s.slice( start, end ) )
+      val thisContextA = Context(
+        if( start == 0 ) SentenceBoundary else s( start-1 ).obsA,
+        if( end == s.length ) SentenceBoundary else s( end ).obsA
+      )
+      val thisContextB = Context(
+        s( start ).obsB,
+        s( end-1 ).obsB
+        // if( start == 0 ) SentenceBoundary else s( start-1 ).obsB,
+        // if( end == s.length ) SentenceBoundary else s( end ).obsB
+      )
+
+      val Tuple2( bestSplit, bestSplitScore ) =
+        ( (start+1) to (end-1) ).foldLeft( Tuple2(0,Double.NegativeInfinity) ){ (a,k) =>
+          val thisSplitScore = matrix(start)(k).score + matrix(k)(end).score
+          if( thisSplitScore > a._2 )
+            Tuple2( k, thisSplitScore )
+          else
+            a
+        }
+
+      matrix(start)(end) = new ViterbiEntry(
+        Some( matrix(start)(bestSplit) ),
+        Some( matrix(bestSplit)(end) ),
+        bestSplitScore + g.phi( TwoContextCCM( thisSpan, thisContextA, thisContextB ) )
+      )
+    }
+
+    override def toString = matrix(0)(s.length).toString
+  }
+
+  def parse( toParse:List[TwoStreamSentence] ) = {
+    toParse.map{ case TwoStreamSentence( id, s ) =>
+      val chart = new ViterbiChart( s )
+
+      (1 to ( s.size )) foreach{ j =>
+        chart.lexFill( j-1 )
+        if( j > 1 )
+          (0 to (j-2)).reverse.foreach{ i =>
+            chart.synFill( i , j )
+          }
+      }
+
+      id + " " + chart.toString
+    }
+  }
+
+}

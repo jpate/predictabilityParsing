@@ -6,7 +6,7 @@ import predictabilityParsing.types.labels._
 import predictabilityParsing.util.{Math,CorpusManipulation}
 import math.log
 
-class CCMEstimator(
+class VanillaCCMEstimator(
   smoothTrue:Double = 2D,
   smoothFalse:Double = 8D
 ) extends AbstractCCMParser[BaseCCM] {
@@ -66,7 +66,7 @@ class CCMEstimator(
     seed:Int,
     centeredOn:Int
   ) {
-    g.setParams( new CCMGrammar( spans, contexts ) )
+    g.setParams( new CCMGrammar( spans, contexts, smoothTrue, smoothFalse ) )
     g.randomize( seed, centeredOn )
   }
 
@@ -81,7 +81,7 @@ class CCMEstimator(
     contexts:Iterable[Context],
     seed:Int
   ) {
-    g.setParams( new CCMGrammar( spans, contexts ) )
+    g.setParams( new CCMGrammar( spans, contexts, smoothTrue, smoothFalse) )
     g.randomize( seed )
   }
 
@@ -104,14 +104,14 @@ class CCMEstimator(
     var distituentDenominator = 0D
 
     val corpusCounts = corpus.map{ s =>
-      val initPartialCounts = new CCMPartialCounts
+      val initPartialCounts = new CCMPartialCounts( smoothTrue, smoothFalse )
       ( 0 to (s.length-2) ).foreach{ i =>
         ( (i+1) to (s.length-1) ).foreach{ j =>
-          val span = Yield( s.slice( i, j+1 ) )
+          val span = Yield( s.slice( i, j ) )
           val context =
             Context(
               if( i == 0 ) SentenceBoundary else s(i-1),
-              if( j == (s.length-1) ) SentenceBoundary else s(j+1)
+              if( j == (s.length) ) SentenceBoundary else s(j)
             )
 
           val thisP_split = p_split( i, j, s.length )
@@ -170,10 +170,10 @@ class CCMEstimator(
    * since Klein found multiple categories hurt performance.
    */
   class Chart( s:List[ObservedLabel] ) {
-    private val matrix = Array.ofDim[Entry]( s.length, s.length )
+    private val matrix = Array.ofDim[Entry]( s.length+1, s.length+1 )
 
     def lexFill( index:Int ) {
-      matrix( index )( index ) = //( index+1 ) =
+      matrix( index )( index+1 ) =
         new LexEntry(
           Yield( s(index)::Nil ),
           Context(
@@ -181,12 +181,6 @@ class CCMEstimator(
             if( index == s.length-1) SentenceBoundary else s( index + 1 )
           )
         )
-        val thisSpan = Yield( s(index)::Nil )
-        val thisContext = Context(
-          if( index == 0 ) SentenceBoundary else s( index-1 ),
-          if( index == s.length-1) SentenceBoundary else s( index + 1 )
-        )
-      //println( "]]\t" + Tuple2( index, index ) + ": " + thisContext + " ; " + thisSpan )
     }
 
     def synFill( start:Int, end:Int ) {
@@ -196,13 +190,11 @@ class CCMEstimator(
         if( end == s.length-1 ) SentenceBoundary else s( end+1 )
       )
 
-      //println( "]]\t" + Tuple2( start, end ) + ": " + thisContext + " ; " + thisSpan )
-
       matrix( start )( end ) = new Entry( thisSpan, thisContext )
 
       matrix( start )( end ).setIScore(
         g.phi( BaseCCM( thisSpan, thisContext ) ) +
-        ( start to end ).map{ k =>
+        ( (start+1) to (end - 1 ) ).map{ k =>
           matrix( start )( k ).iScore + matrix( k )( end ).iScore
         }.reduceLeft{ Math.sumLogProb( _, _ ) }
       )
@@ -215,58 +207,51 @@ class CCMEstimator(
       /*
        * Based on ccm.py from Franco M Luque's dmvccm project. Thanks!
        */
-      //matrix( 0 )( n-1 ).setOScore( 0D )
-      ( 0 to (n-1) ).reverse.foreach( length =>
-        ( 0 to ( (n-1) - length ) ).foreach{ i =>
-          val j = i + ( length  )
+      matrix( 0 )( n ).setOScore( 0D )
+      ( 1 to (n-1) ).reverse.foreach( length =>
+        ( 0 to ( n - length ) ).foreach{ i =>
+          val j = i + length
 
-          println( "< " + (i,j ) )
-          if( i == 0 && j == (n -1) ) {
-            matrix(i)(j).setOScore( 0D )
-          } else {
-            val thisSpan = Yield( s.slice( i, j+1 ) )
-            val thisContext = Context(
-              if( i == 0 ) SentenceBoundary else s( i-1 ),
-              if( j == ( s.length-1 ) ) SentenceBoundary else s( j+1 )
-            )
+          val thisSpan = Yield( s.slice( i, j+1 ) )
+          val thisContext = Context(
+            if( i == 0 ) SentenceBoundary else s( i-1 ),
+            if( j == s.length ) SentenceBoundary else s( j )
+          )
 
+          val leftSum =
+            ( 0 to (i-1) ).foldLeft( Double.NegativeInfinity ){ (a, k) =>
+              Math.sumLogProb(
+                a,
+                matrix(k)(i).iScore +
+                matrix(k)(j).oScore +
+                g.phi( BaseCCM( matrix(k)(j).span, matrix(k)(j).context ) )
+              )
+            }
 
-            val leftSum =
-              ( 0 to i ).foldLeft( Double.NegativeInfinity ){ (a, k) =>
-                Math.sumLogProb(
-                  a,
-                  matrix(k)(i).iScore +
-                  matrix(k)(j).oScore +
-                  g.phi( BaseCCM( matrix(k)(j).span, matrix(k)(j).context ) )
-                )
-              }
+          val rightSum =
+            ( (j+1) to (n) ).foldLeft( Double.NegativeInfinity ){ (a, k) =>
+              Math.sumLogProb(
+                a,
+                matrix(j)(k).iScore +
+                matrix(i)(k).oScore +
+                g.phi( BaseCCM( matrix(i)(k).span, matrix(i)(k).context ) )
+              )
+            }
 
-            val rightSum =
-              ( j to (n-1) ).foldLeft( Double.NegativeInfinity ){ (a, k) =>
-                Math.sumLogProb(
-                  a,
-                  matrix(j)(k).iScore +
-                  matrix(i)(k).oScore +
-                  g.phi( BaseCCM( matrix(i)(k).span, matrix(i)(k).context ) )
-                )
-              }
-
-            matrix(i)(j).setOScore(
-              Math.sumLogProb( leftSum, rightSum )
-            )
-          }
+          matrix(i)(j).setOScore(
+            Math.sumLogProb( leftSum, rightSum )
+          )
         }
       )
     }
 
-    //TODO convert this to the new indexing system
     def toPartialCounts = {
       import collection.mutable.HashMap
       val pc = new CCMPartialCounts( smoothTrue, smoothFalse )
 
       var distituentProduct = 0D
-      (0 to s.length-2).foreach{ i =>
-        ( i+1 to s.length-1 ).foreach{ j =>
+      (0 to s.length-1).foreach{ i =>
+        ( i+1 to s.length ).foreach{ j =>
           distituentProduct +=
             g.smoothedSpanScore( Distituent , matrix(i)(j).span ) +
             g.smoothedContextScore( Distituent , matrix(i)(j).context )
@@ -275,24 +260,15 @@ class CCMEstimator(
 
       val p_tree = 0D - Math.log_space_binary_bracketings_count( s.length )
       val fullStringIScore = matrix(0)(s.length-1).iScore
-      val stringScore = fullStringIScore + distituentProduct + p_tree
+      val treeScore = fullStringIScore + distituentProduct + p_tree
 
       (0 to (s.length-1) ).foreach{ i =>
-        ( i to (s.length-1) ).foreach{ j =>
+        ( (i+1) to s.length ).foreach{ j =>
           val thisEntry = matrix(i)(j)
           val thisSpan = thisEntry.span
           val thisContext = thisEntry.context
           val thisP_bracket = thisEntry.iScore + thisEntry.oScore - ( fullStringIScore )
           val thisP_noBracket = Math.subtractLogProb( 0D, thisP_bracket )
-
-          // if( thisP_bracket > 0 ) {
-          //   println( matrix(i)(j).span )
-          //   println( matrix(i)(j).context )
-          //   println( matrix(i)(j).iScore )
-          //   println( matrix(i)(j).oScore )
-          //   println( "T " + thisP_bracket )
-          //   println( "F " + thisP_noBracket + "\n" )
-          // }
 
           pc.incrementSpanCounts(
             Constituent,
@@ -341,28 +317,101 @@ class CCMEstimator(
   def populateChart( s:List[ObservedLabel] ) = {
     val chart = new Chart( s )
 
-    println( (0,(s.length-1)) + ": " + s )
-    (0 to ( s.size-1 )) foreach{ j =>
-      chart.lexFill( j )
-      println( "> " + (j,j) )
-      if( j > 0 )
-        (0 to (j-1)).reverse.foreach{ i =>
-          println( "> " + (i,j) )
+    (1 to ( s.size )) foreach{ j =>
+      chart.lexFill( j-1 )
+      if( j > 1 )
+        (0 to (j-2)).reverse.foreach{ i =>
           chart.synFill( i , j )
         }
     }
 
     chart.outsidePass
-    println( "\n\n" )
-    //println( chart )
     chart
   }
 
   def computePartialCountsSingle( s:List[ObservedLabel] ) = populateChart( s ).toPartialCounts
 
   def computePartialCounts( corpus:Iterable[List[ObservedLabel]] ) =
-    corpus/*.par*/.map{ s => populateChart(s).toPartialCounts }.reduce{(a,b) => a.destructivePlus(b); a}
+    corpus.par.map{ s => populateChart(s).toPartialCounts }.reduce{(a,b) => a.destructivePlus(b); a}
 
 }
 
+class VanillaCCMParser {
+  val g = new CCMGrammar( Set[Yield](), Set[Context]() )
+
+  def setGrammar( givenGrammar:CCMGrammar ) { g.setParams( givenGrammar ) }
+
+  class ViterbiEntry(
+    val bestLeftChild:Option[ViterbiEntry],
+    val bestRightChild:Option[ViterbiEntry],
+    val score:Double
+  ) {
+    override def toString = "(NT " + bestLeftChild.get + " " + bestRightChild.get + " )"
+  }
+
+  class ViterbiLex( lex:ObservedLabel, score:Double ) extends ViterbiEntry( None, None, score ) {
+    override def toString = "(TERM " + lex + ")"
+  }
+
+  class ViterbiChart( s:List[ObservedLabel] ) {
+    private val matrix = Array.ofDim[ViterbiEntry]( s.length+1, s.length+1 )
+
+    def lexFill( index:Int ) {
+      matrix( index )( index+1 ) = new ViterbiLex( s(index),
+        g.phi(
+          BaseCCM(
+            Yield( s(index)::Nil ),
+            Context(
+              if( index == 0 ) SentenceBoundary else s( index-1 ),
+              if( index == s.length-1) SentenceBoundary else s( index + 1 )
+            )
+          )
+        )
+      )
+
+    }
+
+    def synFill( start:Int, end:Int ) {
+      val thisSpan = Yield( s.slice( start, end ) )
+      val thisContext = Context(
+        if( start == 0 ) SentenceBoundary else s( start-1 ),
+        if( end == s.length ) SentenceBoundary else s( end )
+      )
+
+      val Tuple2( bestSplit, bestSplitScore ) =
+        ( (start+1) to (end-1) ).foldLeft( Tuple2(0,Double.NegativeInfinity) ){ (a,k) =>
+          val thisSplitScore = matrix(start)(k).score + matrix(k)(end).score
+          if( thisSplitScore > a._2 )
+            Tuple2( k, thisSplitScore )
+          else
+            a
+        }
+
+      matrix(start)(end) = new ViterbiEntry(
+        Some( matrix(start)(bestSplit) ),
+        Some( matrix(bestSplit)(end) ),
+        bestSplitScore + g.phi( BaseCCM( thisSpan, thisContext ) )
+      )
+    }
+
+    override def toString = matrix(0)(s.length).toString
+  }
+
+  def parse( toParse:List[Sentence] ) = {
+    toParse.map{ case Sentence( id, s ) =>
+      val chart = new ViterbiChart( s )
+
+      (1 to ( s.size )) foreach{ j =>
+        chart.lexFill( j-1 )
+        if( j > 1 )
+          (0 to (j-2)).reverse.foreach{ i =>
+            chart.synFill( i , j )
+          }
+      }
+
+      id + " " + chart.toString
+    }
+  }
+
+}
 
