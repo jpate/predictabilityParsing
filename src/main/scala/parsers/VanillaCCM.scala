@@ -105,8 +105,8 @@ class VanillaCCMEstimator(
 
     val corpusCounts = corpus.map{ s =>
       val initPartialCounts = new CCMPartialCounts( smoothTrue, smoothFalse )
-      ( 0 to (s.length-2) ).foreach{ i =>
-        ( (i+1) to (s.length-1) ).foreach{ j =>
+      ( 0 to (s.length-1) ).foreach{ i =>
+        ( (i+1) to (s.length) ).foreach{ j =>
           val span = Yield( s.slice( i, j ) )
           val context =
             Context(
@@ -184,10 +184,10 @@ class VanillaCCMEstimator(
     }
 
     def synFill( start:Int, end:Int ) {
-      val thisSpan = Yield( s.slice( start, end+1 ) )
+      val thisSpan = Yield( s.slice( start, end ) )
       val thisContext = Context(
         if( start == 0 ) SentenceBoundary else s( start-1 ),
-        if( end == s.length-1 ) SentenceBoundary else s( end+1 )
+        if( end == s.length ) SentenceBoundary else s( end )
       )
 
       matrix( start )( end ) = new Entry( thisSpan, thisContext )
@@ -259,7 +259,7 @@ class VanillaCCMEstimator(
       }
 
       val p_tree = 0D - Math.log_space_binary_bracketings_count( s.length )
-      val fullStringIScore = matrix(0)(s.length-1).iScore
+      val fullStringIScore = matrix(0)(s.length).iScore
       val treeScore = fullStringIScore + distituentProduct + p_tree
 
       (0 to (s.length-1) ).foreach{ i =>
@@ -295,7 +295,7 @@ class VanillaCCMEstimator(
         }
       }
 
-      pc.setTotalScore( stringScore )
+      pc.setTotalScore( treeScore )
 
       pc
     }

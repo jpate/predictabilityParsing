@@ -89,7 +89,6 @@ class PlainCCMWithRightContextBEstimator(
     var distituentDenominator = 0D
 
     val corpusCounts = corpus.map{ s =>
-      //println( (0,s.length) + ": " + s )
       val initPartialCounts = new TwoContextCCMPartialCounts( smoothTrue, smoothFalse )
       ( 0 to (s.length-1) ).foreach{ i =>
         ( (i+1) to (s.length) ).foreach{ j =>
