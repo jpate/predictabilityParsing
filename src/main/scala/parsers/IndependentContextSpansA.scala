@@ -361,7 +361,7 @@ class IndependentContextSpansAEstimator(
   }
 
   def computePartialCounts( corpus:Iterable[List[WordPair]] ) =
-    corpus/*.par*/.map{ s => populateChart(s).toPartialCounts }.reduce{(a,b) => a.destructivePlus(b); a}
+    corpus.par.map{ s => populateChart(s).toPartialCounts }.reduce{(a,b) => a.destructivePlus(b); a}
 
 
 }

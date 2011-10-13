@@ -333,7 +333,7 @@ class VanillaCCMEstimator(
   def computePartialCountsSingle( s:List[ObservedLabel] ) = populateChart( s ).toPartialCounts
 
   def computePartialCounts( corpus:Iterable[List[ObservedLabel]] ) =
-    corpus/*.par*/.map{ s => populateChart(s).toPartialCounts }.reduce{(a,b) => a.destructivePlus(b); a}
+    corpus.par.map{ s => populateChart(s).toPartialCounts }.reduce{(a,b) => a.destructivePlus(b); a}
 
 }
 
