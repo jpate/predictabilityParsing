@@ -103,11 +103,6 @@ class IndependentContextSpansAEstimator(
           val contextB = Context( s(i).obsB, s(j-1).obsB )
 
 
-          // println( "> " + (i,j) )
-          // println( "\t" + span )
-          // println( "\t" + contextA )
-          // println( "\t" + contextB )
-
 
           val thisP_split = math.log( p_split( i, j, s.length ) )
 
@@ -231,13 +226,6 @@ class IndependentContextSpansAEstimator(
           )
           val thisContextB = Context( s( i ).obsB, s( j-1 ).obsB)
 
-          println(
-            "\t" + (i,j) +
-            "\t" + thisSpan + "\n" +
-            "\t" + thisContextA + "\n" +
-            "\t" + thisContextB + "\n\n"
-          )
-
           val leftSum =
             ( 0 to (i-1) ).foldLeft( Double.NegativeInfinity ){ (a, k) =>
               Math.sumLogProb(
@@ -358,7 +346,6 @@ class IndependentContextSpansAEstimator(
   * @return A parse chart with inside and outside probabilities.
   */
   def populateChart( s:List[WordPair] ) = {
-    println( s.mkString(""," ","\n") )
     val chart = new Chart( s )
 
     (1 to ( s.size )) foreach{ j =>

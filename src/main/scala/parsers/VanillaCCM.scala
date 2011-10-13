@@ -316,7 +316,6 @@ class VanillaCCMEstimator(
   * @return A parse chart with inside and outside probabilities.
   */
   def populateChart( s:List[ObservedLabel] ) = {
-    println( s.mkString(""," ","\n") )
     val chart = new Chart( s )
 
     (1 to ( s.size )) foreach{ j =>
