@@ -102,42 +102,42 @@ class PlainCCMWithRightContextBEstimator(
 
           val contextB = RightContext( s(j-1).obsB )
 
-          val thisP_split = math.log( p_split( i, j, s.length ) )
+          val thisP_split = p_split( i, j, s.length )
 
 
           initPartialCounts.incrementSpanCounts(
             Constituent,
             span,
-            thisP_split
+            math.log( thisP_split )
           )
           initPartialCounts.incrementSpanCounts(
             Distituent,
             span,
-            Math.subtractLogProb( 0D , thisP_split )
+            math.log( 1D - thisP_split )
           )
 
 
           initPartialCounts.incrementContextCountsA(
             Constituent,
             contextA,
-            thisP_split
+            math.log( thisP_split )
           )
           initPartialCounts.incrementContextCountsA(
             Distituent,
             contextA,
-            Math.subtractLogProb( 0D , thisP_split )
+            math.log( 1D - thisP_split )
           )
 
 
           initPartialCounts.incrementContextCountsB(
             Constituent,
             contextB,
-            thisP_split
+            math.log( thisP_split )
           )
           initPartialCounts.incrementContextCountsB(
             Distituent,
             contextB,
-            Math.subtractLogProb( 0D , thisP_split )
+            math.log( 1D - thisP_split )
           )
 
         }
@@ -185,10 +185,7 @@ class PlainCCMWithRightContextBEstimator(
             if( index == 0 ) SentenceBoundary else s( index-1 ).obsA,
             if( index == s.length-1) SentenceBoundary else s( index + 1 ).obsA
           ),
-          RightContext( s(index) )
-            // if( index == 0 ) SentenceBoundary else s( index-1 ).obsB,
-          //   if( index == s.length-1) SentenceBoundary else s( index + 1 ).obsB
-          // )
+          RightContext( s(index).obsB )
         )
     }
 
@@ -199,9 +196,6 @@ class PlainCCMWithRightContextBEstimator(
         if( end == s.length ) SentenceBoundary else s( end ).obsA
       )
       val thisContextB = RightContext( s(end-1).obsB )
-        // if( start == 0 ) SentenceBoundary else s( start-1 ).obsB,
-        //if( end == s.length ) SentenceBoundary else s( end ).obsB
-      //)
 
       matrix( start )( end ) = new Entry( thisSpan, thisContextA, thisContextB )
       matrix( start )( end ).setIScore(
@@ -401,9 +395,6 @@ class PlainCCMWithRightContextBParser {
               if( index == s.length-1) SentenceBoundary else s( index + 1 ).obsA
             ),
             RightContext( s( index ).obsB )
-              // if( index == 0 ) SentenceBoundary else s( index-1 ).obsB,
-            //   if( index == s.length-1) SentenceBoundary else s( index + 1 ).obsB
-            // )
           )
         )
       )
@@ -417,10 +408,7 @@ class PlainCCMWithRightContextBParser {
         if( start == 0 ) SentenceBoundary else s( start-1 ).obsA,
         if( end == s.length ) SentenceBoundary else s( end ).obsA
       )
-      val thisContextB = RightContext( s( end - 1 ) )
-        // if( start == 0 ) SentenceBoundary else s( start-1 ).obsB,
-      //   if( end == s.length ) SentenceBoundary else s( end ).obsB
-      // )
+      val thisContextB = RightContext( s( end - 1 ).obsB )
 
       val Tuple2( bestSplit, bestSplitScore ) =
         ( (start+1) to (end-1) ).foldLeft( Tuple2(0,Double.NegativeInfinity) ){ (a,k) =>
