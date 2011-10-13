@@ -212,11 +212,12 @@ class VanillaCCMEstimator(
         ( 0 to ( n - length ) ).foreach{ i =>
           val j = i + length
 
-          val thisSpan = Yield( s.slice( i, j+1 ) )
+          val thisSpan = Yield( s.slice( i, j ) )
           val thisContext = Context(
             if( i == 0 ) SentenceBoundary else s( i-1 ),
             if( j == s.length ) SentenceBoundary else s( j )
           )
+
 
           val leftSum =
             ( 0 to (i-1) ).foldLeft( Double.NegativeInfinity ){ (a, k) =>
@@ -315,6 +316,7 @@ class VanillaCCMEstimator(
   * @return A parse chart with inside and outside probabilities.
   */
   def populateChart( s:List[ObservedLabel] ) = {
+    println( s.mkString(""," ","\n") )
     val chart = new Chart( s )
 
     (1 to ( s.size )) foreach{ j =>
@@ -332,7 +334,7 @@ class VanillaCCMEstimator(
   def computePartialCountsSingle( s:List[ObservedLabel] ) = populateChart( s ).toPartialCounts
 
   def computePartialCounts( corpus:Iterable[List[ObservedLabel]] ) =
-    corpus.par.map{ s => populateChart(s).toPartialCounts }.reduce{(a,b) => a.destructivePlus(b); a}
+    corpus/*.par*/.map{ s => populateChart(s).toPartialCounts }.reduce{(a,b) => a.destructivePlus(b); a}
 
 }
 

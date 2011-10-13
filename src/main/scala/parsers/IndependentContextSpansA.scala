@@ -3,7 +3,7 @@ package predictabilityParsing.parsers
 import predictabilityParsing.grammars.TwoContextCCMGrammar
 import predictabilityParsing.partialCounts.TwoContextCCMPartialCounts
 import predictabilityParsing.types.labels._
-import predictabilityParsing.util.Math//,CorpusManipulation}
+import predictabilityParsing.util.Math
 import math.log
 
 class IndependentContextSpansAEstimator(
@@ -89,7 +89,6 @@ class IndependentContextSpansAEstimator(
     var distituentDenominator = 0D
 
     val corpusCounts = corpus.map{ s =>
-      //println( (0,s.length) + ": " + s )
       val initPartialCounts = new TwoContextCCMPartialCounts( smoothTrue, smoothFalse )
       ( 0 to (s.length-1) ).foreach{ i =>
         ( (i+1) to (s.length) ).foreach{ j =>
@@ -101,13 +100,7 @@ class IndependentContextSpansAEstimator(
               if( j == (s.length) ) SentenceBoundary else s(j).obsA
             )
 
-          val contextB =
-            Context(
-              s(i).obsB,
-              s(j-1).obsB
-              // if( i == 0 ) SentenceBoundary else s(i-1).obsB,
-              // if( j == (s.length) ) SentenceBoundary else s(j).obsB
-            )
+          val contextB = Context( s(i).obsB, s(j-1).obsB )
 
 
           // println( "> " + (i,j) )
@@ -198,12 +191,7 @@ class IndependentContextSpansAEstimator(
             if( index == 0 ) SentenceBoundary else s( index-1 ).obsA,
             if( index == s.length-1) SentenceBoundary else s( index + 1 ).obsA
           ),
-          Context(
-            s( index ).obsB,
-            s( index ).obsB
-            // if( index == 0 ) SentenceBoundary else s( index-1 ).obsB,
-            // if( index == s.length-1) SentenceBoundary else s( index + 1 ).obsB
-          )
+          Context( s( index ).obsB, s( index ).obsB )
         )
     }
 
@@ -213,12 +201,7 @@ class IndependentContextSpansAEstimator(
         if( start == 0 ) SentenceBoundary else s( start-1 ).obsA,
         if( end == s.length ) SentenceBoundary else s( end ).obsA
       )
-      val thisContextB = Context(
-        s( start ).obsB,
-        s( end-1 ).obsB
-        // if( start == 0 ) SentenceBoundary else s( start-1 ).obsB,
-        // if( end == s.length ) SentenceBoundary else s( end ).obsB
-      )
+      val thisContextB = Context( s( start ).obsB, s( end-1 ).obsB )
 
       matrix( start )( end ) = new Entry( thisSpan, thisContextA, thisContextB )
       matrix( start )( end ).setIScore(
@@ -241,16 +224,18 @@ class IndependentContextSpansAEstimator(
         ( 0 to ( n - length ) ).foreach{ i =>
           val j = i + length
 
-          val thisSpan = Yield( s.slice( i, j+1 ).map{ _.obsA } )
+          val thisSpan = Yield( s.slice( i, j ).map{ _.obsA } )
           val thisContextA = Context(
             if( i == 0 ) SentenceBoundary else s( i-1 ).obsA,
             if( j == s.length ) SentenceBoundary else s( j ).obsA
           )
-          val thisContextB = Context(
-            s( i ).obsB,
-            s( j-1 ).obsB
-            // if( i == 0 ) SentenceBoundary else s( i-1 ).obsB,
-            // if( j == s.length ) SentenceBoundary else s( j ).obsB
+          val thisContextB = Context( s( i ).obsB, s( j-1 ).obsB)
+
+          println(
+            "\t" + (i,j) +
+            "\t" + thisSpan + "\n" +
+            "\t" + thisContextA + "\n" +
+            "\t" + thisContextB + "\n\n"
           )
 
           val leftSum =
@@ -373,6 +358,7 @@ class IndependentContextSpansAEstimator(
   * @return A parse chart with inside and outside probabilities.
   */
   def populateChart( s:List[WordPair] ) = {
+    println( s.mkString(""," ","\n") )
     val chart = new Chart( s )
 
     (1 to ( s.size )) foreach{ j =>
@@ -388,7 +374,7 @@ class IndependentContextSpansAEstimator(
   }
 
   def computePartialCounts( corpus:Iterable[List[WordPair]] ) =
-    corpus.par.map{ s => populateChart(s).toPartialCounts }.reduce{(a,b) => a.destructivePlus(b); a}
+    corpus/*.par*/.map{ s => populateChart(s).toPartialCounts }.reduce{(a,b) => a.destructivePlus(b); a}
 
 
 }

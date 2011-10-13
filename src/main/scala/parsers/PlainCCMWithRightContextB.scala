@@ -218,7 +218,7 @@ class PlainCCMWithRightContextBEstimator(
         ( 0 to ( n - length ) ).foreach{ i =>
           val j = i + length
 
-          val thisSpan = Yield( s.slice( i, j+1 ).map{ _.obsA } )
+          val thisSpan = Yield( s.slice( i, j ).map{ _.obsA } )
           val thisContextA = Context(
             if( i == 0 ) SentenceBoundary else s( i-1 ).obsA,
             if( j == s.length ) SentenceBoundary else s( j ).obsA

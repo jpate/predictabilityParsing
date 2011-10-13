@@ -218,7 +218,7 @@ class StreamASpansStreamBContextsEstimator(
         ( 0 to ( n - length ) ).foreach{ i =>
           val j = i + length
 
-          val thisSpan = Yield( s.slice( i, j+1 ).map{ _.obsA } )
+          val thisSpan = Yield( s.slice( i, j ).map{ _.obsA } )
           val thisContext = Context(
             s( i ).obsB,
             s( j-1 ).obsB
