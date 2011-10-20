@@ -218,13 +218,15 @@ class StreamASpansStreamBContextsEstimator(
         ( 0 to ( n - length ) ).foreach{ i =>
           val j = i + length
 
-          val thisSpan = Yield( s.slice( i, j ).map{ _.obsA } )
-          val thisContext = Context(
-            s( i ).obsB,
-            s( j-1 ).obsB
-            // if( i == 0 ) SentenceBoundary else s( i-1 ).obsB,
-            // if( j == s.length ) SentenceBoundary else s( j ).obsB
-          )
+          val thisSpan = matrix( i )( j ).span
+          val thisContext = matrix( i )( j ).context
+          // val thisSpan = Yield( s.slice( i, j ).map{ _.obsA } )
+          // val thisContext = Context(
+          //   s( i ).obsB,
+          //   s( j-1 ).obsB
+          //   // if( i == 0 ) SentenceBoundary else s( i-1 ).obsB,
+          //   // if( j == s.length ) SentenceBoundary else s( j ).obsB
+          // )
 
           val leftSum =
             ( 0 to (i-1) ).foldLeft( Double.NegativeInfinity ){ (a, k) =>

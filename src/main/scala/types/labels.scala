@@ -7,8 +7,63 @@ abstract class Label(s:String) {
   def >( l2:Label) = toString > l2.toString
 }
 
-package object ccm {
-  val constituencyStatus:Set[ConstituencyStatus] = Set( Constituent, Distituent )
+abstract class AttachmentOrder( s:String ) extends HiddenLabel ( s )
+object LeftFirst extends AttachmentOrder( "--LeftFirst--" ) 
+object RightFirst extends AttachmentOrder( "--RightFirst--" )
+
+abstract class AttachmentStatus( s:String ) extends HiddenLabel ( s )
+object SealedLeft extends AttachmentStatus( "--SealedLeft--" ) 
+object SealedRight extends AttachmentStatus( "--SealedRight--" )
+object UnsealedLeftFirst extends AttachmentStatus( "--UnsealedLeftFirst--" )
+object UnsealedRightFirst extends AttachmentStatus( "--UnsealedRightFirst--" )
+object Sealed extends AttachmentStatus( "--Sealed--" )
+
+abstract class AttachmentDirection( s:String ) extends HiddenLabel( s )
+object LeftAttachment extends AttachmentDirection( "--LeftAttachment--" )
+object RightAttachment extends AttachmentDirection( "--RightAttachment--" )
+
+abstract class StopAttaching( s:String ) extends HiddenLabel( s )
+object Stop extends StopAttaching( "--Stop--" )
+object NotStop extends StopAttaching( "--NotStop--" )
+
+// Think of adj as: Have we attached anything in this direction yet? This way it makes sense when
+// sealing a lexical item which has no dependents.
+case class StopOrNot( w:ObservedLabel, dir:AttachmentDirection, adj:Bool )
+  extends HiddenLabel( w + ", " + dir + ", " + adj )
+
+case class ChooseArgument( h:ObservedLabel, dir:AttachmentDirection )
+  extends HiddenLabel( h + ", " + dir )
+
+case class MarkedObservation( val obs:TimedObservedLabel, val mark:AttachmentStatus )
+  extends HiddenLabel( obs + "-" + mark )
+
+package object dmv {
+  val attachmentOrder:Set[AttachmentOrder] = Set( LeftFirst, RightFirst )
+  val attachmentStatus:Set[AttachmentStatus] = Set(
+    SealedLeft,
+    SealedRight,
+    UnsealedLeftFirst,
+    UnsealedRightFirst,
+    Sealed
+  )
+  val attachmentDirection:Set[AttachmentDirection] = Set( LeftAttachment, RightAttachment )
+  val stopAttaching:Set[StopAttaching] = Set( Stop, NotStop )
+
+  def stopOrNotKeys( vocab:Iterable[ObservedLabel] ) {
+    vocab.flatMap{ w =>
+      attachmentDirection.flatMap{ dir =>
+        Set( StopOrNot( w, dir, true ), StopOrNot( w, dir, false ) )
+      }
+    }
+  }
+
+  def chooseKeys( vocab:Iterable[ObservedLabel] ) {
+    vocab.flatMap{ h =>
+      attachmentDirection.flatMap{ dir =>
+        ChooseArgument( h, dir )
+      }
+    }
+  }
 }
 
 trait StatePair
@@ -16,9 +71,19 @@ trait StatePair
 abstract class ObservedLabel( s:String ) extends Label( s )
 abstract class HiddenLabel( s:String ) extends Label( s )
 
+
+abstract class TimedObservedLabel( s:String, t:Int) extends ObservedLabel( s+".".t )
+case class TimedWord( w:String, t:Int ) extends TimedObservedLabel( w, t )
+
+
+
 abstract class ConstituencyStatus( s:String ) extends HiddenLabel ( s )
 object Distituent extends ConstituencyStatus( "--Distituent--" ) 
 object Constituent extends ConstituencyStatus( "--Constituent--" )
+
+package object ccm {
+  val constituencyStatus:Set[ConstituencyStatus] = Set( Constituent, Distituent )
+}
 
 
 case class Word( w:String ) extends ObservedLabel ( w ) {
