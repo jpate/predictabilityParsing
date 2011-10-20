@@ -63,5 +63,11 @@ case class TwoStreamSentence( sentenceID:String, sentence: List[WordPair] )
 abstract class Parameterization
 case class BaseCCM( span:Yield, context:Context ) extends Parameterization
 case class TwoContextCCM( span:Yield, contextA:AbstractContext, contextB:AbstractContext ) extends Parameterization
+case class TwoContextTwoSpanCCM(
+  spanA:Yield,
+  spanB:Yield,
+  contextA:AbstractContext,
+  contextB:AbstractContext
+) extends Parameterization
 
 
