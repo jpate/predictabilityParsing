@@ -12,11 +12,11 @@ object LeftFirst extends AttachmentOrder( "--LeftFirst--" )
 object RightFirst extends AttachmentOrder( "--RightFirst--" )
 
 abstract class AttachmentStatus( s:String ) extends HiddenLabel ( s )
-object SealedLeft extends AttachmentStatus( "--SealedLeft--" ) 
+object Sealed extends AttachmentStatus( "--Sealed--" )
+object SealedLeft extends AttachmentStatus( "--SealedLeft--" )
 object SealedRight extends AttachmentStatus( "--SealedRight--" )
 object UnsealedLeftFirst extends AttachmentStatus( "--UnsealedLeftFirst--" )
 object UnsealedRightFirst extends AttachmentStatus( "--UnsealedRightFirst--" )
-object Sealed extends AttachmentStatus( "--Sealed--" )
 
 abstract class AttachmentDirection( s:String ) extends HiddenLabel( s )
 object LeftAttachment extends AttachmentDirection( "--LeftAttachment--" )

@@ -13,10 +13,10 @@ class VanillaDMVEstimator {
   def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar ) }
 
   //class Entry( head:ObservedLabel, val attStatus:AttachmentStatus ) {
-  abstract class AbstractEntry( head:TimedObservedLabel, val attStatus:AttachmentStatus ) {
-    var iScore = 0D
+  abstract class AbstractEntry( val head:MarkedObservation ) {
+    var iScore = Double.NegativeInfinity
     var oScore = 0D
-    var dependent:TimedObservedLabel
+    var dependents:Iterable[Entry]
 
     def setIScore( updatedScore:Double ) { iScore = updatedScore }
     def setOScore( updatedScore:Double ) { oScore = updatedScore }
@@ -28,18 +28,26 @@ class VanillaDMVEstimator {
   }
 
   // class LexEntry( w:ObservedLabel, attStatus:AttachmentStatus ) extends AbstractEntry( w, attStatus ) {
-  class LexEntry( markedObs:MarkedObservation ) extends AbstractEntry( w, attStatus ) {
-    //val MarkedObservation( w, attStatus ) = markedObs
-    dependent = markedObs.obs
+  class LexEntry( markedObs:MarkedObservation ) extends AbstractEntry( markedObs ) {
+    dependents = Set[Entry]()
   }
 
-  class SynEntry(
-    h:TimedObservedLabel,
-    attStatus:AttachmentStatus,
-    a:TimedObservedLabel
-  ) extends AbstractEntry( h, attStatus ) {
-    dependent = a
+  abstract class SynEntry[Dir<:AttachmentDirection]( h:MarkedObservation ) extends AbstractEntry( h ) {
+    def addDependency( headEntry:Entry, argEntry:Entry ) {
+      assert( headEntry.head == h )
+      dependents += argEntry
+      incrementIScore(
+        g.p_stop( StopOrNot( h.obs, Dir, math.abs( h.obs.t - argEntry.head.obs.t) == 1 ) )( Stop ) +
+        g.p_choose( ChooseArgument( h.obs, Dir ) )( argEntry.head.obs ) +
+        argEntry.iScore +
+        headEntry.iScore
+      )
+    }
   }
+
+  class LeftHeadedSynEntry( h:MarkedObservation ) extends SynEntry[RightAttachment]( h ) 
+
+  class RightHeadedSynEntry( h:MarkedObservation ) extends SynEntry[LeftAttachment]( h )
 
   /*
    * A class for charts to populate. For now, we'll only allow one constituent category, especially
@@ -70,7 +78,7 @@ class VanillaDMVEstimator {
       matrix( index )( index+1 ) +=
         sealedLeft -> new LexEntry( sealedLeft )
       matrix( index )( index+1 )( sealedLeft ).setIScore(
-        g.p_stop( w.obs )( StopOrNot( w.obs, LeftAttachment, false ) ) +
+        g.p_stop( StopOrNot( w.obs, LeftAttachment, true ) )( Stop ) +
         matrix( index )( index+1 )( leftFirst ).iScore
       )
 
@@ -80,9 +88,9 @@ class VanillaDMVEstimator {
       // between i and j
       val sealedRight = MarkedObservation( w, SealedRight )
       matrix( index )( index+1 ) +=
-        SealedLeft -> new LexEntry( sealedRight )
+        sealedRight -> new LexEntry( sealedRight )
       matrix( index )( index+1 )( sealedRight ).setIScore(
-        g.p_stop(w.obs)( StopOrNot( w.obs, RightAttachment, false ) ) +
+        g.p_stop( StopOrNot( w.obs, RightAttachment, true ) )( Stop ) +
         matrix( index )( index+1 )( rightFirst ).iScore
       )
 
@@ -93,9 +101,9 @@ class VanillaDMVEstimator {
         sealedBoth -> new LexEntry( sealedBoth )
       matrix( index )( index+1 )( Sealed ).setIScore(
         Math.sumLogProb( 
-          g.p_stop(w.obs)( StopOrNot( w.obs, LeftAttachment, false ) ) +
+          g.p_stop( StopOrNot( w.obs, LeftAttachment, true ) )( Stop ) +
             matrix( index )( index+1 )( sealedRight ).iScore ,
-          g.p_stop(w.obs)( StopOrNot( w.obs, RightAttachment, false ) ) +
+          g.p_stop( StopOrNot( w.obs, RightAttachment, true ) )( Stop ) +
             matrix( index )( index+1 )( sealedLeft ).iScore
         )
       )
@@ -103,10 +111,114 @@ class VanillaDMVEstimator {
 
     def synFill( start:Int, end:Int ) {
       // no need to select attachment direction order; that occurs in span of length 1.
+      // Let's do least-sealed first to most-sealed last so that we can easily guarantee that the
+      // children of unary rules have already been computed.
+
+      // First, unsealed scores for spans larger than one (top of Klein's thesis p. 108).
+      ( (start+1) to (end-1) ).foreach{ k =>
+        // Since we have the same possible left and right arguments for the same k, go ahead and
+        // gather them now.
+        val rightArgs = matrix( k )( end ).keySet.filter{ _.mark == Sealed }
+        val leftArgs = matrix( start )( k ).keySet.filter{ _.mark == Sealed }
 
 
-      // Consider left children as head of currently considered span (i.e. from start to end)
-      
+
+        // Left-headed phrases first
+        // find possible unsealed left heads
+        val unsealedLeftHeads = matrix( start )( k ).keySet.filter{ _.mark == UnsealedRightFirst }
+
+        unsealedLeftHeads.foreach{ h =>
+          if( !( matrix( start )( end ).contains( h ) ) )
+            matrix( start )( end ) += h -> new LeftHeadedSynEntry( h )
+
+          rightArgs.foreach{ rightArg =>
+            matrix( start )( end )( h ).addDependency(
+              matrix( start )( k )( h ),
+              matrix( k )( end )( rightArg )
+            )
+          }
+        }
+
+        // Ok, now right-headed phrases
+        // find possible unsealed right heads
+        val unsealedRightHeads = matrix( k )( end ).keySet.filter{ _.mark == UnsealedLeftFirst }
+
+        unsealedRightHeads.foreach{ h =>
+          if( !( matrix( start )( end ).contains( h ) ) )
+            matrix( start )( end ) += h -> new RightHeadedSynEntry( h )
+
+          leftArgs.foreach{ leftArg =>
+            matrix( start )( end )( h ).addDependency(
+              matrix( k )( end )( h ),
+              matrix( start )( k )( leftArg )
+            )
+          }
+
+        }
+      }
+
+
+      // Good, now let's do half-sealed heads for the current span.
+      // Only do the summations insead the k foreach loop, increment by inside score of unary child
+      // and stop after the loop. So the k loop will actually be identical to the above k loop for unsealed
+      // parents (except for filtering out half-sealed left heads rather than unsealed left heads),
+      // but afterwards we also increment by the inside score of unary child and stop
+      ( (start+1) to (end-1) ).foreach{ k =>
+        val rightArgs = matrix( k )( end ).keySet.filter{ _.mark == Sealed }
+        val leftArgs = matrix( start )( k ).keySet.filter{ _.mark == Sealed }
+
+        // Left-heads first:
+
+        val halfSealedLeftHeads = matrix( start )( k ).keySet.filter{ _.mark == SealedLeft }
+
+        halfSealedLeftHeads.foreach{ h =>
+          if( !( matrix( start )( end ).contains( h ) ) )
+            matrix( start )( end ) += h -> new LeftHeadedSynEntry( h )
+
+          rightArgs.foreach{ rightArg =>
+            matrix( start )( end )( h ).addDependency(
+              matrix( start )( k )( h ),
+              matrix( k )( end )( rightArg )
+            )
+          }
+        }
+
+        // Ok, now right-heads
+
+        val halfSealedRightHeads = matrix( k )( end ).keySet.filter{ _.mark == SealedRight }
+
+        halfSealedRightHeads.foreach{ h =>
+          if( !( matrix( start )( end ).keySet.contains( h ) ) )
+            matrix( start )( end ) += h -> new RightHeadedSynEntry( h )
+
+          leftArgs.foreach{ leftArg =>
+            matrix( start )( end )( h ).addDependency(
+              matrix( k )( end )( h ),
+              matrix( start )( k )( leftArg )
+            )
+          }
+
+        }
+      }
+
+      // now increment by probability of sealing an unsealed left-first head to the left
+      val fullSpanHalfSealedLeftHeads = matrix( start )( end ).keySet.filter{ _.mark == SealedLeft }
+      fullSpanHalfSealedLeftHeads.foreach{ h =>
+        matrix( start )( end )( h ).incrementIScore(
+          g.p_stop( StopOrNot( h.obs, LeftAttachment, math.abs( start - h.obs.t ) <= 1 ) )( Stop ),
+          matrix( start )( end )( MarkedObservation( h.obs, UnsealedLeftFirst ) ).iScore
+        )
+      }
+
+      // now increment by probability of sealing an unsealed right-first head to the to the right
+      val fullSpanHalfSealedRightHeads = matrix( start )( end ).keySet.filter{ _.mark == SealedRight }
+      fullSpanHalfSealedRightHeads.foreach{ h =>
+        matrix( start )( end )( h ).incrementIScore(
+          g.p_stop( StopOrNot( h.obs, RightAttachment, math.abs( end - h.obs.t ) <= 1 ) )( Stop ),
+          matrix( start )( end )( MarkedObservation( h.obs, UnsealedRightFirst ) ).iScore
+        )
+      }
+
 
 
     }
