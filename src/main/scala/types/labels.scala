@@ -22,13 +22,13 @@ abstract class AttachmentDirection( s:String ) extends HiddenLabel( s )
 object LeftAttachment extends AttachmentDirection( "--LeftAttachment--" )
 object RightAttachment extends AttachmentDirection( "--RightAttachment--" )
 
-abstract class StopAttaching( s:String ) extends HiddenLabel( s )
-object Stop extends StopAttaching( "--Stop--" )
-object NotStop extends StopAttaching( "--NotStop--" )
+abstract class StopDecision( s:String ) extends HiddenLabel( s )
+object Stop extends StopDecision( "--Stop--" )
+object NotStop extends StopDecision( "--NotStop--" )
 
-// Think of adj as: Have we attached anything in this direction yet? This way it makes sense when
-// sealing a lexical item which has no dependents.
-case class StopOrNot( w:ObservedLabel, dir:AttachmentDirection, adj:Bool )
+// Think of adj as the inverse of: Have we attached anything in this direction yet? This way it
+// makes sense when sealing a lexical item which has no dependents.
+case class StopOrNot( w:ObservedLabel, dir:AttachmentDirection, adj:Boolean )
   extends HiddenLabel( w + ", " + dir + ", " + adj )
 
 case class ChooseArgument( h:ObservedLabel, dir:AttachmentDirection )
@@ -47,23 +47,21 @@ package object dmv {
     Sealed
   )
   val attachmentDirection:Set[AttachmentDirection] = Set( LeftAttachment, RightAttachment )
-  val stopAttaching:Set[StopAttaching] = Set( Stop, NotStop )
+  val stopDecision:Set[StopDecision] = Set( Stop, NotStop )
 
-  def stopOrNotKeys( vocab:Iterable[ObservedLabel] ) {
+  def stopOrNotKeys( vocab:Iterable[ObservedLabel] ) =
     vocab.flatMap{ w =>
       attachmentDirection.flatMap{ dir =>
         Set( StopOrNot( w, dir, true ), StopOrNot( w, dir, false ) )
       }
     }
-  }
 
-  def chooseKeys( vocab:Iterable[ObservedLabel] ) {
+  def chooseKeys( vocab:Iterable[ObservedLabel] ) =
     vocab.flatMap{ h =>
-      attachmentDirection.flatMap{ dir =>
+      attachmentDirection.map{ dir =>
         ChooseArgument( h, dir )
       }
     }
-  }
 }
 
 trait StatePair
@@ -72,11 +70,12 @@ abstract class ObservedLabel( s:String ) extends Label( s )
 abstract class HiddenLabel( s:String ) extends Label( s )
 
 
-abstract class TimedObservedLabel( s:String, t:Int) extends ObservedLabel( s+".".t ) {
-}
-case class TimedWord( val w:String, t:Int ) extends TimedObservedLabel( w, t )
+abstract class TimedObservedLabel( val w:ObservedLabel, val t:Int) extends ObservedLabel( w+"."+t ) 
+case class TimedWord( s:String, time:Int ) extends TimedObservedLabel( Word( s ), time )
 
-case class Root( t:Int ) extends TimedObservedLabel( "--Root--", t )
+case object Root extends ObservedLabel( "--Root--" )
+case object InitialRoot extends TimedObservedLabel( Root, 0 )
+case class FinalRoot( n:Int ) extends TimedObservedLabel( Root, n )
 
 
 abstract class ConstituencyStatus( s:String ) extends HiddenLabel ( s )
