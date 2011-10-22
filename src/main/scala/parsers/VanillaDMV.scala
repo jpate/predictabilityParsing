@@ -15,8 +15,8 @@ class VanillaDMVEstimator {
   //class Entry( head:ObservedLabel, val attStatus:AttachmentStatus ) {
   abstract class AbstractEntry( val head:MarkedObservation ) {
     var iScore = Double.NegativeInfinity
-    var oScore = 0D
-    var dependents:Iterable[Entry]
+    var oScore = Double.NegativeInfinity
+    var dependents:Iterable[Entry] = Set[Entry]()
 
     def setIScore( updatedScore:Double ) { iScore = updatedScore }
     def setOScore( updatedScore:Double ) { oScore = updatedScore }
@@ -28,9 +28,9 @@ class VanillaDMVEstimator {
   }
 
   // class LexEntry( w:ObservedLabel, attStatus:AttachmentStatus ) extends AbstractEntry( w, attStatus ) {
-  class LexEntry( markedObs:MarkedObservation ) extends AbstractEntry( markedObs ) {
-    dependents = Set[Entry]()
-  }
+  class LexEntry( markedObs:MarkedObservation ) extends AbstractEntry( markedObs )
+
+  class SealedSynEntry( h:MarkedObservation ) extends AbstractEntry( h ) 
 
   abstract class SynEntry[Dir<:AttachmentDirection]( h:MarkedObservation ) extends AbstractEntry( h ) {
     def addDependency( headEntry:Entry, argEntry:Entry ) {
@@ -221,19 +221,150 @@ class VanillaDMVEstimator {
 
 
 
+      assert( fullSpanHalfSealedLeftHeads.map{_.obs} == fullSpanHalfSealedRightHeads.map{_.obs} )
+      // Finally, we do sealed heads for current span (very top of p. 107)
+      fullSpanHalfSealedLeftHeads.map{_.obs}.foreach{ hObs =>
+        val h = MarkedObservation( hObs, Sealed )
+        val sealedLeft = MarkedObservation( hObs, SealedLeft )
+        val sealedRight = MarkedObservation( hObs, SealedRight )
+        matrix( start )( end ) += h -> new SealedSynEntry( h )
+        matrix( start )( end )( h ).dependents ++=
+          Set( matrix( start )( end )( sealedLeft ) , matrix( start )( end)( sealedRight ) )
+
+        matrix( start )( end )( h ).incrementIScore(
+          Math.sumLogProb(
+            g.p_stop( StopOrNot( hObs, LeftAttachment, math.abs( start - hobs.t ) <= 1 ) )( Stop ) +
+              matrix( start )( end )( sealedRight ).iScore,
+            g.p_stop( StopOrNot( hObs, RightAttachment, math.abs( end - hobs.t ) <= 1 ) )( Stop ) +
+              matrix( start )( end )( sealedLeft ).iScore
+          )
+        )
+      }
+
     }
+
+    private def adj( w1:TimedObservedLabel, w2:TimedObservedLabel ) = math.abs( w1.t - w2.t ) <= 1
+    private def adj( w1:MarkedObservation, w2:MarkedObservation ) = math.abs( w1.obs.t - w2.obs.t ) <= 1
+    private def adj( w1:TimedObservedLabel, w2:Int ) = math.abs( w1.t - w2 ) <= 1
+    private def adj( w1:MarkedObservation, w2:Int ) = math.abs( w1.obs.t - w2 ) <= 1
 
     def outsidePass {
       import math.exp
       val n = s.length
 
-      /*
-       * Based on ccm.py from Franco M Luque's dmvccm project. Thanks!
-       */
-      matrix( 0 )( n ).setOScore( 0D )
-      ( 1 to (n-1) ).reverse.foreach( length =>
+      matrix( 0 )( n )( MarkedObservation( Root(n-1), Sealed ) ).setOScore( 0D )
+      // 1 to (n) rather than 1 to (n-1) because we do have unary branches over the whole sentence
+      ( 1 to n ).reverse.foreach( length =>
         ( 0 to ( n - length ) ).foreach{ i =>
+          val j = i + length
 
+          // First, consider the possibility that sealed nodes of current span are arguments of
+          // heads outside of the span, but only if we aren't considering the full-sentence span.
+          // Probably this check can be eliminated, since (0 to -1) and (n+1 to n) are empty
+
+          if( length < n ) {
+
+            val curSpanSealedNodes = matrix(i)(j).filter{ _.mark == Sealed }
+
+            curSpanSealedNodes.foreach{ a =>
+
+
+              // Look both left and right for each sealed node. First, look left.
+              // to (i-1) so we don't bother looking for possible heads in spans of length 0
+              (0 to (i-1) ).foreach{ k =>
+                // Gather half-sealed right-looking heads:
+                val halfSealedRightwardHeads = matrix(k)(i).keySet.filter{ _.mark == SealedLeft }
+
+                // Gather unsealed right-looking heads:
+                val unsealedRightwardHeads = matrix(k)(i).keySet.filter{ _.mark == UnsealedRightFirst }
+
+                ( halfSealedRightwardHeads ++ unsealedRightwardHeads ).foreach{ h =>
+                  matrix(i)(j)(a).incrementOScore(
+                    g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj(h.obs.t,i) ) )( NotStop ) +
+                    g.p_choose( ChooseArgument( h.obs.w, RightAttachment ) )( a.obs.w ) +
+                    matrix( k )( i )( h ).iScore +
+                    matrix( k )( j )( h ).oScore
+                  )
+                }
+
+              }
+
+
+              // Now look right. Similarly, from j+1 so we don't bother looking for possible heads
+              // in spans of length 1
+              ( (j+1) to n ).foreach{ k =>
+                // Gather half-sealed left-looking heads:
+                val halfSealedLeftwardHeads = matrix(j)(k).keySet.filter{ _.mark == SealedRight }
+
+                // Gather unsealed left-looking heads:
+                val unsealedLeftwardHeads = matrix(j)(k).keySet.filter{ _.mark == UnsealedLeftFirst }
+
+                ( halfSealedLeftwardHeads ++ unsealedLeftwardHeads ).foreach{ h =>
+                  matrix(i)(j)(a).incrementOScore(
+                    g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj(h.obs.t,j) ) )( NotStop ) +
+                    g.p_choose( ChooseArgument( h.obs.w, LeftAttachment ) )( a.obs.w ) +
+                    matrix( j )( k )( h ).iScore +
+                    matrix( i )( k )( h ).oScore
+                  )
+                }
+
+              }
+            }
+
+            // Ok, now do outside scores for all unary branches, working from most-sealed to
+            // least-sealed.
+
+            // Half-sealed leftward looking first
+            val curSpanSealedRight = matrix( i )( j ).keySet.filter{ _.mark == SealedRight }
+            curSpanSealedRight.foreach{ w =>
+              // possibility we are the immediate child of a stop rule.
+              matrix(i)(j)(w).incrementOScore(
+                g.p_stop( StopOrNot( w.obs.w, LeftAttachment, adj( w, i ) ) )( Stop ) +
+                matrix(i)(j)( MarkedObservation( w.obs, Sealed ) ).oScore
+              )
+
+              // possiblity we are the (right) head of a left attachment rule. Sum over all possible
+              // left attachments. to (i-1) for the same reason as above
+              (0 to (i-1)).foreach{ k =>
+                val possibleLeftArguments = matrix(k)(i).keySet.filter{ _.mark == Sealed }
+                possibleLeftArguments.foreach{ a =>
+                  matrix(i)(j)(w).incrementOScore(
+                    g.p_stop( StopOrNot( w.obs.w, LeftAttachment, adj( w, i ) ) )( NotStop ) +
+                    g.p_choose( ChooseArgument( w, LeftAttachment ) )( a.obs.w ) +
+                    matrix(k)(i)(a).iScore +
+                    matrix(k)(j)(w).oScore
+                  )
+                }
+              }
+            }
+
+            // TODO START FROM HERE!
+            // Unsealed leftward looking first. TODO: collapse this into above by introducing a
+            // sealed() method that produces e.g. SealedRight from UnsealedRightFirst ??
+            val curSpanUnsealedRightFirst = matrix( i )( j ).keySet.filter{ _.mark == UnsealedRightFirst }
+            curSpanUnsealedRightFirst.foreach{ w =>
+              // possibility we are the immediate child of a stop rule.
+              matrix(i)(j)(w).incrementOScore(
+                g.p_stop( StopOrNot( w.obs.w, LeftAttachment, adj( w, i ) ) )( Stop ) +
+                matrix(i)(j)( MarkedObservation( w.obs, Sealed ) ).oScore
+              )
+
+              // possiblity we are the (right) head of a left attachment rule. Sum over all possible
+              // left attachments. to (i-1) for the same reason as above
+              (0 to (i-1)).foreach{ k =>
+                val possibleLeftArguments = matrix(k)(i).keySet.filter{ _.mark == Sealed }
+                possibleLeftArguments.foreach{ a =>
+                  matrix(i)(j)(w).incrementOScore(
+                    g.p_stop( StopOrNot( w.obs.w, LeftAttachment, adj( w, i ) ) )( NotStop ) +
+                    g.p_choose( ChooseArgument( w, LeftAttachment ) )( a.obs.w ) +
+                    matrix(k)(i)(a).iScore +
+                    matrix(k)(j)(w).oScore
+                  )
+                }
+              }
+            }
+
+          }
         }
       )
     }

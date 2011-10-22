@@ -12,7 +12,7 @@ class DMVGrammar( vocabulary:Iterable[ObservedLabel] ) {
   val p_stop = new LogCPT( p_stop_keys, stopAttaching )
 
   private val p_choose_keys = dmv.chooseKeys( vocabulary )
-  val p_choose = new LogCPT( p_choose_keys, w )
+  val p_choose = new LogCPT( p_choose_keys, vocabulary )
 
   def setParams( otherGram:DMVGrammar ) {
     p_order.setCPT( otherGram.p_order.getCPT )

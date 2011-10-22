@@ -72,9 +72,11 @@ abstract class ObservedLabel( s:String ) extends Label( s )
 abstract class HiddenLabel( s:String ) extends Label( s )
 
 
-abstract class TimedObservedLabel( s:String, t:Int) extends ObservedLabel( s+".".t )
-case class TimedWord( w:String, t:Int ) extends TimedObservedLabel( w, t )
+abstract class TimedObservedLabel( s:String, t:Int) extends ObservedLabel( s+".".t ) {
+}
+case class TimedWord( val w:String, t:Int ) extends TimedObservedLabel( w, t )
 
+case class Root( t:Int ) extends TimedObservedLabel( "--Root--", t )
 
 
 abstract class ConstituencyStatus( s:String ) extends HiddenLabel ( s )
