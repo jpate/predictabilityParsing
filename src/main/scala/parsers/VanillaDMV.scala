@@ -61,8 +61,8 @@ class VanillaDMVEstimator {
         assert( headEntry.head == h )
         dependents += argEntry
         incrementIScore(
-          g.p_stop( StopOrNot( h.obs, RightAttachment, adj( h.obs , argEntry.start ) ) )( Stop ) +
-          g.p_choose( ChooseArgument( h.obs, RightAttachment ) )( argEntry.head.obs ) +
+          g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h.obs, argEntry.start ) ) )( NotStop ) +
+          g.p_choose( ChooseArgument( h.obs.w, RightAttachment ) )( argEntry.head.obs ) +
           argEntry.iScore +
           headEntry.iScore
         )
@@ -75,8 +75,8 @@ class VanillaDMVEstimator {
         assert( headEntry.head == h )
         dependents += argEntry
         incrementIScore(
-          g.p_stop( StopOrNot( h.obs, LeftAttachment, adj( h.obs , argEntry.end ) ) )( Stop ) +
-          g.p_choose( ChooseArgument( h.obs, LeftAttachment ) )( argEntry.head.obs ) +
+          g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( h.obs, argEntry.end ) ) )( NotStop ) +
+          g.p_choose( ChooseArgument( h.obs.w, LeftAttachment ) )( argEntry.head.obs ) +
           argEntry.iScore +
           headEntry.iScore
         )
@@ -720,6 +720,120 @@ class VanillaDMVParser {
     }
 
     def synFill( start:Int, end:Int ) {
+      ( (start+1) to (end-1) ).foreach{ k =>
+        val rightArgs = matrix( k )( end ).keySet.filter{ _.mark == Sealed }
+        val leftArgs = matrix( start )( k ).keySet.filter{ _.mark == Sealed }
+
+        // gather each possible un-sealed rightward-looking head.
+        val unsealedLeftHeads = matrix( start )( k ).keySet.filter{ _.mark == UnsealedRightFirst }
+        unsealedLeftHeads.foreach{ h =>
+          // store the best way to get h from start to k as the head dominating start to end.
+          val Tuple2( bestArg, bestArgScore ) =
+            rightArgs.foldLeft( Tuple2( null, Double.NegativeInfinity ) )( (bestArgAndScore,arg) =>
+              val bestScore = bestArgAndScore._2
+              val newScore =
+                g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h.obs, k ) ) )( NotStop ) +
+                g.p_choose( ChooseArgument( h.obs.w, RightAttachment ) )( arg.obs.w ) +
+                matrix(start)(k)(h).score +
+                matrix(k)(end)(arg).score
+
+              if( newScore > bestScore )
+                Tuple2( arg, newScore )
+              else
+                bestArgAndScore
+            )
+
+          matrix(start)(end) +=
+            h -> new LeftHeadedVitSynEntry(
+              Option( matrix(start)(k)(h) ),
+              Option( matrix(k)(end)(bestArg) ),
+              bestArgScore
+            )
+          // Also, store the right seal of this head
+          val sealedRight = MarkedObservation( h.obs, SealedRight )
+          matrix(start)(end) +=
+            sealedRight -> new RightHeadedVitSynEntry(
+              Option( matrix( start )( end )( h ) ),
+              None,
+              bestArgScore + g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h.obs, k ) ) )
+            )
+        }
+
+
+        // now gather each possible un-sealed leftward-looking head.
+        val unsealedRightHeads = matrix( k )( end ).keySet.filter{ _.mark == UnsealedLeftFirst }
+        unsealedRightHeads.foreach{ h =>
+          // store the best way to get h from start to k as the head dominating start to end.
+          val Tuple2( bestArg, bestArgScore ) =
+            rightArgs.foldLeft( Tuple2( null, Double.NegativeInfinity ) )( (bestArgAndScore,arg) =>
+              val bestScore = bestArgAndScore._2
+              val newScore =
+                g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( h.obs, k ) ) )( NotStop ) +
+                g.p_choose( ChooseArgument( h.obs.w, LeftAttachment ) )( arg.obs.w ) +
+                matrix(start)(k)(arg).score +
+                matrix(k)(end)(h).score
+
+              if( newScore > bestScore )
+                Tuple2( arg, newScore )
+              else
+                bestArgAndScore
+            )
+
+          matrix(start)(end) +=
+            h -> new LeftHeadedVitSynEntry(
+              Option( matrix(k)(end)(h) ),
+              Option( matrix(start)(k)(bestArg) ),
+              bestArgScore
+            )
+          // Also, store the left seal of this head
+          val sealedLeft = MarkedObservation( h.obs, SealedLeft )
+          matrix(start)(end) +=
+            sealedRight -> new RightHeadedVitSynEntry(
+              Option( matrix( start )( end )( h ) ),
+              None,
+              bestArgScore + g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h.obs, k ) ) )
+            )
+        }
+
+
+        // gather each possible halfsealed rightward-looking head.
+        val halfsealedLeftHeads = matrix( start )( k ).keySet.filter{ _.mark == SealedLeft }
+        halfsealedLeftHeads.foreach{ h =>
+          // store the best way to get h from start to k as the head dominating start to end.
+          val Tuple2( bestArg, bestArgScore ) =
+            rightArgs.foldLeft( Tuple2( null, Double.NegativeInfinity ) )( (bestArgAndScore,arg) =>
+              val bestScore = bestArgAndScore._2
+              val newScore =
+                g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h.obs, k ) ) )( NotStop ) +
+                g.p_choose( ChooseArgument( h.obs.w, RightAttachment ) )( arg.obs.w ) +
+                matrix(start)(k)(h).score +
+                matrix(k)(end)(arg).score
+
+              if( newScore > bestScore )
+                Tuple2( arg, newScore )
+              else
+                bestArgAndScore
+            )
+
+          matrix(start)(end) +=
+            h -> new LeftHeadedVitSynEntry(
+              Option( matrix(start)(k)(h) ),
+              Option( matrix(k)(end)(bestArg) ),
+              bestArgScore
+            )
+          // Also, store the right seal of this head
+          val sealedRight = MarkedObservation( h.obs, SealedRight )
+          matrix(start)(end) +=
+            sealedRight -> new RightHeadedVitSynEntry(
+              Option( matrix( start )( end )( sealedRight ) ),
+              None,
+              bestArgScore + g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h.obs, k ) ) )
+            )
+        }
+
+
+
+      }
     }
   }
 
