@@ -12,48 +12,6 @@ class VanillaDMVEstimator {
 
   def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar ) }
 
-  //class Entry( head:ObservedLabel, val attStatus:AttachmentStatus ) {
-  abstract class AbstractEntry( val head:MarkedObservation ) {
-    var iScore = Double.NegativeInfinity
-    var oScore = Double.NegativeInfinity
-    var dependents:Set[AbstractEntry] = Set[AbstractEntry]()
-
-    def setIScore( updatedScore:Double ) { iScore = updatedScore }
-    def setOScore( updatedScore:Double ) { oScore = updatedScore }
-
-    def incrementIScore( inc:Double ) { iScore = Math.sumLogProb( iScore, inc ) }
-    def incrementOScore( inc:Double ) { oScore = Math.sumLogProb( oScore, inc ) }
-
-    def addDependency( headEntry:AbstractEntry, argEntry:AbstractEntry ):Unit
-
-    override def toString = head.toString
-  }
-
-  // class LexEntry( w:ObservedLabel, attStatus:AttachmentStatus ) extends AbstractEntry( w, attStatus ) {
-  class LexEntry( markedObs:MarkedObservation ) extends AbstractEntry( markedObs ) {
-    def addDependency( headEntry:AbstractEntry, argEntry:AbstractEntry ) = ()
-  }
-
-  class SealedSynEntry( h:MarkedObservation ) extends AbstractEntry( h ) {
-    def addDependency( headEntry:AbstractEntry, argEntry:AbstractEntry ) = ()
-  }
-
-  abstract class SynEntry( h:MarkedObservation, dir:AttachmentDirection) extends AbstractEntry( h ) {
-    def addDependency( headEntry:AbstractEntry, argEntry:AbstractEntry ) {
-      assert( headEntry.head == h )
-      dependents += argEntry
-      incrementIScore(
-        g.p_stop( StopOrNot( h.obs, dir, math.abs( h.obs.t - argEntry.head.obs.t) == 1 ) )( Stop ) +
-        g.p_choose( ChooseArgument( h.obs, dir ) )( argEntry.head.obs ) +
-        argEntry.iScore +
-        headEntry.iScore
-      )
-    }
-  }
-
-  class LeftHeadedSynEntry( h:MarkedObservation ) extends SynEntry( h, RightAttachment ) 
-
-  class RightHeadedSynEntry( h:MarkedObservation ) extends SynEntry( h, LeftAttachment )
 
   /*
    * A class for charts to populate. For now, we'll only allow one constituent category, especially
@@ -64,8 +22,71 @@ class VanillaDMVEstimator {
       collection.mutable.Map[MarkedObservation,AbstractEntry]()
     )
 
-    def lexFill( index:Int ) {
+    //class Entry( head:ObservedLabel, val attStatus:AttachmentStatus ) {
+    abstract class AbstractEntry( val head:MarkedObservation, val start:Int, val end:Int ) {
+      var iScore = Double.NegativeInfinity
+      var oScore = Double.NegativeInfinity
+      var score = 0D // Set this after setting iScore and oScore
+      var dependents:Set[AbstractEntry] = Set[AbstractEntry]()
 
+      def setIScore( updatedScore:Double ) { iScore = updatedScore }
+      def setOScore( updatedScore:Double ) { oScore = updatedScore }
+      def setScore( newScore:Double ) { score = newScore }
+      def computeMarginal( treeScore:Double ) { score = oScore + iScore / treeScore }
+
+      def incrementIScore( inc:Double ) { iScore = Math.sumLogProb( iScore, inc ) }
+      def incrementOScore( inc:Double ) { oScore = Math.sumLogProb( oScore, inc ) }
+
+      def addDependency( headEntry:AbstractEntry, argEntry:AbstractEntry ):Unit
+
+      override def toString = head.toString
+    }
+
+    class LexEntry( markedObs:MarkedObservation )
+      extends AbstractEntry( markedObs, markedObs.obs.t, markedObs.obs.t+1 ) {
+      def addDependency( headEntry:AbstractEntry, argEntry:AbstractEntry ) = ()
+    }
+
+    class SealedSynEntry( h:MarkedObservation, i:Int, j:Int ) extends AbstractEntry( h, i:Int, j:Int ) {
+      def addDependency( headEntry:AbstractEntry, argEntry:AbstractEntry ) = ()
+    }
+
+    // TODO consider removing attachDir
+    abstract class SynEntry( h:MarkedObservation, val attachDir:AttachmentDirection, i:Int, j:Int )
+      extends AbstractEntry( h, i, j ) 
+
+    class LeftHeadedSynEntry( h:MarkedObservation, i:Int, j:Int )
+      extends SynEntry( h, RightAttachment, i, j ) {
+      def addDependency( headEntry:AbstractEntry, argEntry:AbstractEntry ) {
+        assert( headEntry.head == h )
+        dependents += argEntry
+        incrementIScore(
+          g.p_stop( StopOrNot( h.obs, RightAttachment, adj( h.obs , argEntry.start ) ) )( Stop ) +
+          g.p_choose( ChooseArgument( h.obs, RightAttachment ) )( argEntry.head.obs ) +
+          argEntry.iScore +
+          headEntry.iScore
+        )
+      }
+    }
+
+    class RightHeadedSynEntry( h:MarkedObservation, i:Int, j:Int )
+      extends SynEntry( h, LeftAttachment, i, j ) {
+      def addDependency( headEntry:AbstractEntry, argEntry:AbstractEntry ) {
+        assert( headEntry.head == h )
+        dependents += argEntry
+        incrementIScore(
+          g.p_stop( StopOrNot( h.obs, LeftAttachment, adj( h.obs , argEntry.end ) ) )( Stop ) +
+          g.p_choose( ChooseArgument( h.obs, LeftAttachment ) )( argEntry.head.obs ) +
+          argEntry.iScore +
+          headEntry.iScore
+        )
+      }
+    }
+
+    def treeScore =
+      matrix( 0 )( s.length )( MarkedObservation( FinalRoot( s.length ), Sealed ) ).iScore
+
+    def lexFill( index:Int ) {
       val w = s(index)
 
       val leftFirst = MarkedObservation( w, UnsealedLeftFirst )
@@ -136,7 +157,7 @@ class VanillaDMVEstimator {
 
         unsealedLeftHeads.foreach{ h =>
           if( !( matrix( start )( end ).contains( h ) ) )
-            matrix( start )( end ) += h -> new LeftHeadedSynEntry( h )
+            matrix( start )( end ) += h -> new LeftHeadedSynEntry( h, start, end )
 
           rightArgs.foreach{ rightArg =>
             matrix( start )( end )( h ).addDependency(
@@ -152,7 +173,7 @@ class VanillaDMVEstimator {
 
         unsealedRightHeads.foreach{ h =>
           if( !( matrix( start )( end ).contains( h ) ) )
-            matrix( start )( end ) += h -> new RightHeadedSynEntry( h )
+            matrix( start )( end ) += h -> new RightHeadedSynEntry( h, start, end )
 
           leftArgs.foreach{ leftArg =>
             matrix( start )( end )( h ).addDependency(
@@ -180,7 +201,7 @@ class VanillaDMVEstimator {
 
         halfSealedLeftHeads.foreach{ h =>
           if( !( matrix( start )( end ).contains( h ) ) )
-            matrix( start )( end ) += h -> new LeftHeadedSynEntry( h )
+            matrix( start )( end ) += h -> new LeftHeadedSynEntry( h, start, end )
 
           rightArgs.foreach{ rightArg =>
             matrix( start )( end )( h ).addDependency(
@@ -196,7 +217,7 @@ class VanillaDMVEstimator {
 
         halfSealedRightHeads.foreach{ h =>
           if( !( matrix( start )( end ).keySet.contains( h ) ) )
-            matrix( start )( end ) += h -> new RightHeadedSynEntry( h )
+            matrix( start )( end ) += h -> new RightHeadedSynEntry( h, start, end )
 
           leftArgs.foreach{ leftArg =>
             matrix( start )( end )( h ).addDependency(
@@ -238,7 +259,7 @@ class VanillaDMVEstimator {
         val h = MarkedObservation( hObs, Sealed )
         val sealedLeft = MarkedObservation( hObs, SealedLeft )
         val sealedRight = MarkedObservation( hObs, SealedRight )
-        matrix( start )( end ) += h -> new SealedSynEntry( h )
+        matrix( start )( end ) += h -> new SealedSynEntry( h, start, end )
         matrix( start )( end )( h ).dependents ++=
           Set( matrix( start )( end )( sealedLeft ) , matrix( start )( end)( sealedRight ) )
 
@@ -251,7 +272,6 @@ class VanillaDMVEstimator {
           )
         )
       }
-
     }
 
     private def adj( w1:TimedObservedLabel, w2:TimedObservedLabel ) = math.abs( w1.t - w2.t ) <= 1
@@ -273,7 +293,6 @@ class VanillaDMVEstimator {
           val curSpanSealedNodes = matrix(i)(j).keySet.filter{ _.mark == Sealed }
 
           curSpanSealedNodes.foreach{ a =>
-
 
             // Look both left and right for each sealed node. First, look left.
             // to (i-1) so we don't bother looking for possible heads in spans of length 0
@@ -427,16 +446,124 @@ class VanillaDMVEstimator {
       import collection.mutable.HashMap
       val pc = new DMVPartialCounts //( s.map{ _.obs }.toSet )
 
+      // First, produces marginals from inside and outside scores for every entry.
+      (0 to (s.length-1) ).foreach{ i =>
+        ( (i+1) to s.length ).foreach{ j =>
+          matrix(i)(j).values.foreach( _.computeMarginal( treeScore ) )
+        }
+      }
 
       (0 to (s.length-1) ).foreach{ i =>
         ( (i+1) to s.length ).foreach{ j =>
 
           // increment everything from the partial counts
+          // Since order no longer matters, just take care of the different cases with a
+          // construction of: match { case ... }
+
+          matrix(i)(j).values.foreach{ entry =>
+            val markedHead = entry.head
+            val timedHead = markedHead.obs
+            val h = timedHead.w
+            markedHead.mark match {
+              case UnsealedRightFirst => {
+                // Gather counts for order preference if span length 1
+                if( j - i == 1 )
+                  pc.incrementOrderCounts( h, RightFirst, entry.score )
+
+                // Gather counts for right attachments
+                entry.dependents.foreach{ argEntry =>
+                  pc.incrementChooseCounts(
+                    ChooseArgument( h, RightAttachment ),
+                    argEntry.head.obs.w,
+                    argEntry.score
+                  )
+                  pc.incrementStopCounts(
+                    StopOrNot( h, RightAttachment, adj( timedHead, argEntry.start ) ),
+                    NotStop,
+                    argEntry.score
+                  )
+                }
+              }
+              case UnsealedLeftFirst => {
+                // Gather counts for order preference if span length 1
+                if( j - i == 1 )
+                  pc.incrementOrderCounts( h, LeftFirst, entry.score )
+
+                // Gather counts for left attachments
+                entry.dependents.foreach{ argEntry =>
+                  pc.incrementChooseCounts(
+                    ChooseArgument( h, LeftAttachment ),
+                    argEntry.head.obs.w,
+                    argEntry.score
+                  )
+                  pc.incrementStopCounts(
+                    StopOrNot( h, LeftAttachment, adj( timedHead, argEntry.start ) ),
+                    NotStop,
+                    argEntry.score
+                  )
+                }
+              }
+              case SealedRight => {
+                // Gather counts for left attachments
+                entry.dependents.foreach{ argEntry =>
+                  pc.incrementChooseCounts(
+                    ChooseArgument( h, LeftAttachment ),
+                    argEntry.head.obs.w,
+                    argEntry.score
+                  )
+                  pc.incrementStopCounts(
+                    StopOrNot( h, LeftAttachment, adj( timedHead, argEntry.start ) ),
+                    NotStop,
+                    argEntry.score
+                  )
+                }
+                // Gather counts for stopping
+                pc.incrementStopCounts(
+                  StopOrNot( h, RightAttachment, adj( timedHead, entry.end ) ),
+                  Stop,
+                  entry.score
+                )
+              }
+              case SealedLeft => {
+                // Gather counts for right attachments
+                entry.dependents.foreach{ argEntry =>
+                  pc.incrementChooseCounts(
+                    ChooseArgument( h, RightAttachment ),
+                    argEntry.head.obs.w,
+                    argEntry.score
+                  )
+                  pc.incrementStopCounts(
+                    StopOrNot( h, RightAttachment, adj( timedHead, argEntry.end ) ),
+                    NotStop,
+                    argEntry.score
+                  )
+                }
+                // Gather counts for stopping
+                pc.incrementStopCounts(
+                  StopOrNot( h, LeftAttachment, adj( timedHead, entry.start ) ),
+                  Stop,
+                  entry.score
+                )
+              }
+              case Sealed => {
+                // No attachments, only possibility of having stopped to the left and to the right.
+                pc.incrementStopCounts(
+                  StopOrNot( h, RightAttachment, adj( timedHead, entry.end ) ),
+                  Stop,
+                  entry.score
+                )
+                pc.incrementStopCounts(
+                  StopOrNot( h, LeftAttachment, adj( timedHead, entry.start ) ),
+                  Stop,
+                  entry.score
+                )
+              }
+            }
+          }
 
         }
       }
 
-      val treeScore = 0D
       pc.setTotalScore( treeScore )
 
       pc
@@ -475,3 +602,143 @@ class VanillaDMVEstimator {
 
 }
 
+class VanillaDMVParser {
+  val g = new DMVGrammar( vocabulary = Set[Word]() )
+
+  class ViterbiChart( s:List[TimedObservedLabel] ) {
+    private val matrix = Array.fill( s.length+1, s.length+1 )(
+      collection.mutable.Map[MarkedObservation,AbstractEntry]()
+    )
+
+
+    abstract class AbstractVitEntry(
+      val headChild:Option[AbstractVitEntry],
+      val headLabel:MarkedObservation,
+      val argChild:Option[AbstractVitEntry],
+      val score:Double ) {
+      def constituencyParse:String
+      def dependencyParse:Set[DirectedArc]
+    }
+
+    class ViterbiLex( lexChild:Option[ViterbiLex], lexLabel:MarkedObservation, score:Double )
+      extends AbstractVitEntry( lexChild, lex, None, score ) {
+      def constituencyParse =
+        "(" + lexLabel + " " +
+          { if( lexChild.isEmpty ) lexLabel.obs else lexChild.get.constituencyParse } + ")"
+      def dependencyParse = Set[DirectedArc]()
+    }
+
+    class ViterbiSealed( h:Option[AbstractVitSynEntry], score:Double )
+      extends AbstractVitEntry( h, h.get.headLabel, None, score ) {
+      def constituencyParse =
+        "(" + MarkedObservation( h.get.headLabel.obs, Sealed ) + " " + h.get.constituencyParse + " )"
+      def dependencyParse = h.get.dependencyParse
+    }
+
+    abstract class AbstractVitSynEntry(
+      h:Option[AbstractVitEntry],
+      val attachDir:AttachmentDirection,
+      a:Option[AbstractVitEntry],
+      score:Double
+    ) extends AbstractVitEntry( h, h.headLabel, a, score ) {
+      def dependencyParse = Set( DirectedArc( h.get, a.get ) ) ++ a.get.dependencyParse
+    }
+
+    class LeftHeadedVitSynEntry(
+      h:Option[AbstractVitEntry],
+      a:Option[AbstractVitEntry],
+      score:Double
+    ) extends AbstractVitSynEntry( h, RightAttachment, a, score ) {
+      def constituencyParse =
+        "(" + h.get.headLabel + " " + h.get.constituencyParse + " " + a.get.constituencyParse + " )"
+    }
+    class RightHeadedVitSynEntry(
+      h:Option[AbstractVitEntry],
+      a:Option[AbstractVitEntry],
+      score:Double
+    ) extends AbstractVitSynEntry( h, LeftAttachment, a, score ) {
+      def constituencyParse =
+        "(" + h.get.headLabel +
+          { if( a.isEmpty ) "" else  " " + a.get.constituencyParse } +
+            " " + h.get.constituencyParse + " )"
+    }
+
+    def lexFill( index:Int ) {
+      import scala.util.Random
+      val r = new Random()
+      val w = s(index)
+
+      // First, pick best order.
+      val bestOrder =
+        if( g.p_order( w.w )( UnsealedLeftFirst ) > g.p_order( w.w )( UnsealedRightFirst ) )
+          UnsealedLeftFirst
+        else if( g.p_order( w.w )( UnsealedLeftFirst ) < g.p_order( w.w )( UnsealedRightFirst ) )
+          UnsealedRightFirst
+        else
+          if( r.nextDouble >= 0.5 ) UnsealedLeftFirst else UnsealedRightFirst
+
+      val orderSelection = MarkedObservation( w, bestOrder )
+      matrix(index)(index+1) +=
+        orderSelection -> new ViterbiLex( orderSelection, g.p_order( w.w )( bestOrder ) )
+
+      // Now store the best immediate seals in each direction (which will be determined by the best order)
+      if( bestOrder == UnsealedLeftFirst ) {
+        val sealedLeft = MarkedObservation( w, SealedLeft )
+        matrix(index)(index+1) +=
+          sealedLeft -> new RightHeadedVitSynEntry(
+            Option( matrix(index)(index+1)(bestOrder) ),
+            None,
+            g.p_stop( StopOrNot( w.w, LeftAttachment, true ) )( Stop ) +
+            matrix( index )( index+1 )( bestOrder ).score
+          )
+
+        val sealedBoth = MarkedObservation( w, Sealed )
+        matrix( index )( index+1 ) +=
+          sealedBoth -> new ViterbiSealed(
+            Option( matrix( index )( index+1 )( sealedLeft ) ),
+            g.p_stop( StopOrNot( w.w, RightAttachment, true ) )( Stop ) +
+            matrix( index )( index+1 )( sealedLeft ).score
+          )
+      } else {
+        val sealedRight = MarkedObservation( w, SealedRight )
+        matrix(index)(index+1) +=
+          sealedRight -> new LeftHeadedVitSynEntry(
+            Option( matrix(index)(index+1)(bestOrder) ),
+            None,
+            g.p_stop( StopOrNot( w.w, RightAttachment, true ) )( Stop ) +
+            matrix( index )( index+1 )( bestOrder ).score
+          )
+
+        val sealedBoth = MarkedObservation( w, Sealed )
+        matrix( index )( index+1 ) +=
+          sealedBoth -> new ViterbiSealed(
+            Option( matrix( index )( index+1 )( sealedRight ) ),
+            g.p_stop( StopOrNot( w.w, LeftAttachment, true ) )( Stop ) +
+            matrix( index )( index+1 )( sealedRight ).score
+          )
+      }
+    }
+
+    def synFill( start:Int, end:Int ) {
+    }
+  }
+
+  def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar ) }
+
+  def constituencyParse( toParse: List[TimedSentence] ) = {
+    toParse.map{ case TimedSentence( id, s ) =>
+      val chart = new ViterbiChart( s )
+
+      (1 to ( s.size )) foreach{ j =>
+        chart.lexFill( j-1 )
+        if( j > 1 )
+          (0 to (j-2)).reverse.foreach{ i =>
+            chart.synFill( i , j )
+          }
+      }
+
+      id + " " + chart.toConstituencyParse
+    }
+  }
+
+}

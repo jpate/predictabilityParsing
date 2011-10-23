@@ -243,7 +243,6 @@ class VanillaCCMEstimator(
     }
 
     def toPartialCounts = {
-      import collection.mutable.HashMap
       val pc = new CCMPartialCounts( smoothTrue, smoothFalse )
 
       var distituentProduct = 0D

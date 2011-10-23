@@ -22,6 +22,9 @@ abstract class AttachmentDirection( s:String ) extends HiddenLabel( s )
 object LeftAttachment extends AttachmentDirection( "--LeftAttachment--" )
 object RightAttachment extends AttachmentDirection( "--RightAttachment--" )
 
+case class DirectedArc( head:TimedObservedLabel, arg:TimedObservedLabel )
+  extends HiddenLabel( head + " --> " + arg )
+
 abstract class StopDecision( s:String ) extends HiddenLabel( s )
 object Stop extends StopDecision( "--Stop--" )
 object NotStop extends StopDecision( "--NotStop--" )
@@ -124,6 +127,8 @@ case class Context( left:ObservedLabel, right:ObservedLabel )
 case class Sentence( sentenceID:String, sentence: List[ObservedLabel] )
   extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
 case class TwoStreamSentence( sentenceID:String, sentence: List[WordPair] )
+  extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
+case class TimedSentence( sentenceID:String, sentence: List[TimedObservedLabel] )
   extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
 
 abstract class Parameterization
