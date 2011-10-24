@@ -233,10 +233,8 @@ class VanillaDMVEstimator {
       val fullSpanHalfSealedLeftHeads = matrix( start )( end ).keySet.filter{ _.mark == SealedLeft }
       fullSpanHalfSealedLeftHeads.foreach{ h =>
         matrix( start )( end )( h ).incrementIScore(
-          Math.sumLogProb(
-            g.p_stop( StopOrNot( h.obs, LeftAttachment, adj( h.obs, start ) ) )( Stop ),
-            matrix( start )( end )( MarkedObservation( h.obs, UnsealedLeftFirst ) ).iScore
-          )
+          g.p_stop( StopOrNot( h.obs, LeftAttachment, adj( h.obs, start ) ) )( Stop ) +
+          matrix( start )( end )( MarkedObservation( h.obs, UnsealedLeftFirst ) ).iScore
         )
       }
 
@@ -244,10 +242,8 @@ class VanillaDMVEstimator {
       val fullSpanHalfSealedRightHeads = matrix( start )( end ).keySet.filter{ _.mark == SealedRight }
       fullSpanHalfSealedRightHeads.foreach{ h =>
         matrix( start )( end )( h ).incrementIScore(
-          Math.sumLogProb(
-            g.p_stop( StopOrNot( h.obs, RightAttachment, adj( h.obs, end ) ) )( Stop ),
-            matrix( start )( end )( MarkedObservation( h.obs, UnsealedRightFirst ) ).iScore
-          )
+          g.p_stop( StopOrNot( h.obs, RightAttachment, adj( h.obs, end ) ) )( Stop ) +
+          matrix( start )( end )( MarkedObservation( h.obs, UnsealedRightFirst ) ).iScore
         )
       }
 
