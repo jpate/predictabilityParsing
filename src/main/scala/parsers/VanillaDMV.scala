@@ -817,14 +817,71 @@ class VanillaDMVParser {
               Option( matrix(k)(end)(bestArg) ),
               bestArgScore
             )
-          // Also, store the right seal of this head
-          val sealedRight = MarkedObservation( h.obs, SealedRight )
-          matrix(start)(end) +=
-            sealedRight -> new RightHeadedVitSynEntry(
-              Option( matrix( start )( end )( sealedRight ) ),
-              None,
-              bestArgScore + g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h.obs, k ) ) )
+
+          // DO NOT store the right seal of this head; we need to decide if we want to have a Sealed
+          // head from SealedRight or from SealedLeft
+                // Also, store the right seal of this head
+                // val sealedRight = MarkedObservation( h.obs, SealedRight )
+                // matrix(start)(end) +=
+                //   sealedRight -> new RightHeadedVitSynEntry(
+                //     Option( matrix( start )( end )( sealedRight ) ),
+                //     None,
+                //     bestArgScore + g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h.obs, k ) ) )
+                //   )
+        }
+
+        // gather each possible halfsealed rightward-looking head.
+        val halfsealedRightHeads = matrix( k )( end ).keySet.filter{ _.mark == SealedRight }
+        halfsealedRightHeads.foreach{ h =>
+          // store the best way to get h from k to end as the head dominating start to end.
+          val Tuple2( bestArg, bestArgScore ) =
+            rightArgs.foldLeft( Tuple2( null, Double.NegativeInfinity ) )( (bestArgAndScore,arg) =>
+              val bestScore = bestArgAndScore._2
+              val newScore =
+                g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( h.obs, k ) ) )( NotStop ) +
+                g.p_choose( ChooseArgument( h.obs.w, LeftAttachment ) )( arg.obs.w ) +
+                matrix(k)(end)(h).score +
+                matrix(start)(k)(arg).score
+
+              if( newScore > bestScore )
+                Tuple2( arg, newScore )
+              else
+                bestArgAndScore
             )
+
+          matrix(start)(end) +=
+            h -> new RightHeadedVitSynEntry(
+              Option( matrix(k)(end)(h) ),
+              Option( matrix(start)(k)(bestArg) ),
+              bestArgScore
+            )
+          // DO NOT store the right seal of this head; we need to decide if we want to have a Sealed
+          // head from SealedRight or from SealedLeft
+        }
+
+
+        assert( halfSealedLeftHeads.map{_.obs} == halfSealedRightHeads.map{_.obs} )
+        // OK, now decide whether we want a Sealed node from having sealed SealedLeft or SealedRight
+        // for each half sealed head
+        halfSealedLeftHeads.map{ _.obs }.foreach{ hObs =>
+          val sealLeftBasisScore =
+            matrix(start)(end)(MarkedObservation(hObs,SealedLeft)).score +
+              g.p_stop( StopOrNot( hobs.w, RightAttachment, adj( hObs, end ) ) )(Stop)
+          val sealRightBasisScore =
+            matrix(start)(end)(MarkedObservation(hObs,SealedRight)).score +
+              g.p_stop( StopOrNot( hobs.w, LeftAttachment, adj( hObs, start ) ) )(Stop)
+
+
+          val Tuple2( bestSealBasis, bestSealedScore ) =
+            if( sealLeftBasisScore > sealRightBasisScore )
+              Tuple2( SealedLeft, sealLeftBasisScore )
+            else if( sealLeftBasisScore < sealRightBasisScore )
+              Tuple2( SealedRight, sealRightBasisScore )
+            else
+              if( r.nextDouble > 0.5 )
+                Tuple2( SealedLeft, sealLeftBasisScore )
+              else
+                Tuple2( SealedRight, sealLeftBasisScore )
         }
 
 
@@ -835,20 +892,29 @@ class VanillaDMVParser {
 
   def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar ) }
 
+  def populateChart( s:List[TimedObservedLabel] ) {
+    val chart = new ViterbiChart( s )
+
+    (1 to ( s.size )) foreach{ j =>
+      chart.lexFill( j-1 )
+      if( j > 1 )
+        (0 to (j-2)).reverse.foreach{ i =>
+          chart.synFill( i , j )
+        }
+    }
+  }
+
   def constituencyParse( toParse: List[TimedSentence] ) = {
     toParse.map{ case TimedSentence( id, s ) =>
-      val chart = new ViterbiChart( s )
-
-      (1 to ( s.size )) foreach{ j =>
-        chart.lexFill( j-1 )
-        if( j > 1 )
-          (0 to (j-2)).reverse.foreach{ i =>
-            chart.synFill( i , j )
-          }
-      }
-
+      populateChart( s )
       id + " " + chart.toConstituencyParse
     }
   }
 
+  def dependencyParse( toParse: List[TimedSentence] ) = {
+    toParse.map{ case TimedSentence( id, s ) =>
+      populateChart( s )
+      id + " " + chart.toDependencyParse
+    }
+  }
 }
