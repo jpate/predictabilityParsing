@@ -27,8 +27,8 @@ class CCMGrammar(
 
 
 
-  def getSpans = p_span.children
-  def getContexts = p_context.children
+  def getSpans = p_span.values.head.keySet
+  def getContexts = p_context.values.head.keySet
 
 
   def smoothedSpanScore( constituency:ConstituencyStatus, span:Yield ) =

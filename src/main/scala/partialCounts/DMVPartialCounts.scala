@@ -8,6 +8,7 @@ import predictabilityParsing.util.Math
 class DMVPartialCounts {
   val orderCounts = new Log2dTable( Set[ObservedLabel](), dmv.attachmentOrder )
   val stopCounts = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
+  val stopDenomCounts = new Log1dTable( Set[StopOrNot]() )
   var chooseCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
 
   private var totalScore = 0D
@@ -25,6 +26,9 @@ class DMVPartialCounts {
   def setStopCounts( newStopCounts:AbstractLog2dTable[StopOrNot,StopDecision] ) {
     stopCounts.setCPT( newStopCounts.getCPT )
   }
+  def setStopDenomCounts( newStopDenomCounts:AbstractLog1dTable[StopOrNot] ) {
+    stopDenomCounts.setPT( newStopDenomCounts.getPT )
+  }
 
   def setChooseCounts( newChooseCounts:AbstractLog2dTable[ChooseArgument,ObservedLabel] ) {
     chooseCounts.setCPT( newChooseCounts.getCPT )
@@ -33,10 +37,12 @@ class DMVPartialCounts {
   def setParameters(
     updatedOrder:AbstractLog2dTable[ObservedLabel,AttachmentOrder],
     updatedStop:AbstractLog2dTable[StopOrNot,StopDecision],
+    updatedStopDenom:AbstractLog1dTable[StopOrNot],
     updatedChoose:AbstractLog2dTable[ChooseArgument,ObservedLabel]
   ) {
     setOrderCounts( updatedOrder )
     setStopCounts( updatedStop )
+    setStopDenomCounts( updatedStopDenom )
     setChooseCounts( updatedChoose )
   }
 
@@ -45,7 +51,7 @@ class DMVPartialCounts {
     orderCounts.setValue(
       w,
       order,
-      Math.sumLogProb( orderCounts(w)(order), increment )
+      Math.sumLogProb( orderCounts(w,order), increment )
     )
   }
   def setOrderCounts( w:ObservedLabel, order:AttachmentOrder, newCount:Double ) {
@@ -56,18 +62,27 @@ class DMVPartialCounts {
     stopCounts.setValue(
       stopKey,
       decision,
-      Math.sumLogProb( stopCounts(stopKey)(decision), increment )
+      Math.sumLogProb( stopCounts(stopKey,decision), increment )
     )
   }
   def setStopCounts( stopKey:StopOrNot, decision:StopDecision, newCount:Double ) {
     stopCounts.setValue( stopKey, decision, newCount )
+  }
+  def incrementStopDenomCounts( stopKey:StopOrNot, increment:Double ) {
+    stopDenomCounts.setValue(
+      stopKey,
+      Math.sumLogProb( stopDenomCounts(stopKey), increment )
+    )
+  }
+  def setStopDenomCounts( stopKey:StopOrNot, newCount:Double ) {
+    stopDenomCounts.setValue( stopKey, newCount )
   }
 
   def incrementChooseCounts( chooseKey:ChooseArgument, arg:ObservedLabel, increment:Double ) {
     chooseCounts.setValue(
       chooseKey,
       arg,
-      Math.sumLogProb( chooseCounts(chooseKey)(arg), increment )
+      Math.sumLogProb( chooseCounts(chooseKey,arg), increment )
     )
   }
   def setChooseCounts( chooseKey:ChooseArgument, arg:ObservedLabel, newCount:Double ) {
@@ -78,9 +93,11 @@ class DMVPartialCounts {
   def +( otherCounts:DMVPartialCounts ) = {
     val toReturn = new DMVPartialCounts
 
+
     toReturn.setParameters(
       orderCounts + otherCounts.orderCounts,
       stopCounts + otherCounts.stopCounts,
+      stopDenomCounts + otherCounts.stopDenomCounts,
       chooseCounts + otherCounts.chooseCounts
     )
 
@@ -90,17 +107,19 @@ class DMVPartialCounts {
 
   def destructivePlus( otherCounts:DMVPartialCounts ) {
     otherCounts.orderCounts.parents.foreach{ w =>
-      incrementOrderCounts( w , LeftFirst , otherCounts.orderCounts( w )( LeftFirst ) )
-      incrementOrderCounts( w , RightFirst , otherCounts.orderCounts( w )( RightFirst ) )
+      incrementOrderCounts( w , LeftFirst , otherCounts.orderCounts( w , LeftFirst ) )
+      incrementOrderCounts( w , RightFirst , otherCounts.orderCounts( w , RightFirst ) )
     }
     otherCounts.stopCounts.parents.foreach{ stopKey =>
-      incrementStopCounts( stopKey , Stop , otherCounts.stopCounts( stopKey )( Stop ) )
-      incrementStopCounts( stopKey , NotStop , otherCounts.stopCounts( stopKey )( NotStop ) )
+      incrementStopCounts( stopKey , Stop , otherCounts.stopCounts( stopKey , Stop ) )
+      incrementStopDenomCounts( stopKey , otherCounts.stopDenomCounts( stopKey ) )
     }
     otherCounts.chooseCounts.parents.foreach{ chooseKey =>
       otherCounts.chooseCounts(chooseKey).keySet.foreach{ w =>
         incrementChooseCounts(
-          chooseKey, w, otherCounts.chooseCounts( chooseKey ).getOrElse( w, Double.NegativeInfinity )
+          chooseKey,
+          w,
+          otherCounts.chooseCounts( chooseKey , w )
         )
       }
     }
@@ -115,7 +134,32 @@ class DMVPartialCounts {
    *
    */
   def toDMVGrammar = {
-    val toReturn = new DMVGrammar( orderCounts.parents )
+    val toReturn = new DMVGrammar( orderCounts.parents.toSet )
+
+
+    stopCounts.parents.foreach{ stopKey =>
+      val p_stop = 
+        stopCounts(stopKey)(Stop) - stopDenomCounts(stopKey)
+      val p_not_stop =
+        Math.subtractLogProb(0D , stopCounts(stopKey)(Stop) - stopDenomCounts(stopKey) )
+      stopCounts.setValue(
+        stopKey,
+        Stop,
+        p_stop
+      )
+      stopCounts.setValue(
+        stopKey,
+        NotStop,
+        p_not_stop
+      )
+    }
+
+    println( "CHOOSE COUNTS\n\n" )
+    println( chooseCounts )
+
+    println( "\n\n\n------------\np_choose" )
+    println( chooseCounts.toLogCPT )
+    println( "\n\nDONE FROM TOGRAMMAR" )
 
     toReturn.setParams(
       orderCounts.toLogCPT,

@@ -4,15 +4,15 @@ import predictabilityParsing.types.labels._
 import predictabilityParsing.types.tables._
 import predictabilityParsing.util.Math
 
-class DMVGrammar( vocabulary:Iterable[ObservedLabel] ) {
+class DMVGrammar( vocabulary:Set[ObservedLabel] ) {
 
-  val p_order = new LogCPT( vocabulary, dmv.attachmentOrder )
+  val p_order = new LogCPT( vocabulary + Root, dmv.attachmentOrder )
 
   private val p_stop_keys = dmv.stopOrNotKeys( vocabulary )
   val p_stop = new LogCPT( p_stop_keys, dmv.stopDecision )
 
   private val p_choose_keys = dmv.chooseKeys( vocabulary )
-  val p_choose = new LogCPT( p_choose_keys, vocabulary )
+  val p_choose = new LogCPT( p_choose_keys, vocabulary+Root )
 
   def setParams( otherGram:DMVGrammar ) {
     p_order.setCPT( otherGram.p_order.getCPT )
