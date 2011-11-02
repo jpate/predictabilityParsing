@@ -143,9 +143,9 @@ class TwoContextCCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Do
 
   def toTwoContextCCMGrammar( hallucinateTrue:Double, hallucinateFalse:Double ) = {
     val toReturn = new TwoContextCCMGrammar(
-      spanCounts.children,
-      contextCountsA.children,
-      contextCountsB.children,
+      spanCounts.values.head.keySet,
+      contextCountsA.values.head.keySet,
+      contextCountsB.values.head.keySet,
       hallucinateTrue,
       hallucinateFalse
     )

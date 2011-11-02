@@ -140,8 +140,8 @@ class CCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D 
    */
   def toCCMGrammar( hallucinateTrue:Double, hallucinateFalse:Double ) = {
     val toReturn = new CCMGrammar(
-      spanCounts.children,
-      contextCounts.children,
+      spanCounts.values.head.keySet,
+      contextCounts.values.head.keySet,
       smoothTrue,
       smoothFalse
     )

@@ -218,12 +218,15 @@ class IndependentContextJointSpansEstimator(
         ( 0 to ( n - length ) ).foreach{ i =>
           val j = i + length
 
-          val thisSpan = Yield( s.slice( i, j ).map( _.obsA ) )
-          val thisContextA = Context(
-            if( i == 0 ) SentenceBoundary else s( i-1 ).obsA,
-            if( j == s.length ) SentenceBoundary else s( j ).obsA
-          )
-          val thisContextB = Context( s( i ).obsB, s( j-1 ).obsB )
+          val thisSpan = matrix( i )( j ).span
+          val thisContextA = matrix( i )( j ).contextA
+          val thisContextB = matrix( i )( j ).contextB
+          // val thisSpan = Yield( s.slice( i, j ).map( _.obsA ) )
+          // val thisContextA = Context(
+          //   if( i == 0 ) SentenceBoundary else s( i-1 ).obsA,
+          //   if( j == s.length ) SentenceBoundary else s( j ).obsA
+          // )
+          // val thisContextB = Context( s( i ).obsB, s( j-1 ).obsB )
 
           val leftSum =
             ( 0 to (i-1) ).foldLeft( Double.NegativeInfinity ){ (a, k) =>
@@ -257,9 +260,7 @@ class IndependentContextJointSpansEstimator(
               )
             }
 
-          matrix(i)(j).setOScore(
-            Math.sumLogProb( leftSum, rightSum )
-          )
+          matrix(i)(j).setOScore( Math.sumLogProb( leftSum, rightSum ) )
         }
       )
     }

@@ -14,7 +14,7 @@ object Math {
 
   // subtraction isn't commutative so I think I just need to do this straight
   def subtractLogProb( a:Double, b:Double ) =
-    if( abs( a - b ) < 0.000000001 ) // Sigh, was still getting some underflow >_<
+    if( abs( a - b ) < 0.000001 ) // Sigh, was still getting some underflow >_<
       Double.NegativeInfinity
     else
       a + log( 1 - exp( b - a ) )
