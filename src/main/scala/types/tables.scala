@@ -12,6 +12,8 @@ abstract class AbstractTable {
   def randomize(seed:Int,centeredOn:Int):Unit
   def randomize( seed:Int ) { randomize( seed, 0 ) }
   def normalize:Unit
+  var defaultVal = Double.NegativeInfinity
+  def setDefault( x:Double ) { defaultVal = x }
 }
 
 /*
@@ -22,15 +24,26 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
 
   protected var cpt:Map[T,Map[U,Double]]
 
-  def apply( k:T ) = cpt( k )
-  def apply( parent:T, child:U ) = cpt( parent ).getOrElse( child , Double.NegativeInfinity )
+
+  def values = cpt.values
+  def apply( k:T ) = cpt.getOrElse( k, Map[U,Double]() )
+  def apply( parent:T, child:U ) =// cpt( parent ).getOrElse( child , defaultVal )
+    cpt.getOrElse(
+      parent,
+      Map( child -> defaultVal )
+    ).getOrElse( child, defaultVal )
 
   def setCPT( updatedCPT: Map[T,Map[U,Double]] ) {
     cpt = updatedCPT
   }
 
   def setValue( parent:T, child:U, newValue:Double ) {
-    cpt( parent )( child ) = newValue
+    //cpt( parent )( child ) = newValue
+    //cpt = cpt ++ Map( parent -> Map( child -> newValue ) )
+    if( cpt.keySet.contains( parent ) )
+      cpt(parent) += child -> newValue
+    else
+      cpt += parent -> Map( child -> newValue )
   }
 
   def normalize {
@@ -40,6 +53,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
           parent -> ( cpt(parent).values.reduce( Math.sumLogProb(_,_) ) )
         else
           parent -> Double.NegativeInfinity
+          //parent -> 0D
       ).toSeq:_*
     )
 
@@ -76,11 +90,11 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
 
   def +( otherCPT: AbstractLog2dTable[T,U] ) = {
     val parentsUnion = otherCPT.parents.toSet.union( parents.toSet )
-    val childrenUnion = otherCPT.children.toSet.union( children.toSet )
+    //val childrenUnion = otherCPT.children.toSet.union( children.toSet )
     val summedCPT = Map(
       parentsUnion.map{ parent =>
         parent -> Map(
-          childrenUnion.map{ child =>
+          ( this(parent).keySet ++ otherCPT(parent).keySet ).map{ child =>
             child ->
               Math.sumLogProb( this( parent , child ), otherCPT( parent , child ) )
           }.toSeq:_*
@@ -88,7 +102,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       }.toSeq:_*
     )
 
-    val toReturn = new Log2dTable( parentsUnion.toSet, childrenUnion.toSet )
+    val toReturn = new Log2dTable( parentsUnion.toSet, Set[U]() ) //childrenUnion.toSet )
     toReturn.setCPT( summedCPT )
 
 
@@ -98,11 +112,11 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
   def getCPT = cpt
 
   def parents = cpt.keySet
-  def children = cpt.values.head.keySet
 
   override def toString = parents.toList.sortWith( (a,b) => a < b ).map{ parent =>
-    children.toList.sortWith( (a,b) => a < b ).map{ ch =>
+    this(parent).keySet.toList.sortWith( (a,b) => a < b ).map{ ch =>
       parent + " --> " +ch + ":\t" + exp( cpt(parent)(ch) )
+      //parent + " --> " +ch + ":\t" + cpt(parent)(ch)
     }.mkString("\n\t","\n\t","")
   }.mkString("","\n","\n")
 }
@@ -136,7 +150,7 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
       parents.map( parent =>
         parent ->
           Map(
-            children.map( child =>
+            this(parent).keySet.map( child =>
               child -> Math.sumLogProb(
                 cpt(parent)(child),
                 hallucination(parent)
@@ -183,7 +197,7 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
   }
 
   def toLogCPT = {
-    val toReturn = new LogCPT( parents, children )
+    val toReturn = new LogCPT( parents, Set[U]() )
     toReturn.setCPT( cpt )
     toReturn.normalize
     toReturn
@@ -194,11 +208,15 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
  * Basic properties for a 1-dimensional table 
  */
 abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
-  var pt:Map[T,Double]
+  protected var pt:Map[T,Double]
 
   def setPT( updatedPT: Map[T,Double] ) {
     pt = updatedPT
   }
+
+  def getPT = pt
+
+  def setValue( element:T, newValue:Double ) { pt = pt ++ Map( element -> newValue ) }
 
   def +( otherPT: AbstractLog1dTable[T] ) = {
     val domainUnion = otherPT.domain.union( domain )
@@ -206,7 +224,7 @@ abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
     val summedPT = Map(
       domainUnion.map{ element =>
         element -> Math.sumLogProb(
-          pt( element ),
+          this( element ),
           otherPT( element )
         )
       }.toSeq:_*
@@ -246,10 +264,11 @@ abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
 
   def domain = pt.keySet
 
-  def apply( k:T ) = pt( k )
+  def apply( k:T ) = pt.getOrElse( k, defaultVal )
 
   override def toString = pt.keySet.toList.sortWith( (a,b) => a < b ).map{ parent =>
     parent + ":\t" + exp( pt(parent) )
+    //parent + ":\t" + pt(parent)
   }.mkString("\n\t","\n\t","\n")
 }
 

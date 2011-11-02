@@ -11,7 +11,12 @@ class VanillaCCMEstimator(
   smoothFalse:Double = 8D
 ) extends AbstractCCMParser[BaseCCM] {
 
-  val g = new CCMGrammar( spans = Set[Yield](), contexts = Set[Context]() )
+  val g = new CCMGrammar(
+    spans = Set[Yield](),
+    contexts = Set[Context](),
+    hallucinatedTrue = smoothTrue,
+    hallucinatedFalse = smoothFalse
+  )
 
     /*
      * Sets an initial grammar where each span is equiprobable and each context is equiprobable.
@@ -70,12 +75,12 @@ class VanillaCCMEstimator(
     g.randomize( seed, centeredOn )
   }
 
-    /*
-     * Sets an initial grammar where probabilities are determined randomly.
-     * @param spans possible spans
-     * @param contexts possible contexts
-     * @param seed seed for the psueudorandom number generator.
-     */
+  /*
+   * Sets an initial grammar where probabilities are determined randomly.
+   * @param spans possible spans
+   * @param contexts possible contexts
+   * @param seed seed for the psueudorandom number generator.
+   */
   def setRandomGrammar(
     spans:Iterable[Yield],
     contexts:Iterable[Context],
@@ -212,13 +217,6 @@ class VanillaCCMEstimator(
         ( 0 to ( n - length ) ).foreach{ i =>
           val j = i + length
 
-          val thisSpan = Yield( s.slice( i, j ) )
-          val thisContext = Context(
-            if( i == 0 ) SentenceBoundary else s( i-1 ),
-            if( j == s.length ) SentenceBoundary else s( j )
-          )
-
-
           val leftSum =
             ( 0 to (i-1) ).foldLeft( Double.NegativeInfinity ){ (a, k) =>
               Math.sumLogProb(
@@ -239,15 +237,12 @@ class VanillaCCMEstimator(
               )
             }
 
-          matrix(i)(j).setOScore(
-            Math.sumLogProb( leftSum, rightSum )
-          )
+          matrix(i)(j).setOScore( Math.sumLogProb( leftSum, rightSum ) )
         }
       )
     }
 
     def toPartialCounts = {
-      import collection.mutable.HashMap
       val pc = new CCMPartialCounts( smoothTrue, smoothFalse )
 
       var distituentProduct = 0D

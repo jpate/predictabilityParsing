@@ -49,9 +49,9 @@ class TwoContextCCMGrammar(
     setP_contextB( updatedContextsB )
   }
 
-  def getSpans = p_span.children
-  def getContextsA = p_context_a.children
-  def getContextsB = p_context_b.children
+  def getSpans = p_span.values.head.keySet
+  def getContextsA = p_context_a.values.head.keySet
+  def getContextsB = p_context_b.values.head.keySet
 
   def setP_span( updatedSpans:LogCPT[ConstituencyStatus,Yield] ) {
     p_span.setCPT( updatedSpans.cpt )
@@ -86,13 +86,13 @@ class TwoContextCCMGrammar(
     p_context_a.randomize( seed, centeredOn )
     p_context_b.randomize( seed, centeredOn )
 
-    p_span.children.foreach( span =>
+    p_span.values.head.keySet.foreach( span =>
       p_span(Distituent)(span) = Math.subtractLogProb( 0D, p_span(Constituent)(span) )
     )
-    p_context_a.children.foreach( context_a =>
+    p_context_a.values.head.keySet.foreach( context_a =>
       p_context_a(Distituent)(context_a) = Math.subtractLogProb( 0D, p_context_a(Constituent)(context_a) )
     )
-    p_context_b.children.foreach( context_b =>
+    p_context_b.values.head.keySet.foreach( context_b =>
       p_context_b(Distituent)(context_b) = Math.subtractLogProb( 0D, p_context_b(Constituent)(context_b) )
     )
 

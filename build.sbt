@@ -10,7 +10,7 @@ libraryDependencies += "junit" % "junit" % "4.8" % "test"
 
 unmanagedClasspath in Compile += Attributed.blank(new java.io.File("doesnotexist"))
 
-traceLevel := 100
+// traceLevel := 100
 
 scalacOptions += "-deprecation"
 
