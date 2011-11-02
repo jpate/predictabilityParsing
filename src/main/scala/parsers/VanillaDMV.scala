@@ -498,6 +498,7 @@ class VanillaDMVParser extends AbstractDMVParser {
     def apply( start:Int, end:Int ) = matrix(start)(end)
 
 
+    // TODO: fix so labels of constituency spans are correct.
     abstract class AbstractVitEntry(
       val headChild:Option[AbstractVitEntry],
       val headLabel:MarkedObservation,

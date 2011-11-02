@@ -17,10 +17,10 @@ class DMVGrammar( vocabulary:Set[ObservedLabel] ) {
   def this(
     corpus:List[List[TimedObservedLabel]],
     rightFirst:Double = 0.75,
-    cAttach:Double = 1.0,
-    cStop:Double = 1.0,
+    cAttach:Double = 15.0,
+    cStop:Double = 3.0,
     cNotStop:Double = 1.0,
-    stopUniformity:Double = 1.0
+    stopUniformity:Double = 20.0
   ) {
     this( corpus.flatMap{ _.map{ _.w } }.toSet )
     import predictabilityParsing.partialCounts.DMVPartialCounts
