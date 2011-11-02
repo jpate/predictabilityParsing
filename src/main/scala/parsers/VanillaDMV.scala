@@ -91,22 +91,22 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
       matrix( index )( index+1 ) +=
         unsealedLeftFirst -> new TerminalEntry( unsealedLeftFirst, index )
 
-      if( w.w != Root ) {
+      //if( w.w != Root ) {
         val unsealedRightFirst = MarkedObservation( w, UnsealedRightFirst )
         matrix( index )( index+1 ) +=
           unsealedRightFirst -> new TerminalEntry( unsealedRightFirst, index )
-      }
+      //}
 
       // Now add length-one span seals
       val sealedLeft = MarkedObservation( w, SealedLeft )
       matrix( index )( index+1 ) +=
         sealedLeft -> new TerminalEntry( sealedLeft, index )
 
-      if( w.w != Root ) {
+      //if( w.w != Root ) {
         val sealedRight = MarkedObservation( w, SealedRight )
         matrix( index )( index+1 ) +=
           sealedRight -> new TerminalEntry( sealedRight, index )
-      }
+      //}
 
       // Finally add length-one full seals
       val sealedBoth = MarkedObservation( w, Sealed )
@@ -339,7 +339,7 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
 
       (0 to (s.length-1) ).foreach{ i =>
         // count up order preference:
-        if( s(i).w != Root )
+        //if( s(i).w != Root )
           pc.incrementOrderCounts(
             s(i).w,
             RightFirst,
@@ -516,7 +516,8 @@ class VanillaDMVParser extends AbstractDMVParser {
     }
 
     class ViterbiSealed( h:Option[AbstractVitEntry], score:Double )
-      extends AbstractVitEntry( h, h.get.headLabel, None, score ) {
+      //extends AbstractVitEntry( h, h.get.headLabel, None, score ) {
+      extends AbstractVitEntry( h, h.get.headLabel.seal.get, None, score ) {
       def constituencyParse =
         "(" + MarkedObservation( h.get.headLabel.obs, Sealed ) + " " + h.get.constituencyParse + " )"
       def dependencyParse = h.get.dependencyParse
@@ -618,248 +619,194 @@ class VanillaDMVParser extends AbstractDMVParser {
           )
       }
 
-      // matrix(index)(index+1).keySet.foreach{ w =>
-      //   println( Span( index,index+1 ) + ": " + w )
-      // }
     }
 
     def synFill( start:Int, end:Int ) {
       val curSpan = Span(start, end)
       ( (start+1) to (end-1) ).foreach{ k =>
-        val rightArgs = matrix( k )( end ).keySet.filter{ _.mark == Sealed }
-        val leftArgs = matrix( start )( k ).keySet.filter{ _.mark == Sealed }
+        val rightArgs = matrix( k )( end ).keySet.filter{ a => (a.mark == Sealed) & (a.obs.w != Root) }
+        val leftArgs = matrix( start )( k ).keySet.filter{ a => (a.mark == Sealed) & (a.obs.w != Root) }
 
         // gather each possible un-sealed rightward-looking head.
         val unsealedLeftHeads = matrix( start )( k ).keySet.filter{ _.mark == UnsealedRightFirst }
-        unsealedLeftHeads.foreach{ h =>
-          // store the best way to get h from start to k as the head dominating start to end.
-          val Tuple2( bestArg, bestArgScore ) =
-            rightArgs.foldLeft(
-              Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
-            ){ (bestArgAndScore,arg) =>
-              val bestScore = bestArgAndScore._2
-              val newScore =
-                g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ), NotStop ) +
-                g.p_choose( ChooseArgument( h.obs.w, RightAttachment ) , arg.obs.w ) +
-                matrix(start)(k)(h).score +
-                matrix(k)(end)(arg).score
+        if( rightArgs.size > 0 ) {
+          unsealedLeftHeads.foreach{ h =>
+            // store the best way to get h from start to k as the head dominating start to end.
+            val Tuple2( bestArg, bestArgScore ) =
+              rightArgs.foldLeft(
+                Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
+              ){ (bestArgAndScore,arg) =>
+                val bestScore = bestArgAndScore._2
+                val newScore =
+                  g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ), NotStop ) +
+                  g.p_choose( ChooseArgument( h.obs.w, RightAttachment ) , arg.obs.w ) +
+                  matrix(start)(k)(h).score +
+                  matrix(k)(end)(arg).score
 
-              //println( (start,k,end) + ": " + h + " --> " + arg + ": " + newScore )
-              if( newScore > bestScore )
-                Tuple2( arg, newScore )
-              else
-                bestArgAndScore
-            }
+                if( newScore > bestScore )
+                  Tuple2( arg, newScore )
+                else
+                  bestArgAndScore
+              }
 
-          //println( "++" + (start,k,end) + ": " + h + " --> " + bestArg + ": " + bestArgScore )
-          matrix(start)(end) +=
-            h -> new LeftHeadedVitSynEntry(
-              Option( matrix(start)(k)(h) ),
-              Option( matrix(k)(end)(bestArg) ),
-              bestArgScore
-            )
+            matrix(start)(end) +=
+              h -> new LeftHeadedVitSynEntry(
+                Option( matrix(start)(k)(h) ),
+                Option( matrix(k)(end)(bestArg) ),
+                bestArgScore
+              )
 
-          // Also, store the left and right seal of this head
-          val sealedRight = MarkedObservation( h.obs, SealedRight )
-          val sealedRightScore =
-            bestArgScore + 
-              g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ) , Stop)
-          matrix(start)(end) +=
-            sealedRight -> new RightHeadedVitSynEntry(
-              Option( matrix( start )( end )( h ) ),
-              None,
-              sealedRightScore
-            )
+            // Also, store the left and right seal of this head
+            val sealedRight = MarkedObservation( h.obs, SealedRight )
+            val sealedRightScore =
+              bestArgScore + 
+                g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ) , Stop)
+            matrix(start)(end) +=
+              sealedRight -> new RightHeadedVitSynEntry(
+                Option( matrix( start )( end )( h ) ),
+                None,
+                sealedRightScore
+              )
 
-          val sealedBoth = sealedRight.seal.get
-          matrix(start)(end) +=
-            sealedBoth -> new ViterbiSealed(
-              Option( matrix( start )( end )( sealedRight ) ),
-              sealedRightScore +
-                g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( sealedRight, Span(start,k) ) ) , Stop)
-            )
+            val sealedBoth = sealedRight.seal.get
+            matrix(start)(end) +=
+              sealedBoth -> new ViterbiSealed(
+                Option( matrix( start )( end )( sealedRight ) ),
+                sealedRightScore +
+                  g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( sealedRight, Span(start,k) ) ) , Stop)
+              )
+          }
         }
 
 
         // now gather each possible un-sealed leftward-looking head.
         val unsealedRightHeads = matrix( k )( end ).keySet.filter{ _.mark == UnsealedLeftFirst }
-        unsealedRightHeads.foreach{ h =>
-          // store the best way to get h from start to k as the head dominating start to end.
-          val Tuple2( bestArg, bestArgScore ) =
-            leftArgs.foldLeft(
-              Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
-            ){ (bestArgAndScore,arg) =>
-              val bestScore = bestArgAndScore._2
-              val newScore =
-                g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ) , NotStop ) +
-                g.p_choose( ChooseArgument( h.obs.w, LeftAttachment ) , arg.obs.w ) +
-                matrix(start)(k)(arg).score +
-                matrix(k)(end)(h).score
+        if( leftArgs.size > 0 ) {
+          unsealedRightHeads.foreach{ h =>
+            // store the best way to get h from start to k as the head dominating start to end.
+            val Tuple2( bestArg, bestArgScore ) =
+              leftArgs.foldLeft(
+                Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
+              ){ (bestArgAndScore,arg) =>
+                val bestScore = bestArgAndScore._2
+                val newScore =
+                  g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ) , NotStop ) +
+                  g.p_choose( ChooseArgument( h.obs.w, LeftAttachment ) , arg.obs.w ) +
+                  matrix(start)(k)(arg).score +
+                  matrix(k)(end)(h).score
 
-              if( newScore > bestScore )
-                Tuple2( arg, newScore )
-              else
-                bestArgAndScore
-            }
+                if( newScore > bestScore )
+                  Tuple2( arg, newScore )
+                else
+                  bestArgAndScore
+              }
 
-          //println( "Looking for " + bestArg + " in span " + (start,k) )
-          matrix(start)(end) +=
-            h -> new RightHeadedVitSynEntry(
-              Option( matrix(k)(end)(h) ),
-              Option( matrix(start)(k)(bestArg) ),
-              bestArgScore
-            )
-          // Also, store the left and right seal of this head
-          val sealedLeft = MarkedObservation( h.obs, SealedLeft )
-          val sealedLeftScore = bestArgScore +
-            g.p_stop( StopOrNot(h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ),Stop)
-          matrix(start)(end) +=
-            sealedLeft -> new RightHeadedVitSynEntry(
-              Option( matrix( start )( end )( h ) ),
-              None,
-              sealedLeftScore
-            )
+            matrix(start)(end) +=
+              h -> new RightHeadedVitSynEntry(
+                Option( matrix(k)(end)(h) ),
+                Option( matrix(start)(k)(bestArg) ),
+                bestArgScore
+              )
+            // Also, store the left and right seal of this head
+            val sealedLeft = MarkedObservation( h.obs, SealedLeft )
+            val sealedLeftScore = bestArgScore +
+              g.p_stop( StopOrNot(h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ),Stop)
+            matrix(start)(end) +=
+              sealedLeft -> new RightHeadedVitSynEntry(
+                Option( matrix( start )( end )( h ) ),
+                None,
+                sealedLeftScore
+              )
 
-          val sealedBoth = sealedLeft.seal.get
-          matrix(start)(end) +=
-            sealedBoth -> new ViterbiSealed(
-              Option( matrix(start)(end)(sealedLeft) ),
-              sealedLeftScore +
-                g.p_stop(StopOrNot(h.obs.w, RightAttachment, adj(sealedLeft, Span(k,end)) ), Stop)
-            )
+            val sealedBoth = sealedLeft.seal.get
+            matrix(start)(end) +=
+              sealedBoth -> new ViterbiSealed(
+                Option( matrix(start)(end)(sealedLeft) ),
+                sealedLeftScore +
+                  g.p_stop(StopOrNot(h.obs.w, RightAttachment, adj(sealedLeft, Span(k,end)) ), Stop)
+              )
+          }
         }
 
 
         // gather each possible halfsealed rightward-looking head.
         val halfSealedLeftHeads = matrix( start )( k ).keySet.filter{ _.mark == SealedLeft }
-        halfSealedLeftHeads.foreach{ h =>
-          // store the best way to get h from start to k as the head dominating start to end.
-          val Tuple2( bestArg, bestArgScore ) =
-            rightArgs.foldLeft(
-              Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
-            ){ (bestArgAndScore,arg) =>
-              val bestScore = bestArgAndScore._2
-              val newScore =
-                g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ) , NotStop ) +
-                g.p_choose( ChooseArgument( h.obs.w, RightAttachment ) , arg.obs.w ) +
-                matrix(start)(k)(h).score +
-                matrix(k)(end)(arg).score
+        if( rightArgs.size > 0 ) {
+          halfSealedLeftHeads.foreach{ h =>
+            val Tuple2( bestArg, bestArgScore ) =
+              rightArgs.foldLeft(
+                Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
+              ){ (bestArgAndScore,arg) =>
+                val bestScore = bestArgAndScore._2
+                val newScore =
+                  g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ) , NotStop ) +
+                  g.p_choose( ChooseArgument( h.obs.w, RightAttachment ) , arg.obs.w ) +
+                  matrix(start)(k)(h).score +
+                  matrix(k)(end)(arg).score
 
-              if( newScore > bestScore )
-                Tuple2( arg, newScore )
-              else
-                bestArgAndScore
-            }
+                if( newScore > bestScore )
+                  Tuple2( arg, newScore )
+                else
+                  bestArgAndScore
+              }
 
-          matrix(start)(end) +=
-            h -> new LeftHeadedVitSynEntry(
-              Option( matrix(start)(k)(h) ),
-              Option( matrix(k)(end)(bestArg) ),
-              bestArgScore
-            )
+            matrix(start)(end) +=
+              h -> new LeftHeadedVitSynEntry(
+                Option( matrix(start)(k)(h) ),
+                Option( matrix(k)(end)(bestArg) ),
+                bestArgScore
+              )
 
-          // Also, store the full seal of this head
-          matrix(start)(end) +=
-            h.seal.get -> new ViterbiSealed(
-              Option( matrix(start)(end)(h) ),
-              bestArgScore +
-                g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,end) )), Stop )
-            )
+            // Also, store the full seal of this head
+            matrix(start)(end) +=
+              h.seal.get -> new ViterbiSealed(
+                Option( matrix(start)(end)(h) ),
+                bestArgScore +
+                  g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,end) )), Stop )
+              )
 
 
+          }
         }
 
         // gather each possible halfsealed rightward-looking head.
         val halfSealedRightHeads = matrix( k )( end ).keySet.filter{ _.mark == SealedRight }
-        halfSealedRightHeads.foreach{ h =>
-          // store the best way to get h from k to end as the head dominating start to end.
-          val Tuple2( bestArg, bestArgScore ) =
-            leftArgs.foldLeft(
-              Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
-            ){ (bestArgAndScore,arg) =>
-              val bestScore = bestArgAndScore._2
-              //println( "Looking for " + arg + " in span " + (start,k) )
-              val newScore =
-                g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ) , NotStop ) +
-                g.p_choose( ChooseArgument( h.obs.w, LeftAttachment ) , arg.obs.w ) +
-                matrix(k)(end)(h).score +
-                matrix(start)(k)(arg).score
+        if( leftArgs.size > 0 ) {
+          halfSealedRightHeads.foreach{ h =>
+            // store the best way to get h from k to end as the head dominating start to end.
+            val Tuple2( bestArg, bestArgScore ) =
+              leftArgs.foldLeft(
+                Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
+              ){ (bestArgAndScore,arg) =>
+                val bestScore = bestArgAndScore._2
+                val newScore =
+                  g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ) , NotStop ) +
+                  g.p_choose( ChooseArgument( h.obs.w, LeftAttachment ) , arg.obs.w ) +
+                  matrix(k)(end)(h).score +
+                  matrix(start)(k)(arg).score
 
-              if( newScore > bestScore )
-                Tuple2( arg, newScore )
-              else
-                bestArgAndScore
-            }
+                if( newScore > bestScore )
+                  Tuple2( arg, newScore )
+                else
+                  bestArgAndScore
+              }
 
-          matrix(start)(end) +=
-            h -> new RightHeadedVitSynEntry(
-              Option( matrix(k)(end)(h) ),
-              Option( matrix(start)(k)(bestArg) ),
-              bestArgScore
-            )
-          // Also, store the full seal of this head
-          matrix(start)(end) +=
-            h.seal.get -> new ViterbiSealed(
-              Option( matrix(start)(end)(h) ),
-              bestArgScore +
-                g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(start,end) )), Stop )
-            )
+            matrix(start)(end) +=
+              h -> new RightHeadedVitSynEntry(
+                Option( matrix(k)(end)(h) ),
+                Option( matrix(start)(k)(bestArg) ),
+                bestArgScore
+              )
+            // Also, store the full seal of this head
+            matrix(start)(end) +=
+              h.seal.get -> new ViterbiSealed(
+                Option( matrix(start)(end)(h) ),
+                bestArgScore +
+                  g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(start,end) )), Stop )
+              )
+          }
         }
 
-
-            // // OK, now add seals
-            // halfSealedLeftHeads.foreach{ h=>
-            //   val sealLeftBasisScore =
-            //     matrix(start)(end)(h).score +
-            //       g.p_stop( StopOrNot( hObs.w, RightAttachment, adj( sealedLeft, curSpan ) ) ,Stop)
-
-            //   val Tuple2( bestSealBasis, bestSealedScore ) =
-            //     if( sealLeftBasisScore > sealRightBasisScore )
-            //       Tuple2( SealedLeft, sealLeftBasisScore )
-            //     else if( sealLeftBasisScore < sealRightBasisScore )
-            //       Tuple2( SealedRight, sealRightBasisScore )
-            //     else
-            //       if( r.nextDouble > 0.5 )
-            //         Tuple2( SealedLeft, sealLeftBasisScore )
-            //       else
-            //         Tuple2( SealedRight, sealLeftBasisScore )
-
-            //   matrix(start)(end) +=
-            //     MarkedObservation( hObs, Sealed ) -> new ViterbiSealed(
-            //       Option( matrix(start)(end)( MarkedObservation( hObs, bestSealBasis ) ) ),
-            //       bestSealedScore
-            //     )
-            // }
-
-            // halfSealedLeftHeads.map{ _.obs }.foreach{ hObs =>
-            //   val sealedLeft = MarkedObservation(hObs,SealedLeft)
-            //   val sealLeftBasisScore =
-            //     matrix(start)(end)(sealedLeft).score +
-            //       g.p_stop( StopOrNot( hObs.w, RightAttachment, adj( sealedLeft.peel.head, curSpan ) ) ,Stop)
-
-            //   val sealedRight = MarkedObservation(hObs,SealedRight)
-            //   val sealRightBasisScore =
-            //     matrix(start)(end)(sealedRight).score +
-            //       g.p_stop( StopOrNot( hObs.w, LeftAttachment, adj( sealedRight.peel.head, curSpan ) ) ,Stop)
-
-
-            //   val Tuple2( bestSealBasis, bestSealedScore ) =
-            //     if( sealLeftBasisScore > sealRightBasisScore )
-            //       Tuple2( SealedLeft, sealLeftBasisScore )
-            //     else if( sealLeftBasisScore < sealRightBasisScore )
-            //       Tuple2( SealedRight, sealRightBasisScore )
-            //     else
-            //       if( r.nextDouble > 0.5 )
-            //         Tuple2( SealedLeft, sealLeftBasisScore )
-            //       else
-            //         Tuple2( SealedRight, sealLeftBasisScore )
-
-            //   matrix(start)(end) +=
-            //     MarkedObservation( hObs, Sealed ) -> new ViterbiSealed(
-            //       Option( matrix(start)(end)( MarkedObservation( hObs, bestSealBasis ) ) ),
-            //       bestSealedScore
-            //     )
-            // }
       }
     }
 
@@ -869,7 +816,8 @@ class VanillaDMVParser extends AbstractDMVParser {
       matrix(0)(s.length)( MarkedObservation( FinalRoot( s.length-1 ) , Sealed ) ).constituencyParse
 
     def toDependencyParse =
-      matrix(0)(s.length)( MarkedObservation( FinalRoot( s.length-1 ) , Sealed ) ).dependencyParse
+      matrix(0)(s.length)( MarkedObservation( FinalRoot( s.length-1 ) , Sealed )
+      ).dependencyParse.toList.sortWith{ _.arg.t < _.arg.t }.map{_.head.t}.mkString( "[ ", ", ", " ] " )
   }
 
   def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar ) }
@@ -901,6 +849,6 @@ class VanillaDMVParser extends AbstractDMVParser {
   def dependencyParse( toParse: List[TimedSentence] ) =
     toParse.map{ case TimedSentence( id, s ) =>
       val chart = populateChart( s )
-      id + " " + chart.toDependencyParse.mkString( "", ",", "" )
+      id + " " + chart.toDependencyParse
     }
 }
