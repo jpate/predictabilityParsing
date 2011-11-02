@@ -6,3 +6,6 @@ constituency structure by exploiting predictability effects. That is why this li
 [1] A Generative Constituent-Context Model for Improved Grammar Induction, Dan Klein and Chris Manning,
 In Proceedings of the Association for Computational Linguistics (ACL) 2002.
 
+
+There is also an implementation of DMV which I'm pretty sure is correct.
+
