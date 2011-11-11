@@ -35,75 +35,139 @@ class DMVGrammar( vocabulary:Set[ObservedLabel] ) {
     corpus.map{ s => s :+ FinalRoot( s.length )}.foreach{ s =>
       (0 to (s.length-1)).foreach{ i =>
 
-        (0 to (i-1)).foreach{ leftK =>
-          // choose initialization
-          pc.incrementChooseCounts(
-            ChooseArgument( s(i).w, LeftAttachment ),
-            s(leftK).w,
-            0D - math.log( i - leftK )
+        if( s(i).w == Root ) { // inefficient treatment of stopCounts but who cares
+          (0 to (i-1)).foreach{ leftK =>
+            // choose initialization
+            pc.incrementChooseCounts(
+              ChooseArgument( s(i).w, LeftAttachment ),
+              s(leftK).w,
+              0D
+            )
+          }
+
+          pc.setStopCounts(
+            StopOrNot( Root, LeftAttachment, true ),
+            Stop,
+            Double.NegativeInfinity
           )
+          pc.setStopCounts(
+            StopOrNot( Root, LeftAttachment, true ),
+            NotStop,
+            0D
+          )
+
+          pc.setStopCounts(
+            StopOrNot( Root, LeftAttachment, false ),
+            Stop,
+            0D
+          )
+          pc.setStopCounts(
+            StopOrNot( Root, LeftAttachment, false ),
+            NotStop,
+            Double.NegativeInfinity
+          )
+
+
+          pc.setStopCounts(
+            StopOrNot( Root, RightAttachment, true ),
+            Stop,
+            0D
+          )
+          pc.setStopCounts(
+            StopOrNot( Root, RightAttachment, true ),
+            NotStop,
+            Double.NegativeInfinity
+          )
+          pc.setStopCounts(
+            StopOrNot( Root, RightAttachment, false ),
+            Stop,
+            0D
+          )
+          pc.setStopCounts(
+            StopOrNot( Root, RightAttachment, false ),
+            NotStop,
+            Double.NegativeInfinity
+          )
+
+          // ((i+1) to (s.length-1)).foreach{ rightK =>
+          //   pc.setChooseCounts(
+          //     ChooseArgument( s(i).w, RightAttachment ),
+          //     s(rightK).w,
+          //     0D
+          //   )
+          // }
+        } else {
+          (0 to (i-1)).foreach{ leftK =>
+            // choose initialization
+            pc.incrementChooseCounts(
+              ChooseArgument( s(i).w, LeftAttachment ),
+              s(leftK).w,
+              0D - math.log( i - leftK ) + cAttachScore
+            )
+          }
+
+          // to s.length-2 because we don't take Root as argument
+          ((i+1) to (s.length-2)).foreach{ rightK =>
+            pc.incrementChooseCounts(
+              ChooseArgument( s(i).w, RightAttachment ),
+              s(rightK).w,
+              0D - math.log( rightK - i ) + cAttachScore
+            )
+          }
+
+          // stop initialization
+          if( i == 0 )
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, LeftAttachment, true ),
+              Stop,
+              cStopScore
+            )
+          else
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, LeftAttachment, true ),
+              NotStop,
+              cNotStopScore
+            )
+
+          if( i == (s.length-2) )
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, RightAttachment, true ),
+              Stop,
+              cStopScore
+            )
+          else
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, RightAttachment, true ),
+              NotStop,
+              cNotStopScore
+            )
+
+          if( i == 1 )
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, LeftAttachment, false ),
+              Stop,
+              cStopScore
+            )
+          else
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, LeftAttachment, false ),
+              NotStop,
+              cNotStopScore
+            )
+
+          if( i == (s.length-3) )
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, RightAttachment, false ),
+              Stop,
+              cStopScore
+            )
+          else
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, RightAttachment, false ),
+              NotStop,
+              cNotStopScore
+            )
         }
-
-        ((i+1) to (s.length-1)).foreach{ rightK =>
-          pc.incrementChooseCounts(
-            ChooseArgument( s(i).w, RightAttachment ),
-            s(rightK).w,
-            0D - math.log( rightK - i )
-          )
-        }
-
-        // stop initialization
-        if( i == 0 )
-          pc.incrementStopCounts(
-            StopOrNot( s(i).w, LeftAttachment, true ),
-            Stop,
-            cStopScore
-          )
-        else
-          pc.incrementStopCounts(
-            StopOrNot( s(i).w, LeftAttachment, true ),
-            NotStop,
-            cNotStopScore
-          )
-
-        if( i == (s.length-1) )
-          pc.incrementStopCounts(
-            StopOrNot( s(i).w, RightAttachment, true ),
-            Stop,
-            cStopScore
-          )
-        else
-          pc.incrementStopCounts(
-            StopOrNot( s(i).w, RightAttachment, true ),
-            NotStop,
-            cNotStopScore
-          )
-
-        if( i == 1 )
-          pc.incrementStopCounts(
-            StopOrNot( s(i).w, LeftAttachment, false ),
-            Stop,
-            cStopScore
-          )
-        else
-          pc.incrementStopCounts(
-            StopOrNot( s(i).w, LeftAttachment, false ),
-            NotStop,
-            cNotStopScore
-          )
-
-        if( i == (s.length-2) )
-          pc.incrementStopCounts(
-            StopOrNot( s(i).w, RightAttachment, false ),
-            Stop,
-            cStopScore
-          )
-        else
-          pc.incrementStopCounts(
-            StopOrNot( s(i).w, RightAttachment, false ),
-            NotStop,
-            cNotStopScore
-          )
 
         // order initialization
         pc.setOrderCounts( s(i).w, RightFirst, rightFirstScore )
@@ -113,20 +177,23 @@ class DMVGrammar( vocabulary:Set[ObservedLabel] ) {
     }
 
     // uniformness smoothing for choose
-    pc.chooseCounts.parents.foreach{ chooseKey =>
-      pc.chooseCounts(chooseKey).keySet.foreach{ w =>
-        pc.incrementChooseCounts(
-          chooseKey,
-          w,
-          cAttachScore
-        )
-      }
-    }
+    // pc.chooseCounts.parents.foreach{ chooseKey =>
+    //   if( chooseKey.h != Root )
+    //     pc.chooseCounts(chooseKey).keySet.foreach{ w =>
+    //       pc.incrementChooseCounts(
+    //         chooseKey,
+    //         w,
+    //         cAttachScore
+    //       )
+    //     }
+    // }
 
     // uniformness smoothing for stop
     pc.stopCounts.parents.foreach{ stopKey =>
-      pc.incrementStopCounts( stopKey, Stop, stopUniformityScore )
-      pc.incrementStopCounts( stopKey, NotStop, stopUniformityScore )
+      if( stopKey.w != Root ) {
+        pc.incrementStopCounts( stopKey, Stop, stopUniformityScore )
+        pc.incrementStopCounts( stopKey, NotStop, stopUniformityScore )
+      }
     }
 
     setParams( pc.toDMVGrammar )
@@ -173,6 +240,11 @@ class DMVGrammar( vocabulary:Set[ObservedLabel] ) {
     p_stop.setCPT( otherP_stop.getCPT )
     p_choose.setCPT( otherP_choose.getCPT )
   }
+
+  override def toString =
+    "P_Order:\n" + p_order +
+    "P_Stop:\n" + p_stop +
+    "P_Choose:\n" + p_choose
 
 }
 

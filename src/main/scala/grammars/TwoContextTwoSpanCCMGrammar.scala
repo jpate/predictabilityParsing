@@ -57,10 +57,10 @@ class TwoContextTwoSpanCCMGrammar(
     setP_contextB( updatedContextsB )
   }
 
-  def getSpansA = p_span_a.children
-  def getSpansB = p_span_b.children
-  def getContextsA = p_context_a.children
-  def getContextsB = p_context_b.children
+  def getSpansA = p_span_a.values.head.keySet /*children*/
+  def getSpansB = p_span_b.values.head.keySet /*children*/
+  def getContextsA = p_context_a.values.head.keySet /*children*/
+  def getContextsB = p_context_b.values.head.keySet /*children*/
 
   def setP_spanA( updatedSpans:LogCPT[ConstituencyStatus,Yield] ) {
     p_span_a.setCPT( updatedSpans.cpt )
@@ -104,16 +104,16 @@ class TwoContextTwoSpanCCMGrammar(
     p_context_a.randomize( seed, centeredOn )
     p_context_b.randomize( seed, centeredOn )
 
-    p_span_a.children.foreach( span =>
+    p_span_a.values.head.keySet /*children*/.foreach( span =>
       p_span_a(Distituent)(span) = Math.subtractLogProb( 0D, p_span_a(Constituent)(span) )
     )
-    p_span_b.children.foreach( span =>
+    p_span_b.values.head.keySet /*children*/.foreach( span =>
       p_span_b(Distituent)(span) = Math.subtractLogProb( 0D, p_span_b(Constituent)(span) )
     )
-    p_context_a.children.foreach( context_a =>
+    p_context_a.values.head.keySet /*children*/.foreach( context_a =>
       p_context_a(Distituent)(context_a) = Math.subtractLogProb( 0D, p_context_a(Constituent)(context_a) )
     )
-    p_context_b.children.foreach( context_b =>
+    p_context_b.values.head.keySet /*children*/.foreach( context_b =>
       p_context_b(Distituent)(context_b) = Math.subtractLogProb( 0D, p_context_b(Constituent)(context_b) )
     )
 

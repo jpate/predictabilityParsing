@@ -174,10 +174,10 @@ class TwoContextTwoSpanCCMPartialCounts( val smoothTrue:Double = 2D, val smoothF
 
   def toTwoContextTwoSpanCCMGrammar( hallucinateTrue:Double, hallucinateFalse:Double ) = {
     val toReturn = new TwoContextTwoSpanCCMGrammar(
-      spanCountsA.children,
-      spanCountsB.children,
-      contextCountsA.children,
-      contextCountsB.children,
+      spanCountsA.values.head.keySet /*children*/,
+      spanCountsB.values.head.keySet /*children*/,
+      contextCountsA.values.head.keySet /*children*/,
+      contextCountsB.values.head.keySet /*children*/,
       hallucinateTrue,
       hallucinateFalse
     )

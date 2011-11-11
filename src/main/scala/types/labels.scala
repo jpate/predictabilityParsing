@@ -15,31 +15,37 @@ abstract class AttachmentStatus( s:String ) extends HiddenLabel ( s ) {
   val attachmentDirection:AttachmentDirection
   val seal:Option[AttachmentStatus]
   val peel:List[AttachmentStatus]
+  val sealCount:Int
 }
 object Sealed extends AttachmentStatus( "||" ) {
   val attachmentDirection = NoAttachment
   val seal = None
   val peel = List( SealedLeft, SealedRight )
+  val sealCount = 2
 }
 object SealedLeft extends AttachmentStatus( "|>" ) {
   val attachmentDirection = RightAttachment
   val seal = Some(Sealed)
   val peel = UnsealedLeftFirst::Nil
+  val sealCount = 1
 }
 object SealedRight extends AttachmentStatus( "<|" ) {
   val attachmentDirection = LeftAttachment
   val seal = Some(Sealed)
   val peel = UnsealedRightFirst::Nil
+  val sealCount = 1
 }
 object UnsealedLeftFirst extends AttachmentStatus( "<" ) {
   val attachmentDirection = LeftAttachment
   val seal = Some(SealedLeft)
   val peel = Nil
+  val sealCount = 0
 }
 object UnsealedRightFirst extends AttachmentStatus( ">" ) {
   val attachmentDirection = RightAttachment
   val seal = Some(SealedRight)
   val peel = Nil
+  val sealCount = 0
 }
 
 abstract class AttachmentDirection( s:String ) extends HiddenLabel( s )
