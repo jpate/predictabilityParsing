@@ -12,6 +12,167 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
 
   def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar ) }
 
+  def setHarmonicGrammar(
+    corpus:List[List[TimedObservedLabel]],
+    rightFirst:Double = 0.75,
+    cAttach:Double = 15.0,
+    cStop:Double = 3.0,
+    cNotStop:Double = 1.0,
+    stopUniformity:Double = 20.0
+  ) {
+    val pc = new DMVPartialCounts
+
+    val rightFirstScore = math.log( rightFirst )
+    val cAttachScore = math.log( cAttach )
+    val cStopScore = math.log( cStop )
+    val cNotStopScore = math.log( cNotStop )
+    val stopUniformityScore = math.log( stopUniformity )
+
+    corpus.map{ s => s :+ FinalRoot( s.length )}.foreach{ s =>
+      (0 to (s.length-1)).foreach{ i =>
+        if( s(i).w == Root ) { // inefficient treatment of stopCounts but who cares
+          (0 to (i-1)).foreach{ leftK =>
+            // choose initialization
+            pc.incrementChooseCounts(
+              ChooseArgument( s(i).w, LeftAttachment ),
+              s(leftK).w,
+              0D
+            )
+          }
+
+        } else {
+          (0 to (i-1)).foreach{ leftK =>
+            // choose initialization
+            pc.incrementChooseCounts(
+              ChooseArgument( s(i).w, LeftAttachment ),
+              s(leftK).w,
+              0D - math.log( i - leftK ) + cAttachScore
+            )
+          }
+
+          // to s.length-2 because we don't take Root as argument
+          ((i+1) to (s.length-2)).foreach{ rightK =>
+            pc.incrementChooseCounts(
+              ChooseArgument( s(i).w, RightAttachment ),
+              s(rightK).w,
+              0D - math.log( rightK - i ) + cAttachScore
+            )
+          }
+
+          // stop initialization
+          if( i == 0 )
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, LeftAttachment, true ),
+              Stop,
+              cStopScore
+            )
+          else
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, LeftAttachment, true ),
+              NotStop,
+              cNotStopScore
+            )
+
+          if( i == (s.length-2) )
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, RightAttachment, true ),
+              Stop,
+              cStopScore
+            )
+          else
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, RightAttachment, true ),
+              NotStop,
+              cNotStopScore
+            )
+
+          if( i == 1 )
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, LeftAttachment, false ),
+              Stop,
+              cStopScore
+            )
+          else
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, LeftAttachment, false ),
+              NotStop,
+              cNotStopScore
+            )
+
+          if( i == (s.length-3) )
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, RightAttachment, false ),
+              Stop,
+              cStopScore
+            )
+          else
+            pc.incrementStopCounts(
+              StopOrNot( s(i).w, RightAttachment, false ),
+              NotStop,
+              cNotStopScore
+            )
+        }
+
+        // order initialization
+        pc.setOrderCounts( s(i).w, RightFirst, rightFirstScore )
+        pc.setOrderCounts( s(i).w, LeftFirst, Math.subtractLogProb( 0D, rightFirstScore ) )
+      }
+
+    }
+
+
+    // uniformness smoothing for stop
+    pc.stopCounts.parents.foreach{ stopKey =>
+      pc.incrementStopCounts( stopKey, Stop, stopUniformityScore )
+      pc.incrementStopCounts( stopKey, NotStop, stopUniformityScore )
+    }
+
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, true ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, true ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, false ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+    setGrammar( pc.toDMVGrammar )
+  }
 
   class Chart( s:List[TimedObservedLabel] ) {
     private val matrix = Array.fill( s.length+1, s.length+1 )(
@@ -610,6 +771,7 @@ class VanillaDMVParser extends AbstractDMVParser{
               g.p_stop( StopOrNot( w.w, LeftAttachment, true ), Stop )
           )
       }
+      //println( (index,index+1) + ": " + matrix(index)(index+1).keySet )
     }
 
     def synFill( start:Int, end:Int ) {
@@ -622,6 +784,7 @@ class VanillaDMVParser extends AbstractDMVParser{
         val leftArgs = matrix(start)(k).keySet.filter{ _.mark == Sealed }
 
         val unsealedLeftHeads = matrix(start)(k).keySet.filter{ _.mark == UnsealedRightFirst }
+        //println( unsealedLeftHeads.mkString( "{ ", ", ", " }" ) )
         unsealedLeftHeads.foreach{ h =>
 
           val Tuple2( bestArg, bestArgScore ) =
@@ -635,13 +798,13 @@ class VanillaDMVParser extends AbstractDMVParser{
                 matrix(start)(k)(h).score +
                 matrix(k)(end)(arg).score
 
-              if( newScore > bestScore )
+              if( newScore >= bestScore )
                 Tuple2( arg, newScore )
               else
                 bestArgAndScore
             }
 
-          if( bestArgScore > matrix(start)(end).getOrElse( h , NullEntry ).score ) {
+          if( bestArgScore >= matrix(start)(end).getOrElse( h , NullEntry ).score ) {
             matrix(start)(end) +=
               h -> new LeftHeadedEntry(
                 matrix(start)(k)(h),
@@ -664,13 +827,13 @@ class VanillaDMVParser extends AbstractDMVParser{
                 matrix(start)(k)(arg).score +
                 matrix(k)(end)(h).score
 
-              if( newScore > bestScore )
+              if( newScore >= bestScore )
                 Tuple2( arg, newScore )
               else
                 bestArgAndScore
             }
 
-          if( bestArgScore > matrix(start)(end).getOrElse( h , NullEntry ).score ) {
+          if( bestArgScore >= matrix(start)(end).getOrElse( h , NullEntry ).score ) {
             matrix(start)(end) +=
               h -> new RightHeadedEntry(
                 matrix(k)(end)(h),
@@ -695,13 +858,13 @@ class VanillaDMVParser extends AbstractDMVParser{
                 matrix(start)(k)(h).score +
                 matrix(k)(end)(arg).score
 
-              if( newScore > bestScore )
+              if( newScore >= bestScore )
                 Tuple2( arg, newScore )
               else
                 bestArgAndScore
             }
 
-          if( bestArgScore > matrix(start)(end).getOrElse( h , NullEntry ).score ) {
+          if( bestArgScore >= matrix(start)(end).getOrElse( h , NullEntry ).score ) {
             matrix(start)(end) +=
               h -> new LeftHeadedEntry(
                 matrix(start)(k)(h),
@@ -724,13 +887,13 @@ class VanillaDMVParser extends AbstractDMVParser{
                 matrix(start)(k)(arg).score +
                 matrix(k)(end)(h).score
 
-              if( newScore > bestScore )
+              if( newScore >= bestScore )
                 Tuple2( arg, newScore )
               else
                 bestArgAndScore
             }
 
-          if( bestArgScore > matrix(start)(end).getOrElse( h , NullEntry ).score ) {
+          if( bestArgScore >= matrix(start)(end).getOrElse( h , NullEntry ).score ) {
             matrix(start)(end) +=
               h -> new RightHeadedEntry(
                 matrix(k)(end)(h),
@@ -764,6 +927,7 @@ class VanillaDMVParser extends AbstractDMVParser{
           )
       }
 
+      //println( (start,end) + ": " + matrix(start)(end).keySet )
     }
 
 
@@ -773,7 +937,8 @@ class VanillaDMVParser extends AbstractDMVParser{
       matrix(0)(s.length)( MarkedObservation( FinalRoot( s.length-1 ) , Sealed ) ).constituencyParse
 
     def toDependencyParse =
-      matrix(0)(s.length)( MarkedObservation( FinalRoot( s.length-1 ) , Sealed )
+      matrix(0)(s.length)(
+        MarkedObservation( FinalRoot( s.length-1 ) , Sealed )
       ).dependencyParse.toList.sortWith{ _.arg.t < _.arg.t }.map{_.head.t}.mkString( "[ ", ", ", " ] " )
 
   }
@@ -812,6 +977,13 @@ class VanillaDMVParser extends AbstractDMVParser{
     toParse.map{ case TimedSentence( id, s ) =>
       val chart = populateChart( s )
       id + " " + chart.toDependencyParse
+    }
+
+  def bothParses( toParse: List[TimedSentence], prefix:String ) =
+    toParse.map{ case TimedSentence( id, s ) =>
+      val chart = populateChart( s )
+      prefix + ":dependency:" + id + " " + chart.toDependencyParse + "\n" +
+      prefix + ":constituency:" + id + " " + chart.toConstituencyParse
     }
 
 }
