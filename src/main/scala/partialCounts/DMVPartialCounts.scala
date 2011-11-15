@@ -122,15 +122,15 @@ class DMVPartialCounts {
   }
 
 
+  def associatedGrammar = new DMVGrammar//( orderCounts.parents.toSet )
   /*
    * For now, we just normalize. In the future, we can sum up the denominator and pass through a
    * digamma function (or something) for variational bayes.
    *
    */
   def toDMVGrammar = {
-    val toReturn = new DMVGrammar( orderCounts.parents.toSet )
-
-
+    // val toReturn = new DMVGrammar( orderCounts.parents.toSet )
+    val toReturn = associatedGrammar
 
     toReturn.setParams(
       orderCounts.toLogCPT,

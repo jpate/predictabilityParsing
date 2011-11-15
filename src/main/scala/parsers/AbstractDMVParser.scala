@@ -14,6 +14,7 @@ abstract class AbstractDMVParser {
     else
       throw new UnsupportedOperationException( w1 + " takes no attachments" )
 
+
   // We need the +1 because our indices are between words.
   protected def adj( w1:MarkedObservation, span:Span ) =
     if( w1.attachmentDirection == RightAttachment )

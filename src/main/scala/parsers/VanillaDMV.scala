@@ -7,20 +7,20 @@ import predictabilityParsing.util.Math
 import math.log
 
 
-class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
-  val g = new DMVGrammar( vocabulary = vocab )
+class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVParser{
+  val g = new DMVGrammar//( vocabulary = vocab )
 
   def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar ) }
 
-  def setHarmonicGrammar(
-    corpus:List[List[TimedObservedLabel]],
+  def setHarmonicGrammar[O<:TimedObservedLabel](
+    corpus:List[List[O]],
     rightFirst:Double = 0.75,
     cAttach:Double = 15.0,
     cStop:Double = 3.0,
     cNotStop:Double = 1.0,
     stopUniformity:Double = 20.0
   ) {
-    val pc = new DMVPartialCounts
+    val pc = g.emptyPartialCounts //new DMVPartialCounts
 
     val rightFirstScore = math.log( rightFirst )
     val cAttachScore = math.log( cAttach )
@@ -175,7 +175,7 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
   }
 
   class Chart( s:List[TimedObservedLabel] ) {
-    private val matrix = Array.fill( s.length+1, s.length+1 )(
+    protected val matrix = Array.fill( s.length+1, s.length+1 )(
       collection.mutable.Map[MarkedObservation,Entry]()
     )
 
@@ -188,12 +188,12 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
       var iScore:Double = label.mark match {
         case UnsealedLeftFirst =>
           if( span.end - span.start == 1 )
-            g.p_order( label.obs.w, LeftFirst )
+            g.orderScore( label.obs.w, LeftFirst )
           else
             Double.NegativeInfinity
         case UnsealedRightFirst =>
           if( span.end - span.start == 1 )
-            g.p_order( label.obs.w, RightFirst )
+            g.orderScore( label.obs.w, RightFirst )
           else
             Double.NegativeInfinity
         case SealedRight | SealedLeft | Sealed =>
@@ -201,7 +201,7 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
           Double.NegativeInfinity) { (x, peeledH ) =>
             Math.sumLogProb(
               x,
-              g.p_stop( StopOrNot( label.obs.w, peeledH.attachmentDirection, adj( peeledH, span ) ), Stop ) +
+              g.stopScore( StopOrNot( label.obs.w, peeledH.attachmentDirection, adj( peeledH, span ) ), Stop ) +
                 matrix(span.start)(span.end)( peeledH ).iScore
             )
           }
@@ -222,8 +222,8 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
         assert( label == h )
         val a = argEntry.label
         incrementIScore(
-          g.p_stop( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) +
-          g.p_choose( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) +
+          g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) +
+          g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) +
           argEntry.iScore +
           headEntry.iScore
         )
@@ -240,8 +240,10 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
     class TerminalEntry( h:MarkedObservation, index:Int ) extends Entry( h, Span( index, index +1 ) )
 
 
+    def rootEntry = matrix( 0 )( s.length )( MarkedObservation( FinalRoot(s.length-1), Sealed ) )
     def treeScore =
-      matrix( 0 )( s.length )( MarkedObservation( FinalRoot( s.length-1 ), Sealed ) ).iScore
+      rootEntry.iScore
+      //matrix( 0 )( s.length )( MarkedObservation( FinalRoot( s.length-1 ), Sealed ) ).iScore
 
 
     // Re-wrote lexFill so we don't explicitly touch iScore at all, only add entries.
@@ -355,7 +357,8 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
       import math.exp
       val n = s.length
 
-      matrix( 0 )( n )( MarkedObservation( FinalRoot(n-1), Sealed ) ).setOScore( 0D )
+      //matrix( 0 )( n )( MarkedObservation( FinalRoot(n-1), Sealed ) ).setOScore( 0D )
+      rootEntry.setOScore( 0D )
       // 1 to (n) rather than 1 to (n-1) because we do have unary branches over the whole sentence
       ( 1 to n ).reverse.foreach( length =>
         ( 0 to ( n - length ) ).foreach{ i =>
@@ -374,8 +377,8 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
 
               rightLookingHeads.foreach{ h =>
                 matrix(i)(j)(a).incrementOScore(
-                  g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj(h, Span(k,i) ) ) , NotStop ) +
-                  g.p_choose( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
+                  g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj(h, Span(k,i) ) ) , NotStop ) +
+                  g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
                   matrix( k )( i )( h ).iScore +
                   matrix( k )( j )( h ).oScore
                 )
@@ -392,8 +395,8 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
 
               leftLookingHeads.foreach{ h =>
                 matrix(i)(j)(a).incrementOScore(
-                  g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj(h, Span(j,k) ) ) , NotStop ) +
-                  g.p_choose( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
+                  g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj(h, Span(j,k) ) ) , NotStop ) +
+                  g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
                   matrix( j )( k )( h ).iScore +
                   matrix( i )( k )( h ).oScore
                 )
@@ -406,7 +409,7 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
           val halfSealedLeft = matrix(i)(j).keySet.filter{ _.mark == SealedLeft }
           halfSealedLeft.foreach{ w =>
             matrix(i)(j)(w).incrementOScore(
-              g.p_stop( StopOrNot( w.obs.w, RightAttachment , adj( w, curSpan ) ) , Stop ) +
+              g.stopScore( StopOrNot( w.obs.w, RightAttachment , adj( w, curSpan ) ) , Stop ) +
                 matrix(i)(j)(w.seal.get).oScore
             )
 
@@ -414,8 +417,8 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
               val rightArguments = matrix(j)(k).keySet.filter{ _.mark == Sealed }
               rightArguments.foreach{ a =>
                 matrix(i)(j)(w).incrementOScore(
-                  g.p_stop( StopOrNot( w.obs.w, RightAttachment, adj( w, curSpan ) ), NotStop ) +
-                    g.p_choose( ChooseArgument( w.obs.w, RightAttachment ) , a.obs.w ) + 
+                  g.stopScore( StopOrNot( w.obs.w, RightAttachment, adj( w, curSpan ) ), NotStop ) +
+                    g.chooseScore( ChooseArgument( w.obs.w, RightAttachment ) , a.obs.w ) + 
                       matrix(i)(k)(w).oScore + matrix(j)(k)(a).iScore
                 )
               }
@@ -426,7 +429,7 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
           val halfSealedRight = matrix(i)(j).keySet.filter{ _.mark == SealedRight }
           halfSealedRight.foreach{ w =>
             matrix(i)(j)(w).incrementOScore(
-              g.p_stop(StopOrNot( w.obs.w, LeftAttachment , adj( w, curSpan ) ) , Stop ) +
+              g.stopScore(StopOrNot( w.obs.w, LeftAttachment , adj( w, curSpan ) ) , Stop ) +
                 matrix(i)(j)(w.seal.get).oScore
             )
 
@@ -434,8 +437,8 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
               val leftArguments = matrix(k)(i).keySet.filter{ _.mark == Sealed }
               leftArguments.foreach{ a =>
                 matrix(i)(j)(w).incrementOScore(
-                  g.p_stop( StopOrNot( w.obs.w, LeftAttachment, adj( w, curSpan ) ), NotStop ) +
-                    g.p_choose( ChooseArgument( w.obs.w, LeftAttachment ) , a.obs.w ) + 
+                  g.stopScore( StopOrNot( w.obs.w, LeftAttachment, adj( w, curSpan ) ), NotStop ) +
+                    g.chooseScore( ChooseArgument( w.obs.w, LeftAttachment ) , a.obs.w ) + 
                       matrix(k)(j)(w).oScore + matrix(k)(i)(a).iScore
                 )
               }
@@ -446,7 +449,7 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
           val unsealedLeftFirst = matrix(i)(j).keySet.filter{ _.mark == UnsealedLeftFirst }
           unsealedLeftFirst.foreach{ w =>
             matrix(i)(j)(w).incrementOScore(
-              g.p_stop( StopOrNot( w.obs.w, LeftAttachment , adj( w, curSpan ) ) , Stop ) +
+              g.stopScore( StopOrNot( w.obs.w, LeftAttachment , adj( w, curSpan ) ) , Stop ) +
                 matrix(i)(j)(w.seal.get).oScore
             )
 
@@ -454,8 +457,8 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
               val leftArguments = matrix(k)(i).keySet.filter{ _.mark == Sealed }
               leftArguments.foreach{ a =>
                 matrix(i)(j)(w).incrementOScore(
-                  g.p_stop( StopOrNot( w.obs.w, LeftAttachment, adj( w, curSpan ) ), NotStop ) +
-                    g.p_choose( ChooseArgument( w.obs.w, LeftAttachment ) , a.obs.w ) + 
+                  g.stopScore( StopOrNot( w.obs.w, LeftAttachment, adj( w, curSpan ) ), NotStop ) +
+                    g.chooseScore( ChooseArgument( w.obs.w, LeftAttachment ) , a.obs.w ) + 
                       matrix(k)(j)(w).oScore + matrix(k)(i)(a).iScore
                 )
               }
@@ -466,7 +469,7 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
           val unsealedRightFirst = matrix(i)(j).keySet.filter{ _.mark == UnsealedRightFirst }
           unsealedRightFirst.foreach{ w =>
             matrix(i)(j)(w).incrementOScore(
-              g.p_stop( StopOrNot( w.obs.w, RightAttachment , adj( w, curSpan ) ) , Stop ) +
+              g.stopScore( StopOrNot( w.obs.w, RightAttachment , adj( w, curSpan ) ) , Stop ) +
                 matrix(i)(j)(w.seal.get).oScore
             )
 
@@ -474,8 +477,8 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
               val rightArguments = matrix(j)(k).keySet.filter{ _.mark == Sealed }
               rightArguments.foreach{ a =>
                 matrix(i)(j)(w).incrementOScore(
-                  g.p_stop( StopOrNot( w.obs.w, RightAttachment, adj( w, curSpan ) ), NotStop ) +
-                    g.p_choose( ChooseArgument( w.obs.w, RightAttachment ) , a.obs.w ) + 
+                  g.stopScore( StopOrNot( w.obs.w, RightAttachment, adj( w, curSpan ) ), NotStop ) +
+                    g.chooseScore( ChooseArgument( w.obs.w, RightAttachment ) , a.obs.w ) + 
                       matrix(i)(k)(w).oScore + matrix(j)(k)(a).iScore
                 )
               }
@@ -491,7 +494,8 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
 
     def toPartialCounts = {
       import collection.mutable.HashMap
-      val pc = new DMVPartialCounts
+      //val pc = new DMVPartialCounts
+      val pc = g.emptyPartialCounts
 
       (0 to (s.length-1) ).foreach{ i =>
         // count up order preference:
@@ -514,7 +518,7 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
               StopOrNot( h.obs.w, h.attachmentDirection, adj( h, curSpan ) ),
               Stop,
               matrix(i)(j)(h).iScore +
-                g.p_stop( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, curSpan) ) , Stop ) +
+                g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, curSpan) ) , Stop ) +
                   matrix(i)(j)(h.seal.get).oScore
             )
           }
@@ -531,16 +535,16 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
                 pc.incrementChooseCounts(
                   ChooseArgument( h.obs.w, RightAttachment ),
                   a.obs.w,
-                  g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
-                    g.p_choose( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
+                  g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
+                    g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
                       matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore
                 )
 
                 pc.incrementStopCounts(
                   StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ),
                   NotStop,
-                   g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
-                     g.p_choose( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
+                   g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
+                     g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
                        matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore
                 )
 
@@ -556,16 +560,16 @@ class VanillaDMVEstimator( vocab:Set[ObservedLabel] ) extends AbstractDMVParser{
                 pc.incrementChooseCounts(
                   ChooseArgument( h.obs.w, LeftAttachment ),
                   a.obs.w,
-                  g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,j) ) ) , NotStop ) +
-                    g.p_choose( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
+                  g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,j) ) ) , NotStop ) +
+                    g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
                       matrix(i)(k)(a).iScore + matrix(k)(j)(h).iScore + matrix(i)(j)(h).oScore
                 )
 
                 pc.incrementStopCounts(
                   StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,j) ) ),
                   NotStop,
-                  g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,j) ) ) , NotStop ) +
-                    g.p_choose( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
+                  g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,j) ) ) , NotStop ) +
+                    g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
                       matrix(i)(k)(a).iScore + matrix(k)(j)(h).iScore + matrix(i)(j)(h).oScore
                 )
               }
@@ -642,7 +646,7 @@ class VanillaDMVParser extends AbstractDMVParser{
   import scala.util.Random
   private val r = new Random(10) // 10 for now
 
-  val g = new DMVGrammar( vocabulary = Set[ObservedLabel]() )
+  val g = new DMVGrammar//( vocabulary = Set[ObservedLabel]() )
 
   def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar ) }
 
@@ -729,17 +733,17 @@ class VanillaDMVParser extends AbstractDMVParser{
       val w = s(index)
 
 
-      if( g.p_order( w.w , LeftFirst ) > g.p_order( w.w , RightFirst ) ) {
+      if( g.orderScore( w.w , LeftFirst ) > g.orderScore( w.w , RightFirst ) ) {
         val unsealedLeftFirst = MarkedObservation( w, UnsealedLeftFirst )
         matrix(index)(index+1) +=
-          unsealedLeftFirst -> new TerminalEntry( unsealedLeftFirst, g.p_order( w.w, LeftFirst ) )
+          unsealedLeftFirst -> new TerminalEntry( unsealedLeftFirst, g.orderScore( w.w, LeftFirst ) )
 
         val sealedLeft = unsealedLeftFirst.seal.get
         matrix(index)(index+1) +=
           sealedLeft -> new TerminalEntry(
             sealedLeft,
             matrix(index)(index+1)(unsealedLeftFirst).score +
-              g.p_stop( StopOrNot( w.w, LeftAttachment, true ), Stop )
+              g.stopScore( StopOrNot( w.w, LeftAttachment, true ), Stop )
           )
 
         val sealedBoth = sealedLeft.seal.get
@@ -747,20 +751,20 @@ class VanillaDMVParser extends AbstractDMVParser{
           sealedBoth -> new TerminalEntry(
             sealedBoth,
             matrix(index)(index+1)(sealedLeft).score +
-              g.p_stop( StopOrNot( w.w, RightAttachment, true ), Stop )
+              g.stopScore( StopOrNot( w.w, RightAttachment, true ), Stop )
           )
 
       } else {
         val unsealedRightFirst = MarkedObservation( w, UnsealedRightFirst )
         matrix(index)(index+1) +=
-          unsealedRightFirst -> new TerminalEntry( unsealedRightFirst, g.p_order( w.w, RightFirst ) )
+          unsealedRightFirst -> new TerminalEntry( unsealedRightFirst, g.orderScore( w.w, RightFirst ) )
 
         val sealedRight = unsealedRightFirst.seal.get
         matrix(index)(index+1) +=
           sealedRight -> new TerminalEntry(
             sealedRight,
             matrix(index)(index+1)(unsealedRightFirst).score +
-              g.p_stop( StopOrNot( w.w, RightAttachment, true ), Stop )
+              g.stopScore( StopOrNot( w.w, RightAttachment, true ), Stop )
           )
 
         val sealedBoth = sealedRight.seal.get
@@ -768,7 +772,7 @@ class VanillaDMVParser extends AbstractDMVParser{
           sealedBoth -> new TerminalEntry(
             sealedBoth,
             matrix(index)(index+1)(sealedRight).score +
-              g.p_stop( StopOrNot( w.w, LeftAttachment, true ), Stop )
+              g.stopScore( StopOrNot( w.w, LeftAttachment, true ), Stop )
           )
       }
       //println( (index,index+1) + ": " + matrix(index)(index+1).keySet )
@@ -793,8 +797,8 @@ class VanillaDMVParser extends AbstractDMVParser{
             ){ (bestArgAndScore,arg) =>
               val bestScore = bestArgAndScore._2
               val newScore =
-                g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ), NotStop ) +
-                g.p_choose( ChooseArgument( h.obs.w, RightAttachment ) , arg.obs.w ) +
+                g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ), NotStop ) +
+                g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , arg.obs.w ) +
                 matrix(start)(k)(h).score +
                 matrix(k)(end)(arg).score
 
@@ -822,8 +826,8 @@ class VanillaDMVParser extends AbstractDMVParser{
             ){ (bestArgAndScore,arg) =>
               val bestScore = bestArgAndScore._2
               val newScore =
-                g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ), NotStop ) +
-                g.p_choose( ChooseArgument( h.obs.w, LeftAttachment ) , arg.obs.w ) +
+                g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ), NotStop ) +
+                g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , arg.obs.w ) +
                 matrix(start)(k)(arg).score +
                 matrix(k)(end)(h).score
 
@@ -853,8 +857,8 @@ class VanillaDMVParser extends AbstractDMVParser{
             ){ (bestArgAndScore,arg) =>
               val bestScore = bestArgAndScore._2
               val newScore =
-                g.p_stop( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ), NotStop ) +
-                g.p_choose( ChooseArgument( h.obs.w, RightAttachment ) , arg.obs.w ) +
+                g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ), NotStop ) +
+                g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , arg.obs.w ) +
                 matrix(start)(k)(h).score +
                 matrix(k)(end)(arg).score
 
@@ -882,8 +886,8 @@ class VanillaDMVParser extends AbstractDMVParser{
             ){ (bestArgAndScore,arg) =>
               val bestScore = bestArgAndScore._2
               val newScore =
-                g.p_stop( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ), NotStop ) +
-                g.p_choose( ChooseArgument( h.obs.w, LeftAttachment ) , arg.obs.w ) +
+                g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ), NotStop ) +
+                g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , arg.obs.w ) +
                 matrix(start)(k)(arg).score +
                 matrix(k)(end)(h).score
 
@@ -911,7 +915,7 @@ class VanillaDMVParser extends AbstractDMVParser{
           h.seal.get -> new UnaryEntry(
             h.seal.get,
             matrix(start)(end)(h).score +
-              g.p_stop( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, Span( start,end) ) ), Stop ),
+              g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, Span( start,end) ) ), Stop ),
             matrix(start)(end)(h)
           )
       }
@@ -922,7 +926,7 @@ class VanillaDMVParser extends AbstractDMVParser{
           h.seal.get -> new UnaryEntry(
             h.seal.get,
             matrix(start)(end)(h).score +
-              g.p_stop( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, Span( start,end) ) ), Stop ),
+              g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, Span( start,end) ) ), Stop ),
             matrix(start)(end)(h)
           )
       }
@@ -979,11 +983,19 @@ class VanillaDMVParser extends AbstractDMVParser{
       id + " " + chart.toDependencyParse
     }
 
-  def bothParses( toParse: List[TimedSentence], prefix:String ) =
-    toParse.map{ case TimedSentence( id, s ) =>
-      val chart = populateChart( s )
-      prefix + ":dependency:" + id + " " + chart.toDependencyParse + "\n" +
-      prefix + ":constituency:" + id + " " + chart.toConstituencyParse
+  def bothParses( toParse: List[AbstractTimedSentence], prefix:String ) =
+    toParse.map{ _ match {
+        case TimedSentence( id, s ) => {
+          val chart = populateChart( s )
+          prefix + ":dependency:" + id + " " + chart.toDependencyParse + "\n" +
+          prefix + ":constituency:" + id + " " + chart.toConstituencyParse
+        }
+        case TimedTwoStreamSentence( id, s ) => {
+          val chart = populateChart( s )
+          prefix + ":dependency:" + id + " " + chart.toDependencyParse + "\n" +
+          prefix + ":constituency:" + id + " " + chart.toConstituencyParse
+        }
+      }
     }
 
 }

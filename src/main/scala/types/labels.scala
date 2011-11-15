@@ -66,8 +66,22 @@ object NotStop extends StopDecision( "--NotStop--" )
 case class StopOrNot( w:ObservedLabel, dir:AttachmentDirection, adj:Boolean )
   extends HiddenLabel( w + ", " + dir + ", " + adj )
 
-case class ChooseArgument( h:ObservedLabel, dir:AttachmentDirection )
+
+abstract class ChooseKey( h:ObservedLabel, dir:AttachmentDirection )
   extends HiddenLabel( h + ", " + dir )
+
+case class ChooseArgument( h:ObservedLabel, dir:AttachmentDirection )
+  extends ChooseKey( h, dir )
+
+case class TwoStreamHeadChooseArg( h:WordPair, dir:AttachmentDirection )
+  extends ChooseKey( h, dir )
+
+case class MarkedObservationPair( val obs:TimedObservedLabelPair, val mark:AttachmentStatus )
+  extends HiddenLabel( obs.toString + "." + mark  ) {
+  val peel = mark.peel.map( MarkedObservationPair( obs, _ ) )
+  lazy val seal = mark.seal.map( MarkedObservationPair( obs, _ ) )
+  val attachmentDirection = mark.attachmentDirection
+}
 
 case class MarkedObservation( val obs:TimedObservedLabel, val mark:AttachmentStatus )
   extends HiddenLabel( obs.toString + "." + mark  ) {
@@ -112,9 +126,17 @@ abstract class HiddenLabel( s:String ) extends Label( s )
 abstract class TimedObservedLabel( val w:ObservedLabel, val t:Int) extends ObservedLabel( w+"."+t ) 
 case class TimedWord( s:String, time:Int ) extends TimedObservedLabel( Word( s ), time )
 
+abstract class TimedObservedLabelPair( val wp:ObservedLabelPair, t:Int )
+  extends TimedObservedLabel( wp, t )
+  //extends ObservedLabelPair( wp.obsA+"."+t, wp.obsB+"."+t )
+
+case class TimedWordPair( w1:String, w2:String, time:Int ) 
+  extends TimedObservedLabelPair( WordPair( w1,w2 ), time )
+
 case object Root extends ObservedLabel( "--Root--" )
 case object InitialRoot extends TimedObservedLabel( Root, 0 )
 case class FinalRoot( n:Int ) extends TimedObservedLabel( Root, n )
+case class FinalRootPair( n:Int ) extends TimedObservedLabelPair( RootPair, n )
 
 
 abstract class ConstituencyStatus( s:String ) extends HiddenLabel ( s )
@@ -129,13 +151,17 @@ package object ccm {
 case class Word( w:String ) extends ObservedLabel ( w ) {
   override def hashCode = w.hashCode
 }
-case class WordPair( val w1:String, val w2:String )
+
+abstract class ObservedLabelPair( w1:String, w2:String )
   extends ObservedLabel ( w1 + "^" + w2 ) with StatePair {
   private val asString = w1 + "^" + w2
   override def hashCode = asString.hashCode
   val obsA = Word( w1 )
   val obsB = Word( w2 )
 }
+
+case class WordPair( w1:String, w2:String ) extends ObservedLabelPair( w1, w2 )
+case object RootPair extends ObservedLabelPair( "--Root--", "--Root--" )
 
 object SentenceBoundary extends ObservedLabel( "###" )
 
@@ -160,12 +186,26 @@ case class Context( left:ObservedLabel, right:ObservedLabel )
   override def hashCode = asString.hashCode
 }
 
-case class Sentence( sentenceID:String, sentence: List[ObservedLabel] )
-  extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
+
+abstract class AbstractSentence[O<:ObservedLabel]( sentenceID:String, sentence:List[O] )
+
+trait AbstractTimedSentence
+
+case class Sentence( sentenceID:String, sentence:List[ObservedLabel] )
+  extends AbstractSentence( sentenceID, sentence )
+  //extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
+
 case class TwoStreamSentence( sentenceID:String, sentence: List[WordPair] )
-  extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
+  extends AbstractSentence( sentenceID, sentence )
+  //extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
+
 case class TimedSentence( sentenceID:String, sentence: List[TimedObservedLabel] )
-  extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
+  extends AbstractSentence( sentenceID, sentence ) with AbstractTimedSentence
+  //extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
+
+case class TimedTwoStreamSentence( sentenceID:String, sentence: List[TimedObservedLabelPair] )
+  extends AbstractSentence( sentenceID, sentence ) with AbstractTimedSentence
+  //extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
 
 abstract class Parameterization
 case class BaseCCM( span:Yield, context:Context ) extends Parameterization
