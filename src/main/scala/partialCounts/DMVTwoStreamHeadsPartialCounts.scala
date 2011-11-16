@@ -6,7 +6,7 @@ import predictabilityParsing.grammars.DMVTwoStreamHeadsGrammar
 import predictabilityParsing.util.Math
 
 class DMVTwoStreamHeadsPartialCounts extends DMVPartialCounts {
-  override def associatedGrammar = new DMVTwoStreamHeadsGrammar//( orderCounts.parents.toSet )
+  override def associatedGrammar = new DMVTwoStreamHeadsGrammar
   override def incrementChooseCounts( chooseKey:ChooseArgument, arg:ObservedLabel, increment:Double ) {
     arg match {
       case WordPair( w1, _ ) => {

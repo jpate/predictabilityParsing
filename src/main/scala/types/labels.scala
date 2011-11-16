@@ -133,10 +133,12 @@ abstract class TimedObservedLabelPair( val wp:ObservedLabelPair, t:Int )
 case class TimedWordPair( w1:String, w2:String, time:Int ) 
   extends TimedObservedLabelPair( WordPair( w1,w2 ), time )
 
-case object Root extends ObservedLabel( "--Root--" )
-case object InitialRoot extends TimedObservedLabel( Root, 0 )
-case class FinalRoot( n:Int ) extends TimedObservedLabel( Root, n )
-case class FinalRootPair( n:Int ) extends TimedObservedLabelPair( RootPair, n )
+trait RootState
+abstract class AbstractRoot extends ObservedLabel( "--Root" )
+// case object Root extends ObservedLabel( "--Root--" ) with RootState
+case object Root extends AbstractRoot with RootState
+case object InitialRoot extends TimedObservedLabel( Root, 0 ) with RootState
+case class FinalRoot( n:Int ) extends TimedObservedLabel( Root, n ) with RootState
 
 
 abstract class ConstituencyStatus( s:String ) extends HiddenLabel ( s )

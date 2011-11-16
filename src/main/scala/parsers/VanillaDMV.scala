@@ -671,6 +671,7 @@ class VanillaDMVParser extends AbstractDMVParser{
     }
 
     object NullEntry extends Entry(
+      //MarkedObservation( FinalRoot(0), Sealed ),
       MarkedObservation( InitialRoot, Sealed ),
       Double.NegativeInfinity,
       None,
