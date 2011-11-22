@@ -1,5 +1,6 @@
 package predictabilityParsing.parsers
 
+import predictabilityParsing.grammars.AbstractDMVGrammar
 import predictabilityParsing.grammars.DMVGrammar
 import predictabilityParsing.partialCounts.DMVPartialCounts
 import predictabilityParsing.types.labels._
@@ -8,9 +9,9 @@ import math.log
 
 
 class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVParser{
-  val g = new DMVGrammar//( vocabulary = vocab )
+  val g:AbstractDMVGrammar = new DMVGrammar//( vocabulary = vocab )
 
-  def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar ) }
+  //def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar ) }
 
   def setHarmonicGrammar[O<:TimedObservedLabel](
     corpus:List[List[O]],
@@ -376,6 +377,21 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
                 matrix(k)(i).keySet.filter{ _.attachmentDirection == RightAttachment }
 
               rightLookingHeads.foreach{ h =>
+                    // println(
+                    //     "g.stopScore( StopOrNot( " + h.obs.w + ", RightAttachment, " + adj(h, Span(k,i)
+                    //     ) + ") , NotStop ) + g.chooseScore( ChooseArgument( " + h.obs.w +
+                    //     ", RightAttachment ) , " + a.obs.w + " ) + matrix( " + k + " )( " + i + ")( " +
+                    //     h + ").iScore + matrix( " + k + " )( " + j + " )( " + h + " ).oScore = " + 
+                    //     g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj(h, Span(k,i) ) ) , NotStop ) +
+                    //     " + " +
+                    //     g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) + " + " +
+                    //     matrix( k )( i )( h ).iScore + " + " + matrix( k )( j )( h ).oScore + " = " + (
+                    //       g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj(h, Span(k,i) ) ) , NotStop ) +
+                    //       g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
+                    //       matrix( k )( i )( h ).iScore +
+                    //       matrix( k )( j )( h ).oScore
+                    //     )
+                    // )
                 matrix(i)(j)(a).incrementOScore(
                   g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj(h, Span(k,i) ) ) , NotStop ) +
                   g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
@@ -494,6 +510,7 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
 
     def toPartialCounts = {
       import collection.mutable.HashMap
+      //println( "STARTING toPartialCounts for " + s.mkString("[ ", ", ", " ]" ) )
       //val pc = new DMVPartialCounts
       val pc = g.emptyPartialCounts
 
@@ -532,6 +549,15 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
 
             matrix(i)(k).keySet.filter{ _.attachmentDirection == RightAttachment }.foreach{ h =>
               rightArguments.foreach{ a =>
+                // println( "Trying to increment " +
+                //   ChooseArgument( h.obs.w, RightAttachment ) + " --> " + a.obs.w + " by " +
+                //     (
+                //     g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
+                //       g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
+                //         matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore
+                //         )
+                // )
+
                 pc.incrementChooseCounts(
                   ChooseArgument( h.obs.w, RightAttachment ),
                   a.obs.w,
@@ -585,6 +611,7 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
 
 
       pc.setTotalScore( treeScore )
+      //println( "\n\n ---  DONE WITH toPartialCounts  ---\n\n" )
       pc
     }
 
@@ -631,6 +658,9 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
 
     chart.computeMarginals
 
+    // println( "Chart for " + s.mkString( "[ ", ", ", " ]" ) )
+    // println( chart + "\n\n\n\n\n" )
+
     chart
   }
 
@@ -638,7 +668,12 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
     corpus.par.map{ s =>
       val pc = populateChart(s).toPartialCounts
       pc
-    }.reduceLeft{(a,b) => a.destructivePlus(b); a}
+    }.reduceLeft{(a,b) =>
+      // println( "\n\n --- RUNNING destructivePlus ---\n\n" );
+      // println( b.getChooseCountsString )
+      a.destructivePlus(b);
+      a
+    }
 
 }
 
@@ -646,9 +681,10 @@ class VanillaDMVParser extends AbstractDMVParser{
   import scala.util.Random
   private val r = new Random(10) // 10 for now
 
-  val g = new DMVGrammar//( vocabulary = Set[ObservedLabel]() )
+  val g:AbstractDMVGrammar = new DMVGrammar//( vocabulary = Set[ObservedLabel]() )
 
-  def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar ) }
+  def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar.getParams ) }
+  //def setGrammar( givenGrammar:DMVGrammar ) { g = givenGrammar }
 
 
   class ViterbiChart( s:List[TimedObservedLabel] ) {

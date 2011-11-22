@@ -1,4 +1,5 @@
 package predictabilityParsing.types.labels
+import predictabilityParsing.types.tables._
 
 abstract class Label(s:String) {
   override def toString = s
@@ -134,7 +135,7 @@ case class TimedWordPair( w1:String, w2:String, time:Int )
   extends TimedObservedLabelPair( WordPair( w1,w2 ), time )
 
 trait RootState
-abstract class AbstractRoot extends ObservedLabel( "--Root" )
+abstract class AbstractRoot extends ObservedLabel( "--Root--" )
 // case object Root extends ObservedLabel( "--Root--" ) with RootState
 case object Root extends AbstractRoot with RootState
 case object InitialRoot extends TimedObservedLabel( Root, 0 ) with RootState
@@ -219,4 +220,18 @@ case class TwoContextTwoSpanCCM(
   contextB:AbstractContext
 ) extends Parameterization
 
+abstract class DMVParameters extends Parameterization
+
+case class VanillaDMVParameters(
+  otherP_order:LogCPT[ObservedLabel,AttachmentOrder],
+  otherP_stop:LogCPT[StopOrNot,StopDecision],
+  otherP_choose:LogCPT[ChooseArgument,ObservedLabel]
+) extends DMVParameters
+
+case class DMVIndependentStreamHeadsParameters(
+  otherP_order:LogCPT[ObservedLabel,AttachmentOrder],
+  otherP_stop:LogCPT[StopOrNot,StopDecision],
+  otherP_chooseA:LogCPT[ChooseArgument,ObservedLabel],
+  otherP_chooseB:LogCPT[ChooseArgument,ObservedLabel]
+) extends DMVParameters
 

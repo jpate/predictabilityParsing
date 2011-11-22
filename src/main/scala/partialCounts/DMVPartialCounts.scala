@@ -3,12 +3,15 @@ package predictabilityParsing.partialCounts
 import predictabilityParsing.types.labels._
 import predictabilityParsing.types.tables._
 import predictabilityParsing.grammars.DMVGrammar
+import predictabilityParsing.grammars.AbstractDMVGrammar
 import predictabilityParsing.util.Math
 
 class DMVPartialCounts {
   val orderCounts = new Log2dTable( Set[ObservedLabel](), dmv.attachmentOrder )
   val stopCounts = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
-  var chooseCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+  val chooseCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+
+  def chooseKeys = chooseCounts.parents
 
   private var totalScore = 0D
 
@@ -89,6 +92,16 @@ class DMVPartialCounts {
     toReturn
   }
 
+  def divideChooseCounts( x:Double ) {
+    chooseCounts.divideBy( x )
+  }
+
+  def normalizeChooseCounts {
+    chooseCounts.normalize
+  }
+
+  def getChooseCountsString = "chooseCounts:\n" + chooseCounts.toString
+
   def destructivePlus( otherCounts:DMVPartialCounts ) {
     val otherP_data = otherCounts.getTotalScore
 
@@ -106,6 +119,26 @@ class DMVPartialCounts {
       incrementStopCounts( stopKey , NotStop , otherCounts.stopCounts( stopKey , NotStop ) )
     }
 
+    // println( "chooseKeys is:\n" + chooseKeys.mkString( "\t","\n\t","\n\n" ) )
+    // otherCounts.divideChooseCounts( otherP_data )
+    // otherCounts.normalizeChooseCounts
+    // println( "Trying to add in chooseKeys:\n" + otherCounts.chooseKeys.mkString("\t","\n\t","\n\n" )
+    // )
+    // otherCounts.chooseKeys.foreach{ chooseKey =>
+    //   //otherCounts.chooseCounts(chooseKey).keySet.foreach{ w =>
+    //   otherCounts.orderCounts.parents.foreach{ w =>
+    //     // println( "Incrementing " + chooseKey + " --> " + w + ": by " + 
+    //     //   otherCounts.chooseCounts( chooseKey , w ) + " - " + otherP_data
+    //     // )
+    //     incrementChooseCounts(
+    //       chooseKey,
+    //       w,
+    //       otherCounts.chooseCounts( chooseKey , w ) - otherP_data
+    //     )
+    //   }
+    // }
+
+
     otherCounts.chooseCounts.divideBy( otherP_data )
     otherCounts.chooseCounts.normalize
     otherCounts.chooseCounts.parents.foreach{ chooseKey =>
@@ -122,7 +155,7 @@ class DMVPartialCounts {
   }
 
 
-  def associatedGrammar = new DMVGrammar//( orderCounts.parents.toSet )
+  def associatedGrammar:AbstractDMVGrammar = new DMVGrammar//( orderCounts.parents.toSet )
   /*
    * For now, we just normalize. In the future, we can sum up the denominator and pass through a
    * digamma function (or something) for variational bayes.
@@ -132,10 +165,14 @@ class DMVPartialCounts {
     // val toReturn = new DMVGrammar( orderCounts.parents.toSet )
     val toReturn = associatedGrammar
 
+    //println( "StopCounts:\n" + stopCounts + "\n\n -- END STOP COUNTS ---\n\n" )
+
     toReturn.setParams(
-      orderCounts.toLogCPT,
-      stopCounts.toLogCPT,
-      chooseCounts.toLogCPT
+      VanillaDMVParameters(
+        orderCounts.toLogCPT,
+        stopCounts.toLogCPT,
+        chooseCounts.toLogCPT
+      )
     )
 
     toReturn.normalize

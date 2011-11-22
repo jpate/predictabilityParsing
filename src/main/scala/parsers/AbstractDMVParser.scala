@@ -1,4 +1,5 @@
 package predictabilityParsing.parsers
+import predictabilityParsing.grammars.AbstractDMVGrammar
 import predictabilityParsing.types.labels._
 
 abstract class AbstractDMVParser {
@@ -14,6 +15,8 @@ abstract class AbstractDMVParser {
     else
       throw new UnsupportedOperationException( w1 + " takes no attachments" )
 
+  val g:AbstractDMVGrammar
+  def setGrammar( givenGrammar:AbstractDMVGrammar ){ g.setParams( givenGrammar.getParams ) }
 
   // We need the +1 because our indices are between words.
   protected def adj( w1:MarkedObservation, span:Span ) =

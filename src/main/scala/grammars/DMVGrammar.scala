@@ -6,7 +6,7 @@ import predictabilityParsing.partialCounts.DMVPartialCounts
 import predictabilityParsing.util.Math
 
 //class DMVGrammar( vocabulary:Set[ObservedLabel] ) {
-class DMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
+abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
 
   //protected val p_order = new LogCPT( vocabulary + Root, dmv.attachmentOrder )
   protected val p_order = new LogCPT( Set[ObservedLabel](), dmv.attachmentOrder )
@@ -21,11 +21,12 @@ class DMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
 
   def emptyPartialCounts = new DMVPartialCounts
 
-  def setParams( otherGram:DMVGrammar ) {
+  def getParams:DMVParameters
+  def setParams[P<:DMVParameters]( parameters:P ) /*{
     p_order.setCPT( otherGram.p_order.getCPT )
     p_stop.setCPT( otherGram.p_stop.getCPT )
     p_choose.setCPT( otherGram.p_choose.getCPT )
-  }
+  }*/
 
   def orderScore( word:ObservedLabel, pref:AttachmentOrder ) = p_order( word, pref )
   def stopScore( stopKey:StopOrNot, stopDecision:StopDecision ) = p_stop( stopKey, stopDecision )
@@ -52,5 +53,15 @@ class DMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
     "P_Stop:\n" + p_stop +
     "P_Choose:\n" + p_choose
 
+}
+
+class DMVGrammar extends AbstractDMVGrammar{
+  def setParams[P<:DMVParameters]( parameters:P ) {
+    val VanillaDMVParameters( newP_order, newP_stop, newP_choose) = parameters
+    p_order.setCPT( newP_order.getCPT )
+    p_stop.setCPT( newP_stop.getCPT )
+    p_choose.setCPT( newP_choose.getCPT )
+  }
+  def getParams = VanillaDMVParameters( p_order, p_stop, p_choose )
 }
 
