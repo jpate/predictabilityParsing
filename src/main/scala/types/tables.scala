@@ -71,6 +71,49 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     )
   }
 
+  private def expDigamma( input:Double ) = 
+    exp( 
+      if( input <= 0 ) {
+        Double.NegativeInfinity
+      } else {
+        var r = 0D
+        var x = input
+        while( x <= 5 ) {
+          r -= 1/x
+          x += 1
+        }
+        val f = 1/(x*x)
+        val t = f*(-1/12.0 + f*(1/120.0 + f*(-1/252.0 + f*(1/240.0 + f*(-1/132.0
+            + f*(691/32760.0 + f*(-1/12.0 + f*3617/8160.0)))))));
+        r + log(x) - 0.5/x + t;
+      }
+    )
+
+  def expDigammaNormalize {
+    val maxes = Map(
+      cpt.keySet.map( parent =>
+        if( cpt( parent ).values.size > 0 )
+          parent -> expDigamma( cpt(parent).values.reduce( Math.sumLogProb(_,_) ) )
+        else
+          parent -> Double.NegativeInfinity
+          //parent -> 0D
+      ).toSeq:_*
+    )
+
+    cpt = Map(
+      cpt.keySet.map{ parent =>
+        parent -> Map(
+          cpt(parent).keySet.map{ child =>
+            if( maxes( parent ) == Double.NegativeInfinity )
+              child -> Double.NegativeInfinity
+            else
+              child -> ( expDigamma( this(parent, child) ) - maxes(parent) )
+          }.toSeq:_*
+        )
+      }.toSeq:_*
+    )
+  }
+
   def randomize( seed:Int, centeredOn:Int ) {
     import scala.util.Random
     val r = new Random( seed )
