@@ -196,7 +196,7 @@ class DMVPartialCounts {
       )
     )
 
-    toReturn.normalize
+    //toReturn.normalize
     toReturn
   }
 
