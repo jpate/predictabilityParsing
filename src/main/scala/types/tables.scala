@@ -72,7 +72,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
   }
 
   private def expDigamma( input:Double ) = 
-    exp( 
+    exp(
       if( input <= 0 ) {
         Double.NegativeInfinity
       } else {
@@ -83,17 +83,20 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
           x += 1
         }
         val f = 1/(x*x)
-        val t = f*(-1/12.0 + f*(1/120.0 + f*(-1/252.0 + f*(1/240.0 + f*(-1/132.0
+        val t = f*(-1D/12.0 + f*(1D/120.0 + f*(-1D/252.0 + f*(1/240.0 + f*(-1/132.0
             + f*(691/32760.0 + f*(-1/12.0 + f*3617/8160.0)))))));
         r + log(x) - 0.5/x + t;
       }
     )
 
-  def expDigammaNormalize {
+  // right now assumes symmetric prior
+  def expDigammaNormalize( pseudoCount:Double = 1D ) {
     val maxes = Map(
       cpt.keySet.map( parent =>
         if( cpt( parent ).values.size > 0 )
-          parent -> expDigamma( cpt(parent).values.reduce( Math.sumLogProb(_,_) ) )
+          parent -> expDigamma(
+            ((pseudoCount + cpt(parent).values.size)::cpt(parent).values.toList).reduce( Math.sumLogProb(_,_) )
+          )
         else
           parent -> Double.NegativeInfinity
           //parent -> 0D
@@ -107,7 +110,14 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
             if( maxes( parent ) == Double.NegativeInfinity )
               child -> Double.NegativeInfinity
             else
-              child -> ( expDigamma( this(parent, child) ) - maxes(parent) )
+              child -> (
+                expDigamma(
+                  Math.sumLogProb(
+                    this(parent, child) + pseudoCount,
+                    pseudoCount
+                  ) - maxes(parent)
+                )
+              )
           }.toSeq:_*
         )
       }.toSeq:_*

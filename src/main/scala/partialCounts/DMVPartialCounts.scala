@@ -179,15 +179,15 @@ class DMVPartialCounts {
     toReturn
   }
 
-  def toVariationalDMVGrammar = {
+  def toVariationalDMVGrammar( partialCounts:Double = 1D) = {
     // val toReturn = new DMVGrammar( orderCounts.parents.toSet )
     val toReturn = associatedGrammar
 
     //println( "StopCounts:\n" + stopCounts + "\n\n -- END STOP COUNTS ---\n\n" )
 
-    orderCounts.expDigammaNormalize
-    stopCounts.expDigammaNormalize
-    chooseCounts.expDigammaNormalize
+    orderCounts.expDigammaNormalize(partialCounts)
+    stopCounts.expDigammaNormalize(partialCounts)
+    chooseCounts.expDigammaNormalize(partialCounts)
     toReturn.setParams(
       VanillaDMVParameters(
         orderCounts.toLogCPT,
