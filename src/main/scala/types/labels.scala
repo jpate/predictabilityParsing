@@ -89,6 +89,7 @@ case class MarkedObservation( val obs:TimedObservedLabel, val mark:AttachmentSta
   val peel = mark.peel.map( MarkedObservation( obs, _ ) )
   lazy val seal = mark.seal.map( MarkedObservation( obs, _ ) )
   val attachmentDirection = mark.attachmentDirection
+  val sealCount = mark.sealCount
 }
 
 package object dmv {
@@ -163,7 +164,9 @@ abstract class ObservedLabelPair( w1:String, w2:String )
   val obsB = Word( w2 )
 }
 
-case class WordPair( w1:String, w2:String ) extends ObservedLabelPair( w1, w2 )
+case class WordPair( w1:String, w2:String ) extends ObservedLabelPair( w1, w2 ) {
+  override def hashCode = (w1+"^"+w2).hashCode
+}
 case object RootPair extends ObservedLabelPair( "--Root--", "--Root--" )
 
 object SentenceBoundary extends ObservedLabel( "###" )

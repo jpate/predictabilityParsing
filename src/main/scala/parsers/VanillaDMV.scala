@@ -183,6 +183,9 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
     def apply( start:Int, end:Int ) = matrix(start)(end)
 
 
+    case class SpannedChildren( head:Entry, dependent:Option[Entry] )
+    case class TwoParses( constituencyParse:String, dependencyParse:Set[DirectedArc] )
+
     // Ok, stupidly simple entry class
     class Entry( val label:MarkedObservation, val span:Span ) {
 
@@ -217,6 +220,7 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
 
       def setOScore( x:Double ) { oScore = x }
 
+      var children = Set[SpannedChildren]()
 
       def addDependency( headEntry:Entry, argEntry:Entry ) {
         val h = headEntry.label
@@ -228,6 +232,96 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
           argEntry.iScore +
           headEntry.iScore
         )
+        children += SpannedChildren( headEntry, Some(argEntry) )
+      }
+
+      def maxMarginalDependencyParse:Set[DirectedArc] = {
+        val SpannedChildren( bestHead, bestArg ) = (
+            if( label.sealCount > 0 )
+              ( children ++
+                ( label.peel.toSet & matrix(span.start)(span.end).keySet ) .map{ peeledLabel =>
+                  SpannedChildren( matrix( span.start )( span.end )( peeledLabel ), None )
+                }.toSet
+              )
+            else
+              children
+          ).reduce{ (currentBest,considering) =>
+            val SpannedChildren( bestHead, bestArg ) = currentBest
+            val SpannedChildren( newHead, newArg ) = considering
+            if(
+              {
+                if( bestArg.isEmpty )
+                  bestHead.score
+                else
+                  Math.sumLogProb( bestHead.score, bestArg.get.score )
+              } > {
+                if( newArg.isEmpty )
+                  newHead.score
+                else
+                  Math.sumLogProb( newHead.score, newArg.get.score )
+              }
+            )
+              currentBest
+            else
+              considering
+          }
+
+        bestHead.maxMarginalDependencyParse ++ {
+          if( bestArg.isEmpty )
+            Set[DirectedArc]()
+          else
+            bestArg.get.maxMarginalDependencyParse +
+              DirectedArc( bestHead.label.obs, bestArg.get.label.obs )
+          }
+
+
+      }
+
+      def maxMarginalConstituencyParse:String = {
+        val SpannedChildren( bestHead, bestArg ) = (
+            if( label.sealCount > 0 )
+              ( children ++
+                ( label.peel.toSet & matrix(span.start)(span.end).keySet ) .map{ peeledLabel =>
+                  SpannedChildren( matrix( span.start )( span.end )( peeledLabel ), None )
+                }.toSet
+              )
+            else
+              children
+          ).reduce{ (currentBest,considering) =>
+            val SpannedChildren( bestHead, bestArg ) = currentBest
+            val SpannedChildren( newHead, newArg ) = considering
+            if(
+              {
+                if( bestArg.isEmpty )
+                  bestHead.score
+                else
+                  Math.sumLogProb( bestHead.score, bestArg.get.score )
+              } > {
+                if( newArg.isEmpty )
+                  newHead.score
+                else
+                  Math.sumLogProb( newHead.score, newArg.get.score )
+              }
+            )
+              currentBest
+            else
+              considering
+          }
+
+        if( bestArg.isEmpty )
+          "(" + bestHead.label + " " + bestHead.maxMarginalConstituencyParse + " )"
+        else
+          if( bestHead.span.start < bestArg.get.span.start )
+            "(" + bestHead.label +
+              bestHead.maxMarginalConstituencyParse + " " +
+              bestArg.get.maxMarginalConstituencyParse +
+            " ) "
+          else
+            "(" + bestHead.label +
+              bestArg.get.maxMarginalConstituencyParse +
+              bestHead.maxMarginalConstituencyParse + " " +
+            " ) "
+
       }
 
       override def toString = 
@@ -238,13 +332,20 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
 
     }
 
-    class TerminalEntry( h:MarkedObservation, index:Int ) extends Entry( h, Span( index, index +1 ) )
+    class TerminalEntry( h:MarkedObservation, index:Int ) extends Entry( h, Span( index, index +1 )
+    ) {
+      override def maxMarginalDependencyParse = Set[DirectedArc]()
+      override def maxMarginalConstituencyParse = "(" + h + "  " + h.obs + ") "
+    }
 
 
     def rootEntry = matrix( 0 )( s.length )( MarkedObservation( FinalRoot(s.length-1), Sealed ) )
     def treeScore =
       rootEntry.iScore
       //matrix( 0 )( s.length )( MarkedObservation( FinalRoot( s.length-1 ), Sealed ) ).iScore
+
+    def toMaxMarginalDependencyParse = rootEntry.maxMarginalDependencyParse
+    def toMaxMarginalConstituencyParse = rootEntry.maxMarginalConstituencyParse
 
 
     // Re-wrote lexFill so we don't explicitly touch iScore at all, only add entries.
@@ -664,13 +765,33 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
     chart
   }
 
+  def maxMarginalParse( corpus:List[AbstractTimedSentence], prefix:String ) =
+    corpus.map{ _ match {
+        case TimedSentence( id, s ) => {
+          val chart = populateChart( s )
+          prefix + ":dependency:" + id + " " + chart.toMaxMarginalDependencyParse + "\n" +
+          prefix + ":constituency:" + id + " " + chart.toMaxMarginalConstituencyParse
+        }
+        case TimedTwoStreamSentence( id, s ) => {
+          val chart = populateChart( s )
+          prefix + ":dependency:" + id + " " + chart.toMaxMarginalDependencyParse + "\n" +
+          prefix + ":constituency:" + id + " " + chart.toMaxMarginalConstituencyParse
+        }
+      }
+    }
+    // corpus.par.map{ s =>
+    //   val pc = populateChart(s).toPartialCounts
+    //   pc
+    // }.reduceLeft{(a,b) =>
+    //   a.destructivePlus(b);
+    //   a
+    // }
+
   def computePartialCounts( corpus:Iterable[List[TimedObservedLabel]] ) =
     corpus.par.map{ s =>
       val pc = populateChart(s).toPartialCounts
       pc
     }.reduceLeft{(a,b) =>
-      // println( "\n\n --- RUNNING destructivePlus ---\n\n" );
-      // println( b.getChooseCountsString )
       a.destructivePlus(b);
       a
     }
@@ -1034,5 +1155,5 @@ class VanillaDMVParser extends AbstractDMVParser{
         }
       }
     }
-
 }
+

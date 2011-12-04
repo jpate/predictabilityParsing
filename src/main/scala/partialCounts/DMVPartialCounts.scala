@@ -106,14 +106,14 @@ class DMVPartialCounts {
     val otherP_data = otherCounts.getTotalScore
 
     otherCounts.orderCounts.divideBy( otherP_data )
-    //otherCounts.orderCounts.normalize
+    otherCounts.orderCounts.normalize
     otherCounts.orderCounts.parents.foreach{ w =>
       incrementOrderCounts( w , LeftFirst , otherCounts.orderCounts( w, LeftFirst ) )
       incrementOrderCounts( w , RightFirst , otherCounts.orderCounts( w, RightFirst ) )
     }
 
     otherCounts.stopCounts.divideBy( otherP_data )
-    //otherCounts.stopCounts.normalize
+    otherCounts.stopCounts.normalize
     otherCounts.stopCounts.parents.foreach{ stopKey =>
       incrementStopCounts( stopKey , Stop , otherCounts.stopCounts( stopKey , Stop ) )
       incrementStopCounts( stopKey , NotStop , otherCounts.stopCounts( stopKey , NotStop ) )
@@ -140,7 +140,7 @@ class DMVPartialCounts {
 
 
     otherCounts.chooseCounts.divideBy( otherP_data )
-    //otherCounts.chooseCounts.normalize
+    otherCounts.chooseCounts.normalize
     otherCounts.chooseCounts.parents.foreach{ chooseKey =>
       otherCounts.chooseCounts(chooseKey).keySet.foreach{ w =>
         incrementChooseCounts(
