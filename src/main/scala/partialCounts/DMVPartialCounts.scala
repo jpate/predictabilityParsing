@@ -96,6 +96,14 @@ class DMVPartialCounts {
     chooseCounts.divideBy( x )
   }
 
+  def divideStopCounts( x:Double ) {
+    stopCounts.divideBy( x )
+  }
+
+  def divideOrderCounts( x:Double ) {
+    orderCounts.divideBy( x )
+  }
+
   def normalizeChooseCounts {
     chooseCounts.normalize
   }
@@ -105,15 +113,15 @@ class DMVPartialCounts {
   def destructivePlus( otherCounts:DMVPartialCounts ) {
     val otherP_data = otherCounts.getTotalScore
 
-    otherCounts.orderCounts.divideBy( otherP_data )
-    otherCounts.orderCounts.normalize
+    //otherCounts.orderCounts.divideBy( otherP_data )
+    //otherCounts.orderCounts.normalize
     otherCounts.orderCounts.parents.foreach{ w =>
       incrementOrderCounts( w , LeftFirst , otherCounts.orderCounts( w, LeftFirst ) )
       incrementOrderCounts( w , RightFirst , otherCounts.orderCounts( w, RightFirst ) )
     }
 
-    otherCounts.stopCounts.divideBy( otherP_data )
-    otherCounts.stopCounts.normalize
+    //otherCounts.stopCounts.divideBy( otherP_data )
+    //otherCounts.stopCounts.normalize
     otherCounts.stopCounts.parents.foreach{ stopKey =>
       incrementStopCounts( stopKey , Stop , otherCounts.stopCounts( stopKey , Stop ) )
       incrementStopCounts( stopKey , NotStop , otherCounts.stopCounts( stopKey , NotStop ) )
@@ -139,8 +147,8 @@ class DMVPartialCounts {
     // }
 
 
-    otherCounts.chooseCounts.divideBy( otherP_data )
-    otherCounts.chooseCounts.normalize
+    //otherCounts.chooseCounts.divideBy( otherP_data )
+    //otherCounts.chooseCounts.normalize
     otherCounts.chooseCounts.parents.foreach{ chooseKey =>
       otherCounts.chooseCounts(chooseKey).keySet.foreach{ w =>
         incrementChooseCounts(
@@ -177,6 +185,54 @@ class DMVPartialCounts {
 
     toReturn.normalize
     toReturn
+  }
+
+  def toLaplaceSmoothedGrammar(vocab:Set[_<:ObservedLabel], smooth:Double ) = {
+    val logSmooth = math.log( smooth )
+
+    val rightFirstValue = orderCounts( orderCounts.parents.head, RightFirst )
+    val leftFirstValue = orderCounts( orderCounts.parents.head, LeftFirst )
+
+    vocab.foreach{ w =>
+      orderCounts.setValue(
+        w,
+        RightFirst,
+        rightFirstValue
+      )
+      orderCounts.setValue(
+        w,
+        LeftFirst,
+        leftFirstValue
+      )
+    }
+
+    ( stopCounts.parents ++ dmv.rootlessStopOrNotKeys( vocab ) ).foreach{ key =>
+      dmv.stopDecision.foreach{ decision =>
+        stopCounts.setValue(
+          key,
+          decision,
+          Math.sumLogProb(
+            stopCounts( key, decision ),
+            logSmooth
+          )
+        )
+      }
+    }
+
+    ( chooseCounts.parents ++ dmv.rootlessChooseKeys( vocab ) ).foreach{ key =>
+      vocab.foreach{ arg =>
+        chooseCounts.setValue(
+          key,
+          arg,
+          Math.sumLogProb(
+            chooseCounts( key, arg ),
+            logSmooth
+          )
+        )
+      }
+    }
+
+    toDMVGrammar
   }
 
   def toVariationalDMVGrammar( partialCounts:Double = 1D) = {

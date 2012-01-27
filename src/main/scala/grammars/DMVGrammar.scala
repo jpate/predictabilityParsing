@@ -48,6 +48,59 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
     p_choose.setCPT( otherP_choose.getCPT )
   }
 
+  def laplaceSmooth( l:Double, vocab:Set[ObservedLabel] ) {
+    val logSmooth = math.log( l )
+
+    // println( "About to smooth p_stop" )
+    // println( "keySet:\n\t" + p_stop.parents.mkString("","\n\t","\n\n" ) )
+    ( p_stop.parents ++ dmv.rootlessStopOrNotKeys( vocab ) ).foreach{ key =>
+      dmv.stopDecision.foreach{ decision =>
+        //println( "\t"+ key + " --> " + decision + " by " + l )
+        p_stop.setValue(
+          key,
+          decision,
+          Math.sumLogProb(
+            p_stop( key, decision ),
+            logSmooth
+          )
+        )
+      }
+    }
+    // println( "about to normalize" )
+    // println( "keySet:\n\t" + p_stop.parents.mkString("","\n\t","\n\n" ) )
+    p_stop.normalize
+    // println( "dun dun dunnnnn" )
+    // println( "keySet:\n\t" + p_stop.parents.mkString("","\n\t","\n\n" ) )
+    // println( "[ " + p_stop( p_stop.parents.head )( Stop ) )
+
+    ( p_choose.parents ++ dmv.rootlessChooseKeys( vocab ) ).foreach{ key =>
+      vocab.foreach{ arg =>
+        p_choose.setValue(
+          key,
+          arg,
+          Math.sumLogProb(
+            p_choose( key, arg ),
+            logSmooth
+          )
+        )
+      }
+    }
+    p_choose.normalize
+
+    (p_order.parents ++ vocab ).foreach{ key =>
+      p_order.setValue(
+        key,
+        LeftFirst,
+        p_order(p_order.parents.head,LeftFirst)
+      )
+      p_order.setValue(
+        key,
+        RightFirst,
+        p_order(p_order.parents.head,RightFirst)
+      )
+    }
+  }
+
   override def toString =
     "P_Order:\n" + p_order +
     "P_Stop:\n" + p_stop +
@@ -62,6 +115,8 @@ class DMVGrammar extends AbstractDMVGrammar{
     p_stop.setCPT( newP_stop.getCPT )
     p_choose.setCPT( newP_choose.getCPT )
   }
+
+
   def getParams = VanillaDMVParameters( p_order, p_stop, p_choose )
 }
 

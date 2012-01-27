@@ -104,15 +104,29 @@ package object dmv {
   val attachmentDirection:Set[AttachmentDirection] = Set( LeftAttachment, RightAttachment )
   val stopDecision:Set[StopDecision] = Set( Stop, NotStop )
 
-  def stopOrNotKeys( vocab:Set[ObservedLabel] ) =
-    (vocab + Root).flatMap{ w =>
+  // def stopOrNotKeys( vocab:Set[ObservedLabel] ) =
+  //   (vocab + Root).flatMap{ w =>
+  //     attachmentDirection.flatMap{ dir =>
+  //       Set( StopOrNot( w, dir, true ), StopOrNot( w, dir, false ) )
+  //     }
+  //   }
+
+  def rootlessStopOrNotKeys( vocab:Set[_<:ObservedLabel] ) =
+    vocab.flatMap{ w =>
       attachmentDirection.flatMap{ dir =>
         Set( StopOrNot( w, dir, true ), StopOrNot( w, dir, false ) )
       }
     }
 
-  def chooseKeys( vocab:Set[ObservedLabel] ) =
-    (vocab + Root).flatMap{ h =>
+  //def chooseKeys( vocab:Set[ObservedLabel] ) =
+  //  (vocab + Root).flatMap{ h =>
+  //    attachmentDirection.map{ dir =>
+  //      ChooseArgument( h, dir )
+  //    }
+  //  }
+
+  def rootlessChooseKeys( vocab:Set[_<:ObservedLabel] ) =
+    vocab.flatMap{ h =>
       attachmentDirection.map{ dir =>
         ChooseArgument( h, dir )
       }

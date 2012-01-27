@@ -309,15 +309,15 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
           }
 
         if( bestArg.isEmpty )
-          "(" + bestHead.label + " " + bestHead.maxMarginalConstituencyParse + " )"
+          "(" + label + " " + bestHead.maxMarginalConstituencyParse + " )"
         else
           if( bestHead.span.start < bestArg.get.span.start )
-            "(" + bestHead.label +
+            "(" + label + " " +
               bestHead.maxMarginalConstituencyParse + " " +
               bestArg.get.maxMarginalConstituencyParse +
             " ) "
           else
-            "(" + bestHead.label +
+            "(" + label + " " +
               bestArg.get.maxMarginalConstituencyParse +
               bestHead.maxMarginalConstituencyParse + " " +
             " ) "
@@ -344,7 +344,8 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
       rootEntry.iScore
       //matrix( 0 )( s.length )( MarkedObservation( FinalRoot( s.length-1 ), Sealed ) ).iScore
 
-    def toMaxMarginalDependencyParse = rootEntry.maxMarginalDependencyParse
+    def toMaxMarginalDependencyParse =
+      rootEntry.maxMarginalDependencyParse.toList.sortWith{ _.arg.t < _.arg.t }.map{_.head.t}.mkString( "[ ", ", ", " ] " )
     def toMaxMarginalConstituencyParse = rootEntry.maxMarginalConstituencyParse
 
 
@@ -478,21 +479,6 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
                 matrix(k)(i).keySet.filter{ _.attachmentDirection == RightAttachment }
 
               rightLookingHeads.foreach{ h =>
-                    // println(
-                    //     "g.stopScore( StopOrNot( " + h.obs.w + ", RightAttachment, " + adj(h, Span(k,i)
-                    //     ) + ") , NotStop ) + g.chooseScore( ChooseArgument( " + h.obs.w +
-                    //     ", RightAttachment ) , " + a.obs.w + " ) + matrix( " + k + " )( " + i + ")( " +
-                    //     h + ").iScore + matrix( " + k + " )( " + j + " )( " + h + " ).oScore = " + 
-                    //     g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj(h, Span(k,i) ) ) , NotStop ) +
-                    //     " + " +
-                    //     g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) + " + " +
-                    //     matrix( k )( i )( h ).iScore + " + " + matrix( k )( j )( h ).oScore + " = " + (
-                    //       g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj(h, Span(k,i) ) ) , NotStop ) +
-                    //       g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
-                    //       matrix( k )( i )( h ).iScore +
-                    //       matrix( k )( j )( h ).oScore
-                    //     )
-                    // )
                 matrix(i)(j)(a).incrementOScore(
                   g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj(h, Span(k,i) ) ) , NotStop ) +
                   g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
@@ -629,7 +615,7 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
         )
 
         ( (i+1) to s.length ).foreach{ j =>
-          val curSpan = Span( i,j)
+          val curSpan = Span( i, j )
 
           matrix(i)(j).keySet.filterNot{ _.seal.isEmpty }.foreach{ h =>
             pc.incrementStopCounts(
@@ -646,19 +632,10 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
           // and the marginal score of the head. There's no need to keep track of the denominator
           // here; we can just sum for the numerator then normalize at the end.
           ( (i+1) to (j-1) ).foreach{ k =>
-            val rightArguments = matrix(k)(j).keySet.filter{ _.mark == Sealed }
 
+            val rightArguments = matrix(k)(j).keySet.filter{ _.mark == Sealed }
             matrix(i)(k).keySet.filter{ _.attachmentDirection == RightAttachment }.foreach{ h =>
               rightArguments.foreach{ a =>
-                // println( "Trying to increment " +
-                //   ChooseArgument( h.obs.w, RightAttachment ) + " --> " + a.obs.w + " by " +
-                //     (
-                //     g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
-                //       g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
-                //         matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore
-                //         )
-                // )
-
                 pc.incrementChooseCounts(
                   ChooseArgument( h.obs.w, RightAttachment ),
                   a.obs.w,
@@ -709,7 +686,9 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
         }
       }
 
-
+      pc.divideChooseCounts( treeScore )
+      pc.divideStopCounts( treeScore )
+      pc.divideOrderCounts( treeScore )
 
       pc.setTotalScore( treeScore )
       //println( "\n\n ---  DONE WITH toPartialCounts  ---\n\n" )
@@ -791,7 +770,8 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
     corpus.par.map{ s =>
       val pc = populateChart(s).toPartialCounts
       pc
-    }.reduceLeft{(a,b) =>
+    //}.toList.reduceLeft{(a,b) =>
+    }.toList.foldLeft( g.emptyPartialCounts ){(a,b) =>
       a.destructivePlus(b);
       a
     }
@@ -949,9 +929,16 @@ class VanillaDMVParser extends AbstractDMVParser{
         //println( unsealedLeftHeads.mkString( "{ ", ", ", " }" ) )
         unsealedLeftHeads.foreach{ h =>
 
+          val firstRightArg = rightArgs.head
+          val firstRightArgScore = 
+            g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ), NotStop ) +
+            g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , firstRightArg.obs.w ) +
+            matrix(start)(k)(h).score +
+            matrix(k)(end)(firstRightArg).score
           val Tuple2( bestArg, bestArgScore ) =
-            rightArgs.foldLeft(
-              Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
+            rightArgs.tail.foldLeft(
+              Tuple2( firstRightArg, firstRightArgScore )
+              //Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
             ){ (bestArgAndScore,arg) =>
               val bestScore = bestArgAndScore._2
               val newScore =
@@ -978,9 +965,17 @@ class VanillaDMVParser extends AbstractDMVParser{
 
         val unsealedRightHeads = matrix(k)(end).keySet.filter{ _.mark == UnsealedLeftFirst }
         unsealedRightHeads.foreach{ h =>
+
+          val firstLeftArg = leftArgs.head
+          val firstLeftArgScore = 
+            g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ), NotStop ) +
+            g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , firstLeftArg.obs.w ) +
+            matrix(start)(k)(firstLeftArg).score +
+            matrix(k)(end)(h).score
           val Tuple2( bestArg, bestArgScore ) =
-            leftArgs.foldLeft(
-              Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
+            leftArgs.tail.foldLeft(
+              Tuple2( firstLeftArg, firstLeftArgScore )
+              //Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
             ){ (bestArgAndScore,arg) =>
               val bestScore = bestArgAndScore._2
               val newScore =
@@ -1009,9 +1004,16 @@ class VanillaDMVParser extends AbstractDMVParser{
 
         val halfSealedLeftHeads = matrix(start)(k).keySet.filter{ _.mark == SealedLeft }
         halfSealedLeftHeads.foreach{ h =>
+          val firstRightArg = rightArgs.head
+          val firstRightArgScore = 
+            g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ), NotStop ) +
+            g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , firstRightArg.obs.w ) +
+            matrix(start)(k)(h).score +
+            matrix(k)(end)(firstRightArg).score
           val Tuple2( bestArg, bestArgScore ) =
-            rightArgs.foldLeft(
-              Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
+            rightArgs.tail.foldLeft(
+              Tuple2( firstRightArg, firstRightArgScore )
+              //Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
             ){ (bestArgAndScore,arg) =>
               val bestScore = bestArgAndScore._2
               val newScore =
@@ -1038,9 +1040,16 @@ class VanillaDMVParser extends AbstractDMVParser{
 
         val halfSealedRightHeads = matrix(k)(end).keySet.filter{ _.mark == SealedRight }
         halfSealedRightHeads.foreach{ h =>
+          val firstLeftArg = leftArgs.head
+          val firstLeftArgScore =
+            g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ), NotStop ) +
+            g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , firstLeftArg.obs.w ) +
+            matrix(start)(k)(firstLeftArg).score +
+            matrix(k)(end)(h).score
           val Tuple2( bestArg, bestArgScore ) =
-            leftArgs.foldLeft(
-              Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
+            leftArgs.tail.foldLeft(
+              Tuple2( firstLeftArg, firstLeftArgScore )
+              //Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
             ){ (bestArgAndScore,arg) =>
               val bestScore = bestArgAndScore._2
               val newScore =
