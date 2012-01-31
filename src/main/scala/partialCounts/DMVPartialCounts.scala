@@ -246,9 +246,9 @@ class DMVPartialCounts {
     chooseCounts.expDigammaNormalize(partialCounts)
     toReturn.setParams(
       VanillaDMVParameters(
-        orderCounts.toLogCPT,
-        stopCounts.toLogCPT,
-        chooseCounts.toLogCPT
+        orderCounts.asLogCPT,
+        stopCounts.asLogCPT,
+        chooseCounts.asLogCPT
       )
     )
 
