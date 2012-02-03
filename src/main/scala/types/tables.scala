@@ -73,10 +73,6 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
 
   // expDigamma without exp because we are in log-space
   private def expDigamma( input:Double ) = 
-    //exp(
-      // if( input <= 0 ) {
-      //   Double.NegativeInfinity
-      // } else {
       {
         var r = 0D
         var x = exp( input )
@@ -89,7 +85,6 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
             + f*(691/32760.0 + f*(-1/12.0 + f*3617/8160.0)))))));
         r + log(x) - 0.5/x + t;
       }
-    //)
 
   // right now assumes symmetric prior
   def expDigammaNormalize( pseudoCount:Double = 1D ) {
@@ -122,8 +117,13 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
                 ) - maxes(parent)
               )
           }.toSeq:_*
-        )
+        ).withDefaultValue( expDigamma( logPseudoCount ) - maxes(parent) )
       }.toSeq:_*
+    ).withDefaultValue(
+      Map[U,Double]().withDefaultValue(
+        expDigamma( logPseudoCount ) -
+        expDigamma( math.log( parents.size ) + logPseudoCount )
+      )
     )
   }
 
@@ -359,6 +359,14 @@ class Log1dTable[T<:Label]( passedDomain:Iterable[T] ) extends AbstractLog1dTabl
     val toReturn = new LogPT( domain )
     toReturn.setPT( pt )
     toReturn.normalize
+    toReturn
+  }
+}
+
+object Log1dTable {
+  def apply[T<:Label]( domain:Set[T], defaultVal:Double ) = {
+    val toReturn = new Log1dTable( domain )
+    toReturn.setDefault( defaultVal )
     toReturn
   }
 }

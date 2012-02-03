@@ -104,7 +104,7 @@ package object dmv {
   val attachmentDirection:Set[AttachmentDirection] = Set( LeftAttachment, RightAttachment )
   val stopDecision:Set[StopDecision] = Set( Stop, NotStop )
 
-  // def stopOrNotKeys( vocab:Set[ObservedLabel] ) =
+  // def stopOrNotKeys( vocab:Set[_<:ObservedLabel] ) =
   //   (vocab + Root).flatMap{ w =>
   //     attachmentDirection.flatMap{ dir =>
   //       Set( StopOrNot( w, dir, true ), StopOrNot( w, dir, false ) )
@@ -118,12 +118,12 @@ package object dmv {
       }
     }
 
-  //def chooseKeys( vocab:Set[ObservedLabel] ) =
-  //  (vocab + Root).flatMap{ h =>
-  //    attachmentDirection.map{ dir =>
-  //      ChooseArgument( h, dir )
-  //    }
-  //  }
+  // def chooseKeys( vocab:Set[_<:ObservedLabel] ) =
+  //   (vocab + Root).flatMap{ h =>
+  //     attachmentDirection.map{ dir =>
+  //       ChooseArgument( h, dir )
+  //     }
+  //   }
 
   def rootlessChooseKeys( vocab:Set[_<:ObservedLabel] ) =
     vocab.flatMap{ h =>
@@ -167,19 +167,43 @@ package object ccm {
 
 
 case class Word( w:String ) extends ObservedLabel ( w ) {
-  override def hashCode = w.hashCode
+  override val hashCode = w.hashCode
 }
 
 abstract class ObservedLabelPair( w1:String, w2:String )
   extends ObservedLabel ( w1 + "^" + w2 ) with StatePair {
-  private val asString = w1 + "^" + w2
-  override def hashCode = asString.hashCode
+  // private val asString = w1 + "^" + w2
+  // override val hashCode = asString.hashCode
   val obsA = Word( w1 )
   val obsB = Word( w2 )
 }
+abstract class ObservedLabelTriple( w1:String, w2:String, w3:String )
+  extends ObservedLabel ( w1 + "^" + w2 + "^" + w3 ) {
+  // private val asString = w1 + "^" + w2 + "^" + w3
+  // override val hashCode = asString.hashCode
+  val obsA = Word( w1 )
+  val obsB = Word( w2 )
+  val obsC = Word( w3 )
+}
+abstract class ObservedLabelQuad( w1:String, w2:String, w3:String, w4:String )
+  extends ObservedLabel ( w1 + "^" + w2 + "^" + w3 + "^" + w4 ) {
+  // private val asString = w1 + "^" + w2 + "^" + w3 + "^" + w4
+  // override val hashCode = asString.hashCode
+  val obsA = Word( w1 )
+  val obsB = Word( w2 )
+  val obsC = Word( w3 )
+  val obsD = Word( w4 )
+}
 
 case class WordPair( w1:String, w2:String ) extends ObservedLabelPair( w1, w2 ) {
-  override def hashCode = (w1+"^"+w2).hashCode
+  override val hashCode = (w1+"^"+w2).hashCode
+}
+case class WordTriple( w1:String, w2:String, w3:String ) extends ObservedLabelTriple( w1, w2, w3 ) {
+  override val hashCode = (w1+"^"+w2+"^"+w3).hashCode
+}
+class WordQuad( val w1:String, val w2:String, val w3:String, val w4:String )
+  extends ObservedLabelQuad( w1, w2, w3, w4 ) {
+  //override val hashCode = (w1+"^"+w2+"^"+w3+"^"+w4).hashCode
 }
 case object RootPair extends ObservedLabelPair( "--Root--", "--Root--" )
 

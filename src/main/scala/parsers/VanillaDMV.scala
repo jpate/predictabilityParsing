@@ -172,6 +172,7 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
       Double.NegativeInfinity
     )
 
+    println( "setting harmonic initialization:" )
     setGrammar( pc.toDMVGrammar )
   }
 
@@ -623,7 +624,8 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
               Stop,
               matrix(i)(j)(h).iScore +
                 g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, curSpan) ) , Stop ) +
-                  matrix(i)(j)(h.seal.get).oScore
+                  matrix(i)(j)(h.seal.get).oScore -
+                    treeScore
             )
           }
 
@@ -641,7 +643,8 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
                   a.obs.w,
                   g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
                     g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
-                      matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore
+                      matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore -
+                        treeScore
                 )
 
                 pc.incrementStopCounts(
@@ -649,7 +652,8 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
                   NotStop,
                    g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
                      g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
-                       matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore
+                       matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore -
+                        treeScore
                 )
 
               }
@@ -666,7 +670,8 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
                   a.obs.w,
                   g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,j) ) ) , NotStop ) +
                     g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
-                      matrix(i)(k)(a).iScore + matrix(k)(j)(h).iScore + matrix(i)(j)(h).oScore
+                      matrix(i)(k)(a).iScore + matrix(k)(j)(h).iScore + matrix(i)(j)(h).oScore -
+                        treeScore
                 )
 
                 pc.incrementStopCounts(
@@ -674,7 +679,8 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
                   NotStop,
                   g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,j) ) ) , NotStop ) +
                     g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
-                      matrix(i)(k)(a).iScore + matrix(k)(j)(h).iScore + matrix(i)(j)(h).oScore
+                      matrix(i)(k)(a).iScore + matrix(k)(j)(h).iScore + matrix(i)(j)(h).oScore -
+                        treeScore
                 )
               }
 
@@ -686,9 +692,9 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
         }
       }
 
-      pc.divideChooseCounts( treeScore )
-      pc.divideStopCounts( treeScore )
-      pc.divideOrderCounts( treeScore )
+      // pc.divideChooseCounts( treeScore )
+      // pc.divideStopCounts( treeScore )
+      // pc.divideOrderCounts( treeScore )
 
       pc.setTotalScore( treeScore )
       //println( "\n\n ---  DONE WITH toPartialCounts  ---\n\n" )
@@ -745,7 +751,7 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
   }
 
   def maxMarginalParse( corpus:List[AbstractTimedSentence], prefix:String ) =
-    corpus.map{ _ match {
+    corpus.par.map{ _ match {
         case TimedSentence( id, s ) => {
           val chart = populateChart( s )
           prefix + ":dependency:" + id + " " + chart.toMaxMarginalDependencyParse + "\n" +
