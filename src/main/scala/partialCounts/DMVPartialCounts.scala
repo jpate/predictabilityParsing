@@ -13,7 +13,22 @@ class DMVPartialCounts {
 
   def chooseKeys = chooseCounts.parents
 
-  private var totalScore = 0D
+  // expDigamma without exp because we are in log-space
+  protected def expDigamma( input:Double ) = {
+    import math.{exp,log}
+    var r = 0D
+    var x = exp( input )
+    while( x <= 5 ) {
+      r -= 1/x
+      x += 1
+    }
+    val f = 1/(x*x)
+    val t = f*(-1D/12.0 + f*(1D/120.0 + f*(-1D/252.0 + f*(1/240.0 + f*(-1/132.0
+        + f*(691/32760.0 + f*(-1/12.0 + f*3617/8160.0)))))));
+    r + log(x) - 0.5/x + t;
+  }
+
+  protected var totalScore = 0D
 
   def setTotalScore( updatedTotalScore: Double ) { totalScore = updatedTotalScore }
   def incrementTotalScore( increment: Double ) 
@@ -110,7 +125,14 @@ class DMVPartialCounts {
 
   def getChooseCountsString = "chooseCounts:\n" + chooseCounts.toString
 
+  val stopBackoffCounts = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
+
+  val chooseBackoffArgCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+  val chooseBackoffBothCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+
+
   def destructivePlus( otherCounts:DMVPartialCounts ) {
+    //println( "regular destructivePlus" )
     val otherP_data = otherCounts.getTotalScore
 
     //otherCounts.orderCounts.divideBy( otherP_data )

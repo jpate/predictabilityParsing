@@ -201,7 +201,7 @@ case class WordPair( w1:String, w2:String ) extends ObservedLabelPair( w1, w2 ) 
 case class WordTriple( w1:String, w2:String, w3:String ) extends ObservedLabelTriple( w1, w2, w3 ) {
   override val hashCode = (w1+"^"+w2+"^"+w3).hashCode
 }
-class WordQuad( val w1:String, val w2:String, val w3:String, val w4:String )
+case class WordQuad( w1:String, w2:String, w3:String, w4:String )
   extends ObservedLabelQuad( w1, w2, w3, w4 ) {
   //override val hashCode = (w1+"^"+w2+"^"+w3+"^"+w4).hashCode
 }
@@ -267,6 +267,17 @@ case class VanillaDMVParameters(
   otherP_order:LogCPT[ObservedLabel,AttachmentOrder],
   otherP_stop:LogCPT[StopOrNot,StopDecision],
   otherP_choose:LogCPT[ChooseArgument,ObservedLabel]
+) extends DMVParameters
+
+case class DMVBayesianBackoffParameters(
+  otherP_order:LogCPT[ObservedLabel,AttachmentOrder],
+  otherP_stop:LogCPT[StopOrNot,StopDecision],
+  otherP_choose:LogCPT[ChooseArgument,ObservedLabel],
+  noStopBackoffScore:AbstractLog1dTable[ObservedLabel],
+  stopBackoffScore:AbstractLog1dTable[ObservedLabel],
+  noChooseBackoffScore:AbstractLog1dTable[ObservedLabel],
+  backoffArgScore:AbstractLog1dTable[ObservedLabel],
+  backoffBothScore:AbstractLog1dTable[ObservedLabel]
 ) extends DMVParameters
 
 case class DMVIndependentStreamHeadsParameters(

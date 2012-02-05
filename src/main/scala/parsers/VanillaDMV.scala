@@ -172,6 +172,29 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
       Double.NegativeInfinity
     )
 
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
+
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
+
+
     println( "setting harmonic initialization:" )
     setGrammar( pc.toDMVGrammar )
   }
@@ -790,8 +813,13 @@ class VanillaDMVParser extends AbstractDMVParser{
 
   val g:AbstractDMVGrammar = new DMVGrammar//( vocabulary = Set[ObservedLabel]() )
 
-  def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar.getParams ) }
+  def setGrammar( givenGrammar:DMVGrammar ) {
+    g.setParams( givenGrammar.getVanillaParams )
+    //println( "viterbi grammar is:\n" + g )
+  }
   //def setGrammar( givenGrammar:DMVGrammar ) { g = givenGrammar }
+
+  //def setGrammar( grammarParams:DMVParameters ) { g.setParams( grammarParams ) }
 
 
   class ViterbiChart( s:List[TimedObservedLabel] ) {

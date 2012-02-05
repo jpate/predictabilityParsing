@@ -15,6 +15,49 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
   //protected val p_stop = new LogCPT( p_stop_keys, dmv.stopDecision )
   protected val p_stop = new LogCPT( Set[StopOrNot](), dmv.stopDecision )
 
+  p_stop.setValue(
+    StopOrNot( Root, RightAttachment, true ),
+    Stop,
+    0D
+  )
+  p_stop.setValue(
+    StopOrNot( Root, RightAttachment, true ),
+    NotStop,
+    Double.NegativeInfinity
+  )
+  p_stop.setValue(
+    StopOrNot( Root, RightAttachment, false ),
+    Stop,
+    0D
+  )
+  p_stop.setValue(
+    StopOrNot( Root, RightAttachment, false ),
+    NotStop,
+    Double.NegativeInfinity
+  )
+
+  p_stop.setValue(
+    StopOrNot( Root, LeftAttachment, true ),
+    NotStop,
+    0D
+  )
+  p_stop.setValue(
+    StopOrNot( Root, LeftAttachment, true ),
+    Stop,
+    Double.NegativeInfinity
+  )
+
+  p_stop.setValue(
+    StopOrNot( Root, LeftAttachment, false ),
+    NotStop,
+    Double.NegativeInfinity
+  )
+  p_stop.setValue(
+    StopOrNot( Root, LeftAttachment, false ),
+    Stop,
+    0D
+  )
+
   //private val p_choose_keys = dmv.chooseKeys( vocabulary )
   //protected val p_choose = new LogCPT( p_choose_keys, vocabulary+Root )
   protected val p_choose = new LogCPT( Set[ChooseArgument](), Set[ObservedLabel]() )//vocabulary+Root )
@@ -22,6 +65,7 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
   def emptyPartialCounts = new DMVPartialCounts
 
   def getParams:DMVParameters
+  def getVanillaParams = VanillaDMVParameters( p_order, p_stop, p_choose )
   def setParams[P<:DMVParameters]( parameters:P ) /*{
     p_order.setCPT( otherGram.p_order.getCPT )
     p_stop.setCPT( otherGram.p_stop.getCPT )
@@ -117,6 +161,6 @@ class DMVGrammar extends AbstractDMVGrammar{
   }
 
 
-  def getParams = VanillaDMVParameters( p_order, p_stop, p_choose )
+  def getParams:DMVParameters = VanillaDMVParameters( p_order, p_stop, p_choose )
 }
 

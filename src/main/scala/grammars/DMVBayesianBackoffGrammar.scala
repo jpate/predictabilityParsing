@@ -9,32 +9,42 @@ import predictabilityParsing.partialCounts.DMVBayesianBackoffPartialCounts
 class DMVBayesianBackoffGrammar(
   // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
   // decisions are drawn
+  noStopBackoff:Double = 35,
+  stopBackoff:Double = 70,
   noChooseBackoff:Double = 30,
   backoffArg:Double = 60,
   backoffBoth:Double = 120,
-  noStopBackoff:Double = 35,
-  stopBackoff:Double = 70,
   // these are specific backoff parameters
+  noStopBackoffScore:AbstractLog1dTable[ObservedLabel],
+  stopBackoffScore:AbstractLog1dTable[ObservedLabel],
   noChooseBackoffScore:AbstractLog1dTable[ObservedLabel],
   backoffArgScore:AbstractLog1dTable[ObservedLabel],
-  backoffBothScore:AbstractLog1dTable[ObservedLabel],
-  noStopBackoffScore:AbstractLog1dTable[ObservedLabel],
-  stopBackoffScore:AbstractLog1dTable[ObservedLabel]
+  backoffBothScore:AbstractLog1dTable[ObservedLabel]
 ) extends DMVGrammar {
 
+  //println( "Forming new grammar with noStopBackoffScore of:\n" + noStopBackoffScore )
+
   def this(
+    noStopBackoff:Double,
+    stopBackoff:Double,
     noChooseBackoff:Double,
     backoffArg:Double,
-    backoffBoth:Double,
-    noStopBackoff:Double,
-    stopBackoff:Double
+    backoffBoth:Double
   ) = this(
+    noStopBackoff,
+    stopBackoff,
     noChooseBackoff,
     backoffArg,
     backoffBoth,
-    noStopBackoff,
-    stopBackoff,
     // these are specific backoff parameters
+    noStopBackoffScore = Log1dTable(
+      Set[ObservedLabel](),
+      math.log( noStopBackoff /(noStopBackoff + stopBackoff) )
+    ),
+    stopBackoffScore = Log1dTable(
+      Set[ObservedLabel](),
+      math.log( stopBackoff /(noStopBackoff + stopBackoff) )
+    ),
     noChooseBackoffScore = Log1dTable(
       Set[ObservedLabel](),
       math.log( noChooseBackoff/(noChooseBackoff + backoffArg + backoffBoth) )
@@ -46,17 +56,9 @@ class DMVBayesianBackoffGrammar(
     backoffBothScore = Log1dTable(
       Set[ObservedLabel](),
       math.log( backoffBoth/(noChooseBackoff + backoffArg + backoffBoth) )
-    ),
-    noStopBackoffScore = Log1dTable(
-      Set[ObservedLabel](),
-      math.log( noStopBackoff /(noStopBackoff + stopBackoff) )
-    ),
-    stopBackoffScore = Log1dTable(
-      Set[ObservedLabel](),
-      math.log( stopBackoff /(noStopBackoff + stopBackoff) )
     )
   )
-  def this() = this( 30, 60, 120, 35, 70)
+  def this() = this( 35, 70, 30, 60, 120 )
 
   def randomize( vocab:Set[ObservedLabelPair] ):Unit = randomize( vocab, 15, 10 )
   def randomize( vocab:Set[ObservedLabelPair], seed:Int ):Unit = randomize( vocab, seed, 10 )
@@ -114,20 +116,164 @@ class DMVBayesianBackoffGrammar(
         }.toSeq:_*
       )
     )
+
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      Stop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      Stop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
+
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
+
     p_choose.randomize( seed, centeredOn)
   }
 
-  override def emptyPartialCounts = new DMVBayesianBackoffPartialCounts(
-    noChooseBackoff,
-    backoffArg,
-    backoffBoth,
-    noStopBackoff,
-    stopBackoff,
-    noChooseBackoffScore,
-    backoffArgScore,
-    backoffBothScore,
-    noStopBackoffScore,
-    stopBackoffScore
-  )
+  override def setParams[P<:DMVParameters]( parameters:P ) {
+    val DMVBayesianBackoffParameters(
+      otherP_order,
+      otherP_stop,
+      otherP_choose,
+      otherNoStopBackoffScore,
+      otherStopBackoffScore,
+      otherNoChooseBackoffScore,
+      otherBackoffArgScore,
+      otherBackoffBothScore
+    ) = parameters
+
+    p_order.setCPT( otherP_order.getCPT )
+    p_stop.setCPT( otherP_stop.getCPT )
+    p_choose.setCPT( otherP_choose.getCPT )
+    noStopBackoffScore.setPT( otherNoStopBackoffScore.getPT )
+    stopBackoffScore.setPT( otherStopBackoffScore.getPT )
+    noChooseBackoffScore.setPT( otherNoChooseBackoffScore.getPT )
+    backoffArgScore.setPT( otherBackoffArgScore.getPT )
+    backoffBothScore.setPT( otherBackoffBothScore.getPT )
+
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      Stop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      Stop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
+
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
+
+  }
+
+  override def getParams = //VanillaDMVParameters( p_order, p_stop, p_choose )
+    DMVBayesianBackoffParameters(
+      p_order,
+      p_stop,
+      p_choose,
+      noStopBackoffScore,
+      stopBackoffScore,
+      noChooseBackoffScore,
+      backoffArgScore,
+      backoffBothScore
+    )
+
+  override def emptyPartialCounts = {
+    //println( "Forming new partial counts with noStopBackoffScore:\n" + noStopBackoffScore )
+    new DMVBayesianBackoffPartialCounts(
+      noStopBackoff,
+      stopBackoff,
+      noChooseBackoff,
+      backoffArg,
+      backoffBoth,
+      noStopBackoffScore,
+      stopBackoffScore,
+      noChooseBackoffScore,
+      backoffArgScore,
+      backoffBothScore
+    )
+  }
+
+  override def toString =
+    super.toString +
+      "noStopBackoffScore (default val = " + math.exp( noStopBackoffScore.defaultVal ) + "):\n" +
+        noStopBackoffScore +
+      "StopBackoffScore (default val = " + math.exp( stopBackoffScore.defaultVal ) +  "):\n" +
+        stopBackoffScore +
+      "NoChooseBackoffScore (defaultVal = " + math.exp( noChooseBackoffScore.defaultVal ) + "):\n" +
+        noChooseBackoffScore +
+      "BackoffArgScore (defaultVal = " + math.exp( backoffArgScore.defaultVal ) + "):\n" +
+        backoffArgScore +
+      "BackoffBothScore (defaultVal = " + math.exp( backoffBothScore.defaultVal ) + "):\n" +
+        backoffBothScore + "\n" +
+      "Alphas:\n" +
+      "\tnoStopBackoffAlpha: " + noStopBackoff + "\n" +
+      "\tstopBackoffAlpha: " + stopBackoff + "\n" +
+      "\tnoChooseBackoffAlpha: " + noChooseBackoff + "\n" +
+      "\tbackoffArgAlpha: " + backoffArg + "\n" +
+      "\tbackoffBothAlpha: " + backoffBoth + "\n"
 }
 
