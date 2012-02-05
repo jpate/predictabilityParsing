@@ -1,5 +1,6 @@
 package predictabilityParsing.types.tables
 
+import scalala.library.Numerics.logSum
 import predictabilityParsing.types.labels._
 import predictabilityParsing.util.Math
 import scala.collection.mutable.Map
@@ -50,7 +51,8 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     val maxes = Map(
       cpt.keySet.map( parent =>
         if( cpt( parent ).values.size > 0 )
-          parent -> ( cpt(parent).values.reduce( Math.sumLogProb(_,_) ) )
+          //parent -> ( cpt(parent).values.reduce( Math.sumLogProb(_,_) ) )
+          parent -> logSum( cpt(parent).values.toSeq )
         else
           parent -> Double.NegativeInfinity
           //parent -> 0D
@@ -93,7 +95,8 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       cpt.keySet.map( parent =>
         if( cpt( parent ).values.size > 0 )
           parent -> expDigamma(
-            ((log( pseudoCount * cpt(parent).values.size ))::cpt(parent).values.toList).reduce( Math.sumLogProb(_,_) )
+            //((log( pseudoCount * cpt(parent).values.size ))::cpt(parent).values.toList).reduce( Math.sumLogProb(_,_) )
+            logSum((log( pseudoCount * cpt(parent).values.size ))::cpt(parent).values.toList)
           )
         else
           parent -> Double.NegativeInfinity
@@ -110,7 +113,11 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
             else
               child -> (
                 expDigamma(
-                  Math.sumLogProb(
+                  // Math.sumLogProb(
+                  //   this(parent, child),
+                  //   logPseudoCount
+                  // )
+                  logSum(
                     this(parent, child),
                     logPseudoCount
                   )
@@ -152,7 +159,8 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
         parent -> Map(
           ( this(parent).keySet ++ otherCPT(parent).keySet ).map{ child =>
             child ->
-              Math.sumLogProb( this( parent , child ), otherCPT( parent , child ) )
+              //Math.sumLogProb( this( parent , child ), otherCPT( parent , child ) )
+              logSum( this( parent , child ), otherCPT( parent , child ) )
           }.toSeq:_*
         )
       }.toSeq:_*
@@ -207,7 +215,11 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
         parent ->
           Map(
             this(parent).keySet.map( child =>
-              child -> Math.sumLogProb(
+              // child -> Math.sumLogProb(
+              //   cpt(parent)(child),
+              //   hallucination(parent)
+              // )
+              child -> logSum(
                 cpt(parent)(child),
                 hallucination(parent)
               )
@@ -277,14 +289,19 @@ abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
 
   def getPT = pt
 
-  def setValue( element:T, newValue:Double ) { pt = pt ++ Map( element -> newValue ) }
+  //def setValue( element:T, newValue:Double ) { pt = pt ++ Map( element -> newValue ) }
+  def setValue( element:T, newValue:Double ) { pt += element -> newValue }
 
   def +( otherPT: AbstractLog1dTable[T] ) = {
     val domainUnion = otherPT.domain.union( domain )
 
     val summedPT = Map(
       domainUnion.map{ element =>
-        element -> Math.sumLogProb(
+        // element -> Math.sumLogProb(
+        //   this( element ),
+        //   otherPT( element )
+        // )
+        element -> logSum(
           this( element ),
           otherPT( element )
         )
@@ -298,7 +315,8 @@ abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
   }
 
   def normalize {
-    val max = pt.values.reduceLeft( Math.sumLogProb( _ , _) )
+    //val max = pt.values.reduceLeft( Math.sumLogProb( _ , _) )
+    val max = logSum( pt.values.toSeq )
 
     pt = Map(
       pt.keySet.map{ parent =>
