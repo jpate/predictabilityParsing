@@ -1,11 +1,20 @@
-This is an implementation of CCM (e.g. [1]). I plan to extend it to run on two simultaneous input streams. One
-of these streams will be (a quantization of) word duration. The idea is to learn something about
-constituency structure by exploiting predictability effects. That is why this library is called
+This is an implementation of CCM and DMV (e.g. [1,2]), with extensions to run on two input streams.
+The library is called "predictabilityParsing" because one of the streams will be words, and the
+other will be (a quantization of) word duration. The idea is to learn something about syntactic
+structure by exploiting predictability effects (e.g. [3]). That is why this library is called
 "predictabilityParsing."
 
-[1] A Generative Constituent-Context Model for Improved Grammar Induction, Dan Klein and Chris Manning,
-In Proceedings of the Association for Computational Linguistics (ACL) 2002.
+[1] (2002). Klein, D., & Manning, C. A Generative Constituent-Context Model for Improved Grammar Induction, Dan Klein and Chris Manning,
+In Proceedings of the Association for Computational Linguistics (ACL).
+
+[2] (2004). Klein, D., & Manning, C. Corpus-Based Induction of Syntactic Structure: Models of
+Dependency and Constituency, In Proceedings of the Association for Computational Linguistics (ACL).
+
+[3] (2006). Gahl, S., Garnsey, S., Fisher, C. & Matzen, L. "That sounds unlikely": Syntactic
+probabilities affect pronunciation. Proceedings of the 28th Annual Conference of the Cognitive
+Science Society.
 
 
-There is also an implementation of DMV which I'm pretty sure is correct.
+There are a few elaborations on these models as well.
+
 

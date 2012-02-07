@@ -353,7 +353,7 @@ class DMVBayesianBackoffPartialCounts(
     val stopNoBackoffCounts =
       new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
 
-    println( "Summing over stopCounts to get counts for interpolation parameters and each backoff distribution." )
+    //println( "Summing over stopCounts to get counts for interpolation parameters and each backoff distribution." )
     stopCounts.parents.foreach{ stopKey =>
       stopKey.w match {
         case WordPair( h1,h2) => {
@@ -369,10 +369,6 @@ class DMVBayesianBackoffPartialCounts(
             // for interpolation parameters, sum over everything except head word.
             stopNoBackoffInterpolationSums.setValue(
               stopKey.w,
-              // Math.sumLogProb(
-              //   stopNoBackoffInterpolationSums( stopKey.w ),
-              //   thisNoBackoffComponent
-              // )
               logSum(
                 stopNoBackoffInterpolationSums( stopKey.w ),
                 thisNoBackoffComponent
@@ -380,22 +376,16 @@ class DMVBayesianBackoffPartialCounts(
             )
             // Use backoff head because our interpolation rules are tied
             stopBackoffInterpolationSums.setValue(
-              backoffHead,
-              // Math.sumLogProb(
-              //   stopBackoffInterpolationSums( backoffHead ),
-              //   thisBackoffComponent
-              // )
+              // backoffHead,
+              stopKey.w,
               logSum(
-                stopBackoffInterpolationSums( backoffHead ),
+                //stopBackoffInterpolationSums( backoffHead ),
+                stopBackoffInterpolationSums( stopKey.w ),
                 thisBackoffComponent
               )
             )
             stopBackoffInterpolationDenom.setValue(
               stopKey.w,
-              // Math.sumLogProb(
-              //   stopBackoffInterpolationDenom( stopKey.w ),
-              //   thisNoBackoffComponent
-              // )
               logSum(
                 stopBackoffInterpolationDenom( stopKey.w ),
                 thisNoBackoffComponent
@@ -406,10 +396,6 @@ class DMVBayesianBackoffPartialCounts(
             stopNoBackoffCounts.setValue(
               stopKey,
               dec,
-              // Math.sumLogProb(
-              //   stopNoBackoffCounts( stopKey, dec ),
-              //   thisNoBackoffComponent
-              // )
               logSum(
                 stopNoBackoffCounts( stopKey, dec ),
                 thisNoBackoffComponent
@@ -418,10 +404,6 @@ class DMVBayesianBackoffPartialCounts(
             stopBackoffCounts.setValue(
               backoffStopKey,
               dec,
-              // Math.sumLogProb(
-              //   stopBackoffCounts( backoffStopKey, dec ),
-              //   thisBackoffComponent
-              // )
               logSum(
                 stopBackoffCounts( backoffStopKey, dec ),
                 thisBackoffComponent
@@ -433,22 +415,16 @@ class DMVBayesianBackoffPartialCounts(
         case rootHead:AbstractRoot => { /* intentionally empty */ }
       }
     }
-    println( "Finishing up sums for stop denominator." )
+    //println( "Finishing up sums for stop denominator." )
     stopBackoffInterpolationDenom.domain.foreach{ denom =>
       val WordPair( h1, h2 ) = denom
       stopBackoffInterpolationDenom.setValue(
         denom,
-        // Math.sumLogProb(
-        //   stopBackoffInterpolationDenom( denom ),
-        //   Math.sumLogProb(
-        //     stopBackoffInterpolationSums( Word( h2 ) ),
-        //     math.log( stopBackoff + noStopBackoff )
-        //   )
-        // )
         logSum(
           Seq(
             stopBackoffInterpolationDenom( denom ),
-            stopBackoffInterpolationSums( Word( h2 ) ),
+            //stopBackoffInterpolationSums( Word( h2 ) ),
+            stopBackoffInterpolationSums( denom ),
             math.log( stopBackoff + noStopBackoff )
           )
         )
@@ -458,16 +434,12 @@ class DMVBayesianBackoffPartialCounts(
     val newNoStopBackoffScore = new Log1dTable( Set[ObservedLabel]() )
     val newStopBackoffScore = new Log1dTable( Set[ObservedLabel]() )
 
-    println( "Estimating new stop interpolation distributions." )
+    //println( "Estimating new stop interpolation distributions." )
     stopBackoffInterpolationDenom.domain.foreach{ h =>
 
       val WordPair( h1, h2 ) = h
       val backoffHead = Word( h2 )
 
-      // val thisStopNoBackoffTotal = Math.sumLogProb(
-      //   stopNoBackoffInterpolationSums( h ),
-      //   math.log( noStopBackoff )
-      // )
       val thisStopNoBackoffTotal = logSum(
         stopNoBackoffInterpolationSums( h ),
         math.log( noStopBackoff )
@@ -477,12 +449,9 @@ class DMVBayesianBackoffPartialCounts(
         expDigamma( thisStopNoBackoffTotal) - expDigamma( stopBackoffInterpolationDenom( h ) )
       )
 
-      // val thisStopBackoffTotal = Math.sumLogProb(
-      //   stopBackoffInterpolationSums( backoffHead ),
-      //   math.log( stopBackoff )
-      // )
       val thisStopBackoffTotal = logSum(
-        stopBackoffInterpolationSums( backoffHead ),
+        //stopBackoffInterpolationSums( backoffHead ),
+        stopBackoffInterpolationSums( h ),
         math.log( stopBackoff )
       )
       newStopBackoffScore.setValue(
@@ -506,7 +475,7 @@ class DMVBayesianBackoffPartialCounts(
     val chooseNoBackoffCounts =
       new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
 
-    println( "Summing over chooseCounts to get counts for interpolation parameters and each backoff distribution." )
+    //println( "Summing over chooseCounts to get counts for interpolation parameters and each backoff distribution." )
     chooseCounts.parents.foreach{ chooseKey =>
       chooseKey.h match {
         case WordPair( h1, h2 ) => {
@@ -530,10 +499,6 @@ class DMVBayesianBackoffPartialCounts(
 
                 chooseNoBackoffInterpolationSums.setValue(
                   interpolationKey,
-                  // Math.sumLogProb(
-                  //   chooseNoBackoffInterpolationSums( interpolationKey ),
-                  //   thisNoBackoffComponent
-                  // )
                   logSum(
                     chooseNoBackoffInterpolationSums( interpolationKey ),
                     thisNoBackoffComponent
@@ -541,35 +506,27 @@ class DMVBayesianBackoffPartialCounts(
                 )
 
                 chooseBackoffArgInterpolationSums.setValue(
-                  interpolationBackoffArgKey,
-                  // Math.sumLogProb(
-                  //   chooseBackoffArgInterpolationSums( interpolationBackoffArgKey ),
-                  //   thisBackoffArgComponent
-                  // )
+                  //interpolationBackoffArgKey,
+                  interpolationKey,
                   logSum(
-                    chooseBackoffArgInterpolationSums( interpolationBackoffArgKey ),
+                    //chooseBackoffArgInterpolationSums( interpolationBackoffArgKey ),
+                    chooseBackoffArgInterpolationSums( interpolationKey ),
                     thisBackoffArgComponent
                   )
                 )
 
                 chooseBackoffBothInterpolationSums.setValue(
-                  interpolationBackoffBothKey,
-                  // Math.sumLogProb(
-                  //   chooseBackoffBothInterpolationSums( interpolationBackoffBothKey ),
-                  //   thisBackoffBothComponent
-                  // )
+                  //interpolationBackoffBothKey,
+                  interpolationKey,
                   logSum(
-                    chooseBackoffBothInterpolationSums( interpolationBackoffBothKey ),
+                    //chooseBackoffBothInterpolationSums( interpolationBackoffBothKey ),
+                    chooseBackoffBothInterpolationSums( interpolationKey ),
                     thisBackoffBothComponent
                   )
                 )
 
                 chooseBackoffInterpolationDenom.setValue(
                   interpolationKey,
-                  // Math.sumLogProb(
-                  //   chooseBackoffInterpolationDenom( interpolationKey ),
-                  //   thisNoBackoffComponent
-                  // )
                   logSum(
                     chooseBackoffInterpolationDenom( interpolationKey ),
                     thisNoBackoffComponent
@@ -581,10 +538,6 @@ class DMVBayesianBackoffPartialCounts(
                 chooseNoBackoffCounts.setValue(
                   chooseKey,
                   arg,
-                  // Math.sumLogProb(
-                  //   chooseNoBackoffCounts( chooseKey, arg ),
-                  //   thisNoBackoffComponent
-                  // )
                   logSum(
                     chooseNoBackoffCounts( chooseKey, arg ),
                     thisNoBackoffComponent
@@ -593,10 +546,6 @@ class DMVBayesianBackoffPartialCounts(
                 chooseBackoffArgCounts.setValue(
                   chooseKey,
                   backoffArg,
-                  // Math.sumLogProb(
-                  //   chooseBackoffArgCounts( chooseKey, backoffArg ),
-                  //   thisBackoffArgComponent
-                  // )
                   logSum(
                     chooseBackoffArgCounts( chooseKey, backoffArg ),
                     thisBackoffArgComponent
@@ -605,10 +554,6 @@ class DMVBayesianBackoffPartialCounts(
                 chooseBackoffBothCounts.setValue(
                   backoffBothKey,
                   backoffArg,
-                  // Math.sumLogProb(
-                  //   chooseBackoffBothCounts( backoffBothKey, backoffArg ),
-                  //   thisBackoffBothComponent
-                  // )
                   logSum(
                     chooseBackoffBothCounts( backoffBothKey, backoffArg ),
                     thisBackoffBothComponent
@@ -625,28 +570,20 @@ class DMVBayesianBackoffPartialCounts(
     }
 
 
-    println( "Finishing up sums for choose denominator." )
+    //println( "Finishing up sums for choose denominator." )
     chooseBackoffInterpolationDenom.domain.foreach{ denom =>
       val WordQuad( h1, h2, a1, a2 ) = denom
       val interpolationBackoffArgKey = WordTriple( h1, h2, a2 )
       val interpolationBackoffBothKey = WordPair( h2, a2 )
       chooseBackoffInterpolationDenom.setValue(
         denom,
-        // Math.sumLogProb(
-        //   chooseBackoffInterpolationDenom( denom ),
-        //   Math.sumLogProb(
-        //     chooseBackoffArgInterpolationSums( interpolationBackoffArgKey ),
-        //     Math.sumLogProb(
-        //       chooseBackoffBothInterpolationSums( interpolationBackoffBothKey ),
-        //       math.log( noChooseBackoff + backoffArg + backoffBoth )
-        //     )
-        //   )
-        // )
         logSum(
           Seq(
             chooseBackoffInterpolationDenom( denom ),
-            chooseBackoffArgInterpolationSums( interpolationBackoffArgKey ),
-            chooseBackoffBothInterpolationSums( interpolationBackoffBothKey ),
+            //chooseBackoffArgInterpolationSums( interpolationBackoffArgKey ),
+            chooseBackoffArgInterpolationSums( denom ),
+            //chooseBackoffBothInterpolationSums( interpolationBackoffBothKey ),
+            chooseBackoffBothInterpolationSums( denom ),
             math.log( noChooseBackoff + backoffArg + backoffBoth )
           )
         )
@@ -657,17 +594,13 @@ class DMVBayesianBackoffPartialCounts(
     val newChooseBackoffArgScore = new Log1dTable( Set[ObservedLabel]() )
     val newChooseBackoffBothScore = new Log1dTable( Set[ObservedLabel]() )
 
-    println( "Estimating new choose interpolation distributions." )
+    //println( "Estimating new choose interpolation distributions." )
     chooseBackoffInterpolationDenom.domain.foreach{ ha =>
       val WordQuad( h1, h2, a1, a2 ) = ha
       val backoffArgKey = WordTriple( h1,h2,a2)
       val backoffBothKey = WordPair( h2, a2 )
       val expDigammaDenom = expDigamma( chooseBackoffInterpolationDenom( ha ) )
 
-      // val thisChooseNoBackoffTotal = Math.sumLogProb(
-      //   chooseNoBackoffInterpolationSums( ha ),
-      //   math.log( noChooseBackoff )
-      // )
       val thisChooseNoBackoffTotal = logSum(
         chooseNoBackoffInterpolationSums( ha ),
         math.log( noChooseBackoff )
@@ -679,12 +612,9 @@ class DMVBayesianBackoffPartialCounts(
         ) - expDigammaDenom
       )
 
-      // val thisChooseBackoffArgTotal = Math.sumLogProb(
-      //   chooseBackoffArgInterpolationSums( backoffArgKey ),
-      //   math.log( backoffArg )
-      // )
       val thisChooseBackoffArgTotal = logSum(
-        chooseBackoffArgInterpolationSums( backoffArgKey ),
+        //chooseBackoffArgInterpolationSums( backoffArgKey ),
+        chooseBackoffArgInterpolationSums( ha ),
         math.log( backoffArg )
       )
       newChooseBackoffArgScore.setValue(
@@ -694,12 +624,9 @@ class DMVBayesianBackoffPartialCounts(
         ) - expDigammaDenom
       )
 
-      // val thisChooseBackoffBothTotal = Math.sumLogProb(
-      //   chooseBackoffBothInterpolationSums( backoffBothKey ),
-      //   math.log( backoffBoth )
-      // )
       val thisChooseBackoffBothTotal = logSum(
-        chooseBackoffBothInterpolationSums( backoffBothKey ),
+        //chooseBackoffBothInterpolationSums( backoffBothKey ),
+        chooseBackoffBothInterpolationSums( ha ),
         math.log( backoffBoth )
       )
       newChooseBackoffBothScore.setValue(
@@ -713,7 +640,7 @@ class DMVBayesianBackoffPartialCounts(
 
 
     // Ok, now compute backed-off parameters
-    println( "Estimating new stop distributions with backoff." )
+    //println( "Estimating new stop distributions with backoff." )
     val backedoffStop = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
     stopCounts.parents.foreach{ stopKey =>
       dmv.stopDecision.foreach{ stopDecision =>
@@ -723,10 +650,6 @@ class DMVBayesianBackoffPartialCounts(
             backedoffStop.setValue(
               stopKey,
               stopDecision,
-              // Math.sumLogProb(
-              //   newNoStopBackoffScore(stopKey.w) + stopNoBackoffCounts( stopKey, stopDecision ),
-              //   newStopBackoffScore(stopKey.w) + stopBackoffCounts( backoffHeadKey, stopDecision )
-              // )
               logSum(
                 newNoStopBackoffScore(stopKey.w) + stopNoBackoffCounts( stopKey, stopDecision ),
                 newStopBackoffScore(stopKey.w) + stopBackoffCounts( backoffHeadKey, stopDecision )
@@ -745,7 +668,7 @@ class DMVBayesianBackoffPartialCounts(
     }
 
 
-    println( "Estimating new choose distributions with backoff." )
+    //println( "Estimating new choose distributions with backoff." )
     val backedoffChoose = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
     chooseCounts.parents.foreach{ chooseKey =>
       chooseCounts(chooseKey).keySet.foreach{ arg =>
@@ -767,18 +690,6 @@ class DMVBayesianBackoffPartialCounts(
                 backedoffChoose.setValue(
                   chooseKey,
                   arg,
-                  // Math.sumLogProb(
-                  //   backedoffChoose( chooseKey, arg ),
-                  //   Math.sumLogProb(
-                  //     newNoChooseBackoffScore( backoffKey ) + chooseNoBackoffCounts( chooseKey, arg ),
-                  //     Math.sumLogProb(
-                  //       newChooseBackoffArgScore( backoffKey ) +
-                  //         chooseBackoffArgCounts( chooseKey, backoffChosenArg ),
-                  //       newChooseBackoffBothScore( backoffKey ) +
-                  //         chooseBackoffBothCounts( backoffHeadKey, backoffChosenArg )
-                  //     )
-                  //   )
-                  // )
                   logSum(
                     Seq(
                       backedoffChoose( chooseKey, arg ),
@@ -811,12 +722,12 @@ class DMVBayesianBackoffPartialCounts(
       }
     }
 
-    println( "normalizing stop backoff distribution." )
-    backedoffStop.expDigammaNormalize()
-    println( "normalizing choose backoff distribution." )
-    backedoffChoose.expDigammaNormalize()
+    //println( "normalizing stop backoff distribution." )
+    backedoffStop.expDigammaNormalize(0.1)
+    //println( "normalizing choose backoff distribution." )
+    backedoffChoose.expDigammaNormalize(0.1)
 
-    println( "Done producing new grammar!!" )
+    println( "Done!" )
 
     // val toReturn = new DMVBayesianBackoffPartialCounts(
     //   noChooseBackoff,
