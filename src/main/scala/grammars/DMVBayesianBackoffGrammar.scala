@@ -259,15 +259,15 @@ class DMVBayesianBackoffGrammar(
 
   override def toString =
     super.toString +
-      "noStopBackoffScore (default val = " + math.exp( noStopBackoffScore.defaultVal ) + "):\n" +
+      "\nnoStopBackoffScore (default val = " + math.exp( noStopBackoffScore.defaultVal ) + "):\n" +
         noStopBackoffScore +
-      "StopBackoffScore (default val = " + math.exp( stopBackoffScore.defaultVal ) +  "):\n" +
+      "\nStopBackoffScore (default val = " + math.exp( stopBackoffScore.defaultVal ) +  "):\n" +
         stopBackoffScore +
-      "NoChooseBackoffScore (defaultVal = " + math.exp( noChooseBackoffScore.defaultVal ) + "):\n" +
+      "\nNoChooseBackoffScore (defaultVal = " + math.exp( noChooseBackoffScore.defaultVal ) + "):\n" +
         noChooseBackoffScore +
-      "BackoffArgScore (defaultVal = " + math.exp( backoffArgScore.defaultVal ) + "):\n" +
+      "\nBackoffArgScore (defaultVal = " + math.exp( backoffArgScore.defaultVal ) + "):\n" +
         backoffArgScore +
-      "BackoffBothScore (defaultVal = " + math.exp( backoffBothScore.defaultVal ) + "):\n" +
+      "\nBackoffBothScore (defaultVal = " + math.exp( backoffBothScore.defaultVal ) + "):\n" +
         backoffBothScore + "\n" +
       "Alphas:\n" +
       "\tnoStopBackoffAlpha: " + noStopBackoff + "\n" +

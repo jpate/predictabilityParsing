@@ -179,7 +179,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
 
   override def toString = parents.toList.sortWith( (a,b) => a < b ).map{ parent =>
     this(parent).keySet.toList.sortWith( (a,b) => a < b ).map{ ch =>
-      parent + " --> " +ch + ":\t" + exp( cpt(parent)(ch) )
+      parent + " --> " +ch + ":\t" + ( "%1.4f".format( exp( cpt(parent)(ch) ) ) )
       //parent + " --> " +ch + ":\t" + cpt(parent)(ch)
     }.mkString("\n\t","\n\t","")
   }.mkString("","\n","\n")
@@ -346,7 +346,7 @@ abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
   def apply( k:T ) = pt.getOrElse( k, defaultVal )
 
   override def toString = pt.keySet.toList.sortWith( (a,b) => a < b ).map{ parent =>
-    parent + ":\t" + exp( pt(parent) )
+    parent + ":\t" + ( "%1.4f".format( exp( pt(parent) ) ) )
     //parent + ":\t" + pt(parent)
   }.mkString("\n\t","\n\t","\n")
 }

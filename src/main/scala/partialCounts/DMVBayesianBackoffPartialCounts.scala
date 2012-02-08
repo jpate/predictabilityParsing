@@ -174,7 +174,7 @@ class DMVBayesianBackoffPartialCounts(
         case WordPair( h1,h2) => {
           dmv.stopDecision.foreach{ dec =>
             // back off over valence as well
-            val backoffStopKey = StopOrNot(Word(h2), stopKey.dir, /*true*/ stopKey.adj)
+            val backoffStopKey = StopOrNot(Word(h2), stopKey.dir, true /*stopKey.adj*/)
             val backoffHead = Word(h2)
 
             val thisNoBackoffComponent =
@@ -464,7 +464,7 @@ class DMVBayesianBackoffPartialCounts(
         stopKey.w match {
           case WordPair( h1, h2 ) => {
             // back off over valence as well
-            val backoffHeadKey = StopOrNot( Word(h2), stopKey.dir, /*true*/ stopKey.adj )
+            val backoffHeadKey = StopOrNot( Word(h2), stopKey.dir, true /*stopKey.adj*/ )
             backedoffStop.setValue(
               stopKey,
               stopDecision,

@@ -146,7 +146,7 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
   }
 
   override def toString =
-    "P_Order:\n" + p_order +
+    //"P_Order:\n" + p_order +
     "P_Stop:\n" + p_stop +
     "P_Choose:\n" + p_choose
 
