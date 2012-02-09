@@ -64,6 +64,9 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
 
   def emptyPartialCounts = new DMVPartialCounts
 
+  // this probably shouldn't be here.... maybe I can have a "bayesianGrammar" trait with this?
+  var freeEnergy = Double.NegativeInfinity
+
   def getParams:DMVParameters
   def getVanillaParams = VanillaDMVParameters( p_order, p_stop, p_choose )
   def setParams[P<:DMVParameters]( parameters:P ) /*{

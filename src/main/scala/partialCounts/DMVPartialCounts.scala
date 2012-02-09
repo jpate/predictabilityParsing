@@ -209,6 +209,7 @@ class DMVPartialCounts {
     toReturn
   }
 
+
   def toLaplaceSmoothedGrammar(vocab:Set[_<:ObservedLabel], smooth:Double ) = {
     val logSmooth = math.log( smooth )
 

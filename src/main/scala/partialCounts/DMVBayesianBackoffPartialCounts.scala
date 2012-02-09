@@ -139,7 +139,7 @@ class DMVBayesianBackoffPartialCounts(
     // of Kurihara and Sato (2006), eqn 8 anyway. The first element of eqn 8 has already been
     // computed for us and is totalScore (assuming this is the partial counts that's been collected
     // from VanillaDMV.computePartialCounts).
-    var freeEnergyElementOne = totalScore
+    var freeEnergyElementOne = -1 * totalScore
     var freeEnergyElementTwo = 0D
     var freeEnergyElementThree = 0D
     var freeEnergyElementFour = 0D
@@ -252,6 +252,9 @@ class DMVBayesianBackoffPartialCounts(
     // println( "\n\nstopNoBackoffInterpolationSums:\n" + stopNoBackoffInterpolationSums )
     // println( "\n\nstopBackoffInterpolationSums:\n" + stopBackoffInterpolationSums + "\n\n---\n\n" )
 
+    //val toCalculateFreeEnergyElementTwoNoBackoffSums = new Log1dTable( Set[ObservedLabel]() )
+    val toCalculateFreeEnergyElementTwoBackoffNumerator = Log1dTable( Set[ObservedLabel](), 0D )
+    val toCalculateFreeEnergyElementTwoBackoffDenom = Log1dTable( Set[ObservedLabel]() , 0D )
     //println( "Estimating new stop interpolation distributions." )
     stopBackoffInterpolationDenom.domain.foreach{ h =>
 
@@ -279,13 +282,36 @@ class DMVBayesianBackoffPartialCounts(
         ) - expDigamma( stopBackoffInterpolationDenom( h ) )
       )
 
-      // I think lgamma takes its argument out of logspace...
-      freeEnergyElementThree += lgamma( math.exp(thisStopNoBackoffTotal) ) - lgamma( noStopBackoff )
+      val realSpaceNoBackoffTotal = math.exp(thisStopNoBackoffTotal)
+      val realSpaceBackoffTotal = math.exp(thisStopBackoffTotal)
+
+      // I think lgamma takes its argument in real space, not log space
+      // decision to not backoff has only one child, so we can just add it in here
+      freeEnergyElementTwo += lgamma( realSpaceNoBackoffTotal ) - lgamma( noStopBackoff )
+
+      // decision to backoff has only many children, so we have to sum up
+      toCalculateFreeEnergyElementTwoBackoffNumerator.setValue(
+        backoffHead,
+        toCalculateFreeEnergyElementTwoBackoffNumerator( backoffHead ) + realSpaceBackoffTotal
+      )
+      toCalculateFreeEnergyElementTwoBackoffDenom.setValue(
+        backoffHead,
+        toCalculateFreeEnergyElementTwoBackoffDenom( backoffHead ) + stopBackoff
+      )
+
+      freeEnergyElementThree += lgamma( realSpaceNoBackoffTotal ) - lgamma( noStopBackoff )
+      freeEnergyElementThree += lgamma( realSpaceBackoffTotal ) - lgamma( stopBackoff )
 
       freeEnergyElementFour +=
-        ( math.exp( thisStopNoBackoffTotal ) - noStopBackoff ) * newNoStopBackoffScore( h )
+        ( realSpaceNoBackoffTotal - noStopBackoff ) * newNoStopBackoffScore( h )
       freeEnergyElementFour +=
-        ( thisStopBackoffTotal - math.log( stopBackoff ) ) * newStopBackoffScore( h )
+        ( realSpaceBackoffTotal - stopBackoff ) * newStopBackoffScore( h )
+    }
+
+    toCalculateFreeEnergyElementTwoBackoffNumerator.domain.foreach{ backoffHead =>
+      freeEnergyElementTwo +=
+        lgamma( toCalculateFreeEnergyElementTwoBackoffNumerator( backoffHead ) ) -
+          lgamma( toCalculateFreeEnergyElementTwoBackoffDenom( backoffHead ) )
     }
 
 
@@ -413,6 +439,11 @@ class DMVBayesianBackoffPartialCounts(
     val newChooseBackoffArgScore = new Log1dTable( Set[ObservedLabel]() )
     val newChooseBackoffBothScore = new Log1dTable( Set[ObservedLabel]() )
 
+    val toCalculateFreeEnergyElementTwoBackoffArgNumerator = Log1dTable( Set[ObservedLabel](), 0D )
+    val toCalculateFreeEnergyElementTwoBackoffArgDenom = Log1dTable( Set[ObservedLabel](), 0D )
+    val toCalculateFreeEnergyElementTwoBackoffBothNumerator = Log1dTable( Set[ObservedLabel](), 0D )
+    val toCalculateFreeEnergyElementTwoBackoffBothDenom = Log1dTable( Set[ObservedLabel]() , 0D)
+
     //println( "Estimating new choose interpolation distributions." )
     chooseBackoffInterpolationDenom.domain.foreach{ ha =>
       val WordQuad( h1, h2, a1, a2 ) = ha
@@ -453,6 +484,57 @@ class DMVBayesianBackoffPartialCounts(
         ) - expDigammaDenom
       )
 
+      val realSpaceNoBackoffTotal = math.exp( thisChooseNoBackoffTotal )
+      val realSpaceBackoffArgTotal = math.exp( thisChooseBackoffArgTotal )
+      val realSpaceBackoffBothTotal = math.exp( thisChooseBackoffBothTotal )
+
+      freeEnergyElementTwo += lgamma( realSpaceNoBackoffTotal ) - lgamma( noChooseBackoff )
+
+      toCalculateFreeEnergyElementTwoBackoffArgNumerator.setValue(
+        backoffArgKey,
+        toCalculateFreeEnergyElementTwoBackoffArgNumerator( backoffArgKey ) +
+          realSpaceBackoffArgTotal
+      )
+      toCalculateFreeEnergyElementTwoBackoffArgDenom.setValue(
+        backoffArgKey,
+        toCalculateFreeEnergyElementTwoBackoffArgDenom( backoffArgKey ) +
+          backoffArg
+      )
+
+      toCalculateFreeEnergyElementTwoBackoffBothNumerator.setValue(
+        backoffBothKey,
+        toCalculateFreeEnergyElementTwoBackoffBothNumerator( backoffBothKey ) +
+          realSpaceBackoffBothTotal
+      )
+      toCalculateFreeEnergyElementTwoBackoffBothDenom.setValue(
+        backoffBothKey,
+        toCalculateFreeEnergyElementTwoBackoffBothDenom( backoffBothKey ) +
+          backoffBoth
+      )
+
+      freeEnergyElementThree += lgamma( realSpaceNoBackoffTotal ) - lgamma( noStopBackoff )
+      freeEnergyElementThree += lgamma( realSpaceBackoffArgTotal ) - lgamma( backoffArg )
+      freeEnergyElementThree += lgamma( realSpaceBackoffBothTotal ) - lgamma( backoffBoth )
+
+      freeEnergyElementFour +=
+        ( realSpaceNoBackoffTotal - noChooseBackoff ) * newNoChooseBackoffScore( ha )
+      freeEnergyElementFour +=
+        ( realSpaceBackoffArgTotal - backoffArg ) * newChooseBackoffArgScore( ha )
+      freeEnergyElementFour +=
+        ( realSpaceBackoffBothTotal - backoffBoth ) * newChooseBackoffBothScore( ha )
+
+
+    }
+
+    toCalculateFreeEnergyElementTwoBackoffArgNumerator.domain.foreach{ backoffArg =>
+      freeEnergyElementTwo +=
+        lgamma( toCalculateFreeEnergyElementTwoBackoffArgNumerator( backoffArg ) ) -
+          lgamma( toCalculateFreeEnergyElementTwoBackoffArgDenom( backoffArg ) )
+    }
+    toCalculateFreeEnergyElementTwoBackoffBothNumerator.domain.foreach{ backoffBoth =>
+      freeEnergyElementTwo +=
+        lgamma( toCalculateFreeEnergyElementTwoBackoffBothNumerator( backoffBoth ) ) -
+          lgamma( toCalculateFreeEnergyElementTwoBackoffBothDenom( backoffBoth ) )
     }
 
 
@@ -473,6 +555,7 @@ class DMVBayesianBackoffPartialCounts(
                 newStopBackoffScore(stopKey.w) + stopBackoffCounts( backoffHeadKey, stopDecision )
               )
             )
+
           }
           case rootHead:AbstractRoot => {
             backedoffStop.setValue(
@@ -561,16 +644,18 @@ class DMVBayesianBackoffPartialCounts(
     // )
 
     //println( "about to create new grammar with newNoStopBackoffScore:\n" + newNoStopBackoffScore )
-    val toReturn = associatedGrammar/*(
-      newNoStopBackoffScore,
-      newStopBackoffScore,
-      newNoChooseBackoffScore,
-      newChooseBackoffArgScore,
-      newChooseBackoffBothScore
-    )*/
+    val toReturn = associatedGrammar
+
+    val freeEnergy =
+      freeEnergyElementOne + freeEnergyElementTwo - freeEnergyElementThree + freeEnergyElementFour
+
+    println( "Free energy is: " +
+      freeEnergyElementOne + " + " + freeEnergyElementTwo + " - " + freeEnergyElementThree + " + " +
+      freeEnergyElementFour + " = " + freeEnergy )
 
     toReturn.setParams(
       DMVBayesianBackoffParameters(
+        freeEnergy,
         orderCounts.toLogCPT,
         backedoffStop.asLogCPT,
         backedoffChoose.asLogCPT,

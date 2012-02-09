@@ -163,8 +163,10 @@ class DMVBayesianBackoffGrammar(
     p_choose.randomize( seed, centeredOn)
   }
 
+
   override def setParams[P<:DMVParameters]( parameters:P ) {
     val DMVBayesianBackoffParameters(
+      otherFreeEnergy,
       otherP_order,
       otherP_stop,
       otherP_choose,
@@ -175,6 +177,7 @@ class DMVBayesianBackoffGrammar(
       otherBackoffBothScore
     ) = parameters
 
+    freeEnergy = otherFreeEnergy
     p_order.setCPT( otherP_order.getCPT )
     p_stop.setCPT( otherP_stop.getCPT )
     p_choose.setCPT( otherP_choose.getCPT )
@@ -231,6 +234,7 @@ class DMVBayesianBackoffGrammar(
 
   override def getParams = //VanillaDMVParameters( p_order, p_stop, p_choose )
     DMVBayesianBackoffParameters(
+      freeEnergy,
       p_order,
       p_stop,
       p_choose,
