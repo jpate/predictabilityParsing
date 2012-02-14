@@ -5,6 +5,7 @@ import collection.mutable.Map
 import predictabilityParsing.types.labels._
 import predictabilityParsing.types.tables._
 import predictabilityParsing.partialCounts.DMVBayesianBackoffPartialCounts
+import predictabilityParsing.util.Math
 
 class DMVBayesianBackoffGrammar(
   // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
@@ -163,10 +164,48 @@ class DMVBayesianBackoffGrammar(
     p_choose.randomize( seed, centeredOn)
   }
 
+  override def clearInterpolationScores {
+    println( "clearing interpolation scores in the grammar..." )
+    noStopBackoffScore.setPT(
+      Log1dTable(
+        Set[ObservedLabel](),
+        Math.expDigamma( math.log( noStopBackoff ) ) -
+          Math.expDigamma( math.log(noStopBackoff + stopBackoff) )
+      ).getPT
+    )
+    stopBackoffScore.setPT(
+      Log1dTable(
+        Set[ObservedLabel](),
+        Math.expDigamma( math.log( stopBackoff ) ) -
+          Math.expDigamma( math.log(noStopBackoff + stopBackoff) )
+      ).getPT
+    )
+    noChooseBackoffScore.setPT(
+      Log1dTable(
+        Set[ObservedLabel](),
+        Math.expDigamma( math.log( noChooseBackoff ) ) -
+          Math.expDigamma( math.log(noChooseBackoff + backoffArg + backoffBoth) )
+      ).getPT
+    )
+    backoffArgScore.setPT(
+      Log1dTable(
+        Set[ObservedLabel](),
+        Math.expDigamma( math.log( backoffArg ) ) -
+          Math.expDigamma( math.log(noChooseBackoff + backoffArg + backoffBoth) )
+      ).getPT
+    )
+    backoffBothScore.setPT(
+      Log1dTable(
+        Set[ObservedLabel](),
+        Math.expDigamma( math.log( backoffBoth ) ) -
+          Math.expDigamma( math.log(noChooseBackoff + backoffArg + backoffBoth) )
+      ).getPT
+    )
+  }
 
   override def setParams[P<:DMVParameters]( parameters:P ) {
     val DMVBayesianBackoffParameters(
-      otherFreeEnergy,
+      //otherFreeEnergy,
       otherP_order,
       otherP_stop,
       otherP_choose,
@@ -177,7 +216,7 @@ class DMVBayesianBackoffGrammar(
       otherBackoffBothScore
     ) = parameters
 
-    freeEnergy = otherFreeEnergy
+    //freeEnergy = otherFreeEnergy
     p_order.setCPT( otherP_order.getCPT )
     p_stop.setCPT( otherP_stop.getCPT )
     p_choose.setCPT( otherP_choose.getCPT )
@@ -234,7 +273,7 @@ class DMVBayesianBackoffGrammar(
 
   override def getParams = //VanillaDMVParameters( p_order, p_stop, p_choose )
     DMVBayesianBackoffParameters(
-      freeEnergy,
+      //freeEnergy,
       p_order,
       p_stop,
       p_choose,

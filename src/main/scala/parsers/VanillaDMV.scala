@@ -195,8 +195,11 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
     )
 
 
+    //pc.clearInterpolationScores
+    val newGrammar = pc.toDMVGrammar
+    newGrammar.clearInterpolationScores
     println( "setting harmonic initialization:" )
-    setGrammar( pc.toDMVGrammar )
+    setGrammar( newGrammar )
   }
 
   class Chart( s:List[TimedObservedLabel] ) {

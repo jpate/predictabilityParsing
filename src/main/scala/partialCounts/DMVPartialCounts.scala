@@ -58,6 +58,7 @@ class DMVPartialCounts {
     setChooseCounts( updatedChoose )
   }
 
+  def clearInterpolationScores = ()
 
   def incrementOrderCounts( w:ObservedLabel, order:AttachmentOrder, increment:Double ) {
     orderCounts.setValue(

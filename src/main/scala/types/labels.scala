@@ -270,7 +270,7 @@ case class VanillaDMVParameters(
 ) extends DMVParameters
 
 case class DMVBayesianBackoffParameters(
-  freeEnergy:Double,
+  //freeEnergy:Double,
   otherP_order:LogCPT[ObservedLabel,AttachmentOrder],
   otherP_stop:LogCPT[StopOrNot,StopDecision],
   otherP_choose:LogCPT[ChooseArgument,ObservedLabel],
