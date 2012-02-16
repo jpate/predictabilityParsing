@@ -1,7 +1,7 @@
 package predictabilityParsing.test
 
 import predictabilityParsing.types.labels._
-import predictabilityParsing.parsers.CCMEstimator
+import predictabilityParsing.parsers.VanillaCCMEstimator
 import predictabilityParsing.util.CorpusManipulation
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.Suite
@@ -32,7 +32,7 @@ class EstimatorTestSuite extends AssertionsForJUnit with Suite {
   val contextCounts = CorpusManipulation.contextCounts( testCorpus )
 
   @Test def testTenIterations {
-    val estimator = new CCMEstimator
+    val estimator = new VanillaCCMEstimator
     // println( "Uniform" )
     // estimator.setUniformGrammar( allSpans, allContexts )
     // estimator.setUniformGrammar( spanCounts, contextCounts )

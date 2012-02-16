@@ -81,7 +81,7 @@ class DMVBayesianBackoffPartialCounts(
         Math.expDigamma( math.log(noChooseBackoff + backoffArg + backoffBoth) )
     )
   )
-  def this() = this( 35, 70, 30, 60, 120 )
+  def this() = this( 35, 70, 30, 60, 120 ) // defaults inspired by Headden for use on wsj10
 
   override def clearInterpolationScores {
     println( "clearing interpolation scores..." )
@@ -213,7 +213,7 @@ class DMVBayesianBackoffPartialCounts(
       stopKey.w match {
         case WordPair( h1,h2) => {
           dmv.stopDecision.foreach{ dec =>
-            val backoffStopKey = StopOrNot(Word(h2), stopKey.dir, /*true*/ stopKey.adj )
+            val backoffStopKey = StopOrNot(Word(h2), stopKey.dir, true /*stopKey.adj*/ )
             val backoffHead = Word(h2)
 
             val thisNoBackoffComponent =
@@ -637,7 +637,7 @@ class DMVBayesianBackoffPartialCounts(
         stopKey.w match {
           case WordPair( h1, h2 ) => {
             // back off over valence as well
-            val backoffHeadKey = StopOrNot( Word(h2), stopKey.dir, /*true*/ stopKey.adj )
+            val backoffHeadKey = StopOrNot( Word(h2), stopKey.dir, true /*stopKey.adj*/ )
             backedoffStop.setValue(
               stopKey,
               stopDecision,

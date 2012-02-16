@@ -13,7 +13,9 @@ abstract class AbstractTable {
   def randomize(seed:Int,centeredOn:Int):Unit
   def randomize( seed:Int ) { randomize( seed, 0 ) }
   def normalize:Unit
-  var defaultVal = Double.NegativeInfinity
+
+  private var defaultVal = Double.NegativeInfinity
+  def getDefault = defaultVal
   def setDefault( x:Double ) { defaultVal = x }
 }
 
@@ -28,11 +30,20 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
 
   def values = cpt.values
   def apply( k:T ) = cpt.getOrElse( k, Map[U,Double]() )
-  def apply( parent:T, child:U ) =// cpt( parent ).getOrElse( child , defaultVal )
+  def apply( parent:T, child:U ) =
     cpt.getOrElse(
       parent,
-      Map( child -> defaultVal )
-    ).getOrElse( child, defaultVal )
+      Map( child -> getDefault )
+    ).getOrElse(
+      child,
+      defaultMap( parent )
+    )
+
+  private val defaultMap = Map[T,Double]().withDefaultValue( getDefault )
+  def setDefaultMap( newDefaultMap:collection.immutable.Map[T,Double] ) {
+    defaultMap.clear
+    defaultMap ++= newDefaultMap
+  }
 
   def setCPT( updatedCPT: Map[T,Map[U,Double]] ) {
     cpt = updatedCPT
@@ -343,7 +354,7 @@ abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
 
   def domain = pt.keySet
 
-  def apply( k:T ) = pt.getOrElse( k, defaultVal )
+  def apply( k:T ) = pt.getOrElse( k, getDefault )
 
   override def toString = pt.keySet.toList.sortWith( (a,b) => a < b ).map{ parent =>
     //parent + ":\t" + ( "%1.4f".format( exp( pt(parent) ) ) )

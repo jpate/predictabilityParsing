@@ -8,6 +8,7 @@ import org.junit.Assert._
 import org.junit.Test
 import org.junit.Before
 
+import math.log
 
 class TableTestSuite extends AssertionsForJUnit with Suite {
   val testCPT = new LogCPT(
@@ -19,30 +20,45 @@ class TableTestSuite extends AssertionsForJUnit with Suite {
     Set( Word( "a" ), Word( "b" ), Word( "x" ), Word( "y" ), Word( "z" ) )
   )
 
-  // Maintaining a sort was getting expensive and irritating, and I don't need it for this model.
-  // @Test def testPTToArray {
-  //   assertTrue(
-  //     testPT.toLogArray.map{ math.exp(_) }.zip( testPT.toArray ).forall{ case (a,b) => a == b }
-  //   )
 
-  //   testCPT.randomize( 8291 )
 
-  //   assertTrue(
-  //     testPT.toLogArray.map{ math.exp(_) }.zip( testPT.toArray ).forall{ case (a,b) => a == b }
-  //   )
-  // }
 
-  // @Test def testCPTToArray {
-  //   assertTrue(
-  //     testCPT.toLogArray.map{ math.exp(_) }.zip( testCPT.toArray ).forall{case (a,b) => a == b }
-  //   )
 
-  //   testCPT.randomize( 13451 )
 
-  //   assertTrue(
-  //     testCPT.toLogArray.map{ math.exp(_) }.zip( testCPT.toArray ).forall{case (a,b) => a == b }
-  //   )
-  // }
+
+  @Test def testDefaultValues {
+
+    val car = Word( "car" )
+    val bike = Word( "bike" )
+    val shoes = Word( "shoes" )
+
+    assertTrue( testCPT( car, bike ) == Double.NegativeInfinity )
+
+    testCPT.setDefault( log( 0.1 ) )
+
+    val epsilon = 0.00000
+    assertTrue( testCPT( car, bike ) - log(0.1 ) <= epsilon )
+    assertTrue( testCPT( shoes, bike ) - log(0.1 ) <= epsilon )
+
+    testCPT.setDefaultMap( Map( car -> log( 0.3 ), shoes -> log( 0.5 ) ) )
+
+    // see if new default map works
+    assertTrue( testCPT( car, bike ) - log(0.3 ) <= epsilon )
+    assertTrue( testCPT( shoes, bike ) - log(0.5 ) <= epsilon )
+
+    // the defaultVal should still apply for parents we've never seen.
+    assertTrue( testCPT( bike, shoes ) - log(0.1) <= epsilon )
+
+    testCPT.setValue( bike, shoes, log( 0.45 ) )
+
+    // Also, we should be able to access values that have actually been stored...
+    assertTrue( testCPT( bike, shoes ) - log( 0.45 ) <= epsilon )
+
+  }
+
+
+
+
 }
 
 

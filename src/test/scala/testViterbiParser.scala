@@ -1,7 +1,7 @@
 package predictabilityParsing.test
 
 import predictabilityParsing.types.labels._
-import predictabilityParsing.parsers.CCMParser
+import predictabilityParsing.parsers.VanillaCCMParser
 import predictabilityParsing.grammars.CCMGrammar
 import predictabilityParsing.util.CorpusManipulation
 import org.scalatest.junit.AssertionsForJUnit
@@ -29,7 +29,7 @@ class ViterbiParserTestSuite extends AssertionsForJUnit with Suite {
   val allContexts = testCorpus.map( _.sentence ).flatMap{ CorpusManipulation.allContexts( _ ) }.toSet
 
   @Test def testDoesItWork {
-    val parser = new CCMParser
+    val parser = new VanillaCCMParser
 
     val grammar = new CCMGrammar( allSpans, allContexts )
 

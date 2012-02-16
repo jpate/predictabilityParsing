@@ -1,7 +1,7 @@
 package predictabilityParsing.test
 
 import predictabilityParsing.types.labels._
-import predictabilityParsing.parsers.CCMEstimator
+import predictabilityParsing.parsers.VanillaCCMEstimator
 import predictabilityParsing.util.CorpusManipulation
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.Suite
@@ -19,7 +19,7 @@ class ChartTestSuite extends AssertionsForJUnit with Suite {
 
 
   @Test def testToPartialCounts {
-    val estimator = new CCMEstimator
+    val estimator = new VanillaCCMEstimator
     estimator.setUniformGrammar( allSpans, allContexts )
 
     val thisChart = estimator.populateChart( testString )
