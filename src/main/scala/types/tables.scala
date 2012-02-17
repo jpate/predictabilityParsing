@@ -40,6 +40,10 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     )
 
   private val defaultMap = Map[T,Double]().withDefaultValue( getDefault )
+  def setDefaultMap( newDefaultMap:collection.mutable.Map[T,Double] ) {
+    defaultMap.clear
+    defaultMap ++= newDefaultMap
+  }
   def setDefaultMap( newDefaultMap:collection.immutable.Map[T,Double] ) {
     defaultMap.clear
     defaultMap ++= newDefaultMap
@@ -124,10 +128,6 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
             else
               child -> (
                 expDigamma(
-                  // Math.sumLogProb(
-                  //   this(parent, child),
-                  //   logPseudoCount
-                  // )
                   logSum(
                     this(parent, child),
                     logPseudoCount
@@ -135,13 +135,24 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
                 ) - maxes(parent)
               )
           }.toSeq:_*
-        ).withDefaultValue( expDigamma( logPseudoCount ) - maxes(parent) )
+        )//.withDefaultValue( expDigamma( logPseudoCount ) - maxes(parent) )
       }.toSeq:_*
-    ).withDefaultValue(
+    )/*.withDefaultValue(
       Map[U,Double]().withDefaultValue(
         expDigamma( logPseudoCount ) -
-        expDigamma( math.log( parents.size ) + logPseudoCount )
+          expDigamma( math.log( parents.size ) + logPseudoCount )
       )
+    )*/
+
+    setDefaultMap(
+      Map(
+        cpt.keySet.map{ parent =>
+          parent -> { expDigamma( logPseudoCount ) - maxes( parent ) }
+        }.toSeq:_*
+      )
+    )
+    setDefault(
+      expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size ) + logPseudoCount )
     )
   }
 
