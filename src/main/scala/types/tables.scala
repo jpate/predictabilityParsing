@@ -29,17 +29,19 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
 
 
   def values = cpt.values
-  def apply( k:T ) = cpt.getOrElse( k, Map[U,Double]() )
+  def apply( k:T ) = cpt.getOrElse( k, Map[U,Double]().withDefaultValue( getDefault ) )
   def apply( parent:T, child:U ) =
     cpt.getOrElse(
       parent,
-      Map( child -> getDefault )
+      Map( child -> super.getDefault )
     ).getOrElse(
       child,
       defaultMap( parent )
     )
 
-  private val defaultMap = Map[T,Double]().withDefaultValue( getDefault )
+  def getDefault( k:T ):Double = defaultMap( k )
+
+  private val defaultMap = Map[T,Double]().withDefaultValue( super.getDefault )
   def setDefaultMap( newDefaultMap:collection.mutable.Map[T,Double] ) {
     defaultMap.clear
     defaultMap ++= newDefaultMap
@@ -49,8 +51,16 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     defaultMap ++= newDefaultMap
   }
 
-  def setCPT( updatedCPT: Map[T,Map[U,Double]] ) {
+  def getDefaultMap = defaultMap
+
+  def setCPTMap( updatedCPT: Map[T,Map[U,Double]] ) {
     cpt = updatedCPT
+  }
+
+  def setCPT( updatedCPT: AbstractLog2dTable[T,U] ) {
+    cpt = updatedCPT.getCPT
+    setDefault( updatedCPT.getDefault )
+    setDefaultMap( updatedCPT.getDefaultMap )
   }
 
   def setValue( parent:T, child:U, newValue:Double ) {
@@ -132,7 +142,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
                     this(parent, child),
                     logPseudoCount
                   )
-                ) - maxes(parent)
+                ) - expDigamma( maxes(parent) )
               )
           }.toSeq:_*
         )//.withDefaultValue( expDigamma( logPseudoCount ) - maxes(parent) )
@@ -147,7 +157,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     setDefaultMap(
       Map(
         cpt.keySet.map{ parent =>
-          parent -> { expDigamma( logPseudoCount ) - maxes( parent ) }
+          parent -> { expDigamma( logPseudoCount ) - expDigamma( maxes( parent ) ) }
         }.toSeq:_*
       )
     )
@@ -189,7 +199,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     )
 
     val toReturn = new Log2dTable( parentsUnion.toSet, Set[U]() ) //childrenUnion.toSet )
-    toReturn.setCPT( summedCPT )
+    toReturn.setCPTMap( summedCPT )
 
 
     toReturn
@@ -288,13 +298,17 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
 
   def toLogCPT = {
     val toReturn = new LogCPT( parents, Set[U]() )
-    toReturn.setCPT( cpt )
+    toReturn.setCPTMap( cpt )
     toReturn.normalize
+    toReturn.setDefault( getDefault )
+    toReturn.setDefaultMap( getDefaultMap )
     toReturn
   }
   def asLogCPT = {
     val toReturn = new LogCPT( parents, Set[U]() )
-    toReturn.setCPT( cpt )
+    toReturn.setCPTMap( cpt )
+    toReturn.setDefault( getDefault )
+    toReturn.setDefaultMap( getDefaultMap )
     toReturn
   }
 }
@@ -305,8 +319,12 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
 abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
   protected var pt:Map[T,Double]
 
-  def setPT( updatedPT: Map[T,Double] ) {
+  def setPTMap( updatedPT: Map[T,Double] ) {
     pt = updatedPT
+  }
+  def setPT( updatedPT: AbstractLog1dTable[T] ) {
+    pt = updatedPT.getPT
+    setDefault( updatedPT.getDefault )
   }
 
   def getPT = pt
@@ -332,7 +350,7 @@ abstract class AbstractLog1dTable[T<:Label] extends AbstractTable {
 
     val toReturn = new Log1dTable[T]( domainUnion.toSet ) 
 
-    toReturn.setPT( summedPT )
+    toReturn.setPTMap( summedPT )
     toReturn
   }
 
@@ -397,7 +415,7 @@ class Log1dTable[T<:Label]( passedDomain:Iterable[T] ) extends AbstractLog1dTabl
 
   def toLogPT = {
     val toReturn = new LogPT( domain )
-    toReturn.setPT( pt )
+    toReturn.setPTMap( pt )
     toReturn.normalize
     toReturn
   }

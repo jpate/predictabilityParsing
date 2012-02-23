@@ -48,10 +48,10 @@ class DMVIndependentStreamHeadsGrammar extends AbstractDMVGrammar {
       newP_choose,
       newP_chooseB
     ) = parameters
-    p_order.setCPT( newP_order.getCPT )
-    p_stop.setCPT( newP_stop.getCPT )
-    p_choose.setCPT( newP_choose.getCPT )
-    p_chooseB.setCPT( newP_chooseB.getCPT )
+    p_order.setCPT( newP_order /*.getCPT*/ )
+    p_stop.setCPT( newP_stop /*.getCPT*/ )
+    p_choose.setCPT( newP_choose /*.getCPT*/ )
+    p_chooseB.setCPT( newP_chooseB /*.getCPT*/ )
   }
 
       // def setParams( otherGram:DMVIndependentStreamHeadsGrammar ) {
@@ -62,10 +62,10 @@ class DMVIndependentStreamHeadsGrammar extends AbstractDMVGrammar {
       // }
 
   def setParams( otherGram:DMVIndependentStreamHeadsGrammar ) {
-    p_order.setCPT( otherGram.p_order.getCPT )
-    p_stop.setCPT( otherGram.p_stop.getCPT )
-    p_choose.setCPT( otherGram.p_choose.getCPT )
-    p_chooseB.setCPT( otherGram.p_chooseB.getCPT )
+    p_order.setCPT( otherGram.p_order /*.getCPT*/ )
+    p_stop.setCPT( otherGram.p_stop /*.getCPT*/ )
+    p_choose.setCPT( otherGram.p_choose /*.getCPT*/ )
+    p_chooseB.setCPT( otherGram.p_chooseB /*.getCPT*/ )
   }
 
   def setParams(
@@ -74,10 +74,10 @@ class DMVIndependentStreamHeadsGrammar extends AbstractDMVGrammar {
     otherP_choose:LogCPT[ChooseArgument,ObservedLabel],
     otherP_chooseB:LogCPT[ChooseArgument,ObservedLabel]
   ) {
-    p_order.setCPT( otherP_order.getCPT )
-    p_stop.setCPT( otherP_stop.getCPT )
-    p_choose.setCPT( otherP_choose.getCPT )
-    p_chooseB.setCPT( otherP_chooseB.getCPT )
+    p_order.setCPT( otherP_order /*.getCPT*/ )
+    p_stop.setCPT( otherP_stop /*.getCPT*/ )
+    p_choose.setCPT( otherP_choose /*.getCPT*/ )
+    p_chooseB.setCPT( otherP_chooseB /*.getCPT*/ )
   }
 
   def getParams = DMVIndependentStreamHeadsParameters( p_order, p_stop, p_choose, p_chooseB)

@@ -20,17 +20,17 @@ class TwoContextTwoSpanCCMPartialCounts( val smoothTrue:Double = 2D, val smoothF
   def getTotalScore = totalScore
 
   def setSpanCountsA( newSpansA:AbstractLog2dTable[ConstituencyStatus,Yield] ) {
-    spanCountsA.setCPT( newSpansA.getCPT )
+    spanCountsA.setCPT( newSpansA /*.getCPT*/ )
   }
   def setSpanCountsB( newSpansB:AbstractLog2dTable[ConstituencyStatus,Yield] ) {
-    spanCountsB.setCPT( newSpansB.getCPT )
+    spanCountsB.setCPT( newSpansB /*.getCPT*/ )
   }
 
   def setContextCountsA( newContextsA:AbstractLog2dTable[ConstituencyStatus,AbstractContext] ) {
-    contextCountsA.setCPT( newContextsA.getCPT )
+    contextCountsA.setCPT( newContextsA /*.getCPT*/ )
   }
   def setContextCountsB( newContextsB:AbstractLog2dTable[ConstituencyStatus,AbstractContext] ) {
-    contextCountsB.setCPT( newContextsB.getCPT )
+    contextCountsB.setCPT( newContextsB /*.getCPT*/ )
   }
 
   def getSpanCountsA( constituency:ConstituencyStatus, span:Yield ) =

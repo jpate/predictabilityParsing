@@ -39,10 +39,10 @@ class TwoContextTwoSpanCCMGrammar(
   def getPContextB() = p_context_b
 
   def setParams( otherGram:TwoContextTwoSpanCCMGrammar ) {
-    p_span_a.setCPT( otherGram.getPSpanA.getCPT )
-    p_span_b.setCPT( otherGram.getPSpanB.getCPT )
-    p_context_a.setCPT( otherGram.getPContextA().getCPT )
-    p_context_b.setCPT( otherGram.getPContextB().getCPT )
+    p_span_a.setCPT( otherGram.getPSpanA /*.getCPT*/ )
+    p_span_b.setCPT( otherGram.getPSpanB /*.getCPT*/ )
+    p_context_a.setCPT( otherGram.getPContextA() /*.getCPT*/ )
+    p_context_b.setCPT( otherGram.getPContextB() /*.getCPT*/ )
   }
 
   def setParams(
@@ -63,16 +63,16 @@ class TwoContextTwoSpanCCMGrammar(
   def getContextsB = p_context_b.values.head.keySet /*children*/
 
   def setP_spanA( updatedSpans:LogCPT[ConstituencyStatus,Yield] ) {
-    p_span_a.setCPT( updatedSpans.cpt )
+    p_span_a.setCPT( updatedSpans /*.cpt*/ )
   }
   def setP_spanB( updatedSpans:LogCPT[ConstituencyStatus,Yield] ) {
-    p_span_b.setCPT( updatedSpans.cpt )
+    p_span_b.setCPT( updatedSpans /*.cpt*/ )
   }
   def setP_contextA( updatedContextsA:LogCPT[ConstituencyStatus,AbstractContext] ) {
-    p_context_a.setCPT( updatedContextsA.cpt )
+    p_context_a.setCPT( updatedContextsA /*.cpt*/ )
   }
   def setP_contextB( updatedContextsB:LogCPT[ConstituencyStatus,AbstractContext] ) {
-    p_context_b.setCPT( updatedContextsB.cpt )
+    p_context_b.setCPT( updatedContextsB /*.cpt*/ )
   }
 
   def smoothedSpanScoreA( constituency:ConstituencyStatus, span:Yield ) =

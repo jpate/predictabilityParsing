@@ -35,9 +35,9 @@ class DMVTwoStreamHeadsIndependentArgsGrammar extends AbstractDMVGrammar {
       newP_choose,
       newP_chooseB
     ) = parameters
-    p_order.setCPT( newP_order.getCPT )
-    p_stop.setCPT( newP_stop.getCPT )
-    p_choose.setCPT( newP_choose.getCPT )
-    p_chooseB.setCPT( newP_chooseB.getCPT )
+    p_order.setCPT( newP_order /*.getCPT*/ )
+    p_stop.setCPT( newP_stop /*.getCPT*/ )
+    p_choose.setCPT( newP_choose /*.getCPT*/ )
+    p_chooseB.setCPT( newP_chooseB /*.getCPT*/ )
   }
 }

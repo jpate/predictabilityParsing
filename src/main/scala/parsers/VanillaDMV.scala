@@ -197,7 +197,7 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
 
     //pc.clearInterpolationScores
     val newGrammar = pc.toDMVGrammar
-    newGrammar.clearInterpolationScores
+    //newGrammar.clearInterpolationScores
     println( "setting harmonic initialization:" )
     setGrammar( newGrammar )
   }
@@ -253,6 +253,17 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
         val h = headEntry.label
         assert( label == h )
         val a = argEntry.label
+        // println( "Adding dependency from " + headEntry.label + " to " + argEntry.label + " at score: " + 
+        //   g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) + " + " +
+        //   g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) + " + " +
+        //   argEntry.iScore + " + " +
+        //   headEntry.iScore + " = " + (
+        //     g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) +
+        //     g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) +
+        //     argEntry.iScore +
+        //     headEntry.iScore
+        //   )
+        // )
         incrementIScore(
           g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) +
           g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) +
@@ -718,11 +729,19 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
         }
       }
 
+
       // pc.divideChooseCounts( treeScore )
       // pc.divideStopCounts( treeScore )
       // pc.divideOrderCounts( treeScore )
 
       pc.setTotalScore( treeScore )
+
+      // if( treeScore == Double.NegativeInfinity ) {
+      //   println( this )
+      // }
+      //println( s.mkString("[ ", ", ", " ]" ) + ": " + treeScore )
+
+      // println( "partial counts for " + s.mkString( "[ ", ", ", ", " ) + ":\n" + pc )
       //println( "\n\n ---  DONE WITH toPartialCounts  ---\n\n" )
       pc
     }
@@ -758,6 +777,15 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
       else
         new Chart( s )
 
+    // println( "Testing choose default in estimator:  " +
+    //   g.chooseScore( ChooseArgument( WordPair( "CC", "6" ), RightAttachment ) , Word( "yohoho" ) ) +
+    //   "\t" + 
+    //     g.chooseScore( ChooseArgument( WordPair( "CC", "6" ), RightAttachment ) , WordPair( "IN", "2" ) )
+    // )
+    // println( "Testing stop default in estimator:  " +
+    //   g.stopScore( StopOrNot( Word( "yohoho" ), RightAttachment, true ) , NotStop ) +
+    //   "\t" + g.stopScore( StopOrNot( WordPair( "CC", "6" ), RightAttachment, true ) , NotStop )
+    // )
     (1 to ( chart.size )) foreach{ j =>
       chart.lexFill( j-1 )
       if( j > 1 )
@@ -842,6 +870,7 @@ class VanillaDMVParser extends AbstractDMVParser{
     ) {
       def constituencyParse:String
       def dependencyParse:Set[DirectedArc]
+      //println( "\t\tCreating entry " + constituencyParse )
     }
 
     object NullEntry extends Entry(
@@ -959,11 +988,15 @@ class VanillaDMVParser extends AbstractDMVParser{
       // current span.
 
       ( (start+1) to (end-1) ).foreach{ k =>
+        //println( "\t" + Tuple3(start,k,end ) )
         val rightArgs = matrix(k)(end).keySet.filter{ _.mark == Sealed }
         val leftArgs = matrix(start)(k).keySet.filter{ _.mark == Sealed }
 
         val unsealedLeftHeads = matrix(start)(k).keySet.filter{ _.mark == UnsealedRightFirst }
         //println( unsealedLeftHeads.mkString( "{ ", ", ", " }" ) )
+        // println( "adding unsealedLeftHeads" )
+        // println( "\t\t\t\t\t" + unsealedLeftHeads.mkString( "{ ", ", ", " }" ) )
+        // println( "\t\t\t\t\t" + rightArgs.mkString( "< ", ", ", " >" ) )
         unsealedLeftHeads.foreach{ h =>
 
           val firstRightArg = rightArgs.head
@@ -990,6 +1023,15 @@ class VanillaDMVParser extends AbstractDMVParser{
                 bestArgAndScore
             }
 
+          // println( "firstRightArgScore: " +
+          //   g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ), NotStop ) +
+          //   " + " + 
+          //   g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , firstRightArg.obs.w ) +
+          //     " + " + 
+          //   matrix(start)(k)(h).score + " + " + 
+          //   matrix(k)(end)(firstRightArg).score
+          // )
+          //println( "bestArgScore: " + bestArg + " (" + bestArgScore + ")" )
           if( bestArgScore >= matrix(start)(end).getOrElse( h , NullEntry ).score ) {
             matrix(start)(end) +=
               h -> new LeftHeadedEntry(
@@ -1000,6 +1042,7 @@ class VanillaDMVParser extends AbstractDMVParser{
           }
         }
 
+        //println( "adding unsealedRightHeads" )
         val unsealedRightHeads = matrix(k)(end).keySet.filter{ _.mark == UnsealedLeftFirst }
         unsealedRightHeads.foreach{ h =>
 
@@ -1039,6 +1082,7 @@ class VanillaDMVParser extends AbstractDMVParser{
 
 
 
+        //println( "adding halfSealedLeftHeads" )
         val halfSealedLeftHeads = matrix(start)(k).keySet.filter{ _.mark == SealedLeft }
         halfSealedLeftHeads.foreach{ h =>
           val firstRightArg = rightArgs.head
@@ -1075,6 +1119,7 @@ class VanillaDMVParser extends AbstractDMVParser{
           }
         }
 
+        //println( "adding halfSealedRightHeads" )
         val halfSealedRightHeads = matrix(k)(end).keySet.filter{ _.mark == SealedRight }
         halfSealedRightHeads.foreach{ h =>
           val firstLeftArg = leftArgs.head
@@ -1163,10 +1208,21 @@ class VanillaDMVParser extends AbstractDMVParser{
       else
         new ViterbiChart( s )
 
+    //println( s.mkString("[ ", ", ", " ]" ) )
+    // println( "Testing stop default from parser: " +
+    //   g.stopScore( StopOrNot( Word("yoyoyo"), RightAttachment, true ), Stop )
+    // )
+    // println( "Testing stop default from parser: " +
+    //   g.stopScore( StopOrNot( Word("yoyoyo"), RightAttachment, true ), NotStop )
+    // )
+    // println( "Testing choose default from parser: " +
+    //   g.chooseScore( ChooseArgument( Root, RightAttachment ), Word("yoyoyo") )
+    // )
     (1 to ( chart.size )) foreach{ j =>
       chart.lexFill( j-1 )
       if( j > 1 )
         (0 to (j-2)).reverse.foreach{ i =>
+          //println( (i,j) )
           chart.synFill( i , j )
         }
     }

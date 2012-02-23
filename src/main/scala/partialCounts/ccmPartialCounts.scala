@@ -17,11 +17,11 @@ class CCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D 
   def getTotalScore = totalScore
 
   def setSpanCounts( newSpans:AbstractLog2dTable[ConstituencyStatus,Yield] ) {
-    spanCounts.setCPT( newSpans.getCPT )
+    spanCounts.setCPT( newSpans /*.getCPT*/ )
   }
 
   def setContextCounts( newContexts:AbstractLog2dTable[ConstituencyStatus,Context] ) {
-    contextCounts.setCPT( newContexts.getCPT )
+    contextCounts.setCPT( newContexts /*.getCPT*/ )
   }
 
   def setSpansAndContexts(

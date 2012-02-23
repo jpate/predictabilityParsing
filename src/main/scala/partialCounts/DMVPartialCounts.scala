@@ -37,15 +37,15 @@ class DMVPartialCounts {
   def getTotalScore = totalScore
 
   def setOrderCounts( newOrderCounts:AbstractLog2dTable[ObservedLabel,AttachmentOrder] ) {
-    orderCounts.setCPT( newOrderCounts.getCPT )
+    orderCounts.setCPT( newOrderCounts /*.getCPT*/ )
   }
 
   def setStopCounts( newStopCounts:AbstractLog2dTable[StopOrNot,StopDecision] ) {
-    stopCounts.setCPT( newStopCounts.getCPT )
+    stopCounts.setCPT( newStopCounts /*.getCPT*/ )
   }
 
   def setChooseCounts( newChooseCounts:AbstractLog2dTable[ChooseArgument,ObservedLabel] ) {
-    chooseCounts.setCPT( newChooseCounts.getCPT )
+    chooseCounts.setCPT( newChooseCounts /*.getCPT*/ )
   }
 
   def setParameters(
@@ -128,6 +128,7 @@ class DMVPartialCounts {
 
   val stopBackoffCounts = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
 
+  val chooseBackoffHeadCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
   val chooseBackoffArgCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
   val chooseBackoffBothCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
 
@@ -279,6 +280,11 @@ class DMVPartialCounts {
     //toReturn.normalize
     toReturn
   }
+
+  override def toString =
+    "orderCounts:\n" + orderCounts +
+    "chooseCounts:\n" + stopCounts +
+    "stopCounts:\n" + chooseCounts
 
   // override def toString =
   //   "Span Counts:\n" +

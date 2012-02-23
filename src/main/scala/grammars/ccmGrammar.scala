@@ -43,18 +43,18 @@ class CCMGrammar(
     }
 
   def setP_span( updatedSpans:LogCPT[ConstituencyStatus,Yield] ) {
-    p_span.setCPT( updatedSpans.cpt )
+    p_span.setCPT( updatedSpans /*.cpt*/ )
   }
   def setP_context( updatedContexts:LogCPT[ConstituencyStatus,Context] ) {
-    p_context.setCPT( updatedContexts.cpt )
+    p_context.setCPT( updatedContexts /*.cpt*/ )
   }
 
   def getPSpan() = p_span
   def getPContext() = p_context
 
   def setParams( otherGram:CCMGrammar ) {
-    p_span.setCPT( otherGram.getPSpan.getCPT )
-    p_context.setCPT( otherGram.getPContext.getCPT )
+    p_span.setCPT( otherGram.getPSpan /*.getCPT*/ )
+    p_context.setCPT( otherGram.getPContext /*.getCPT*/ )
   }
 
   def randomize( seed:Int, centeredOn:Int ) {

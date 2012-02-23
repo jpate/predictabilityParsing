@@ -92,9 +92,9 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
     otherP_stop:LogCPT[StopOrNot,StopDecision],
     otherP_choose:LogCPT[ChooseArgument,ObservedLabel]
   ) {
-    p_order.setCPT( otherP_order.getCPT )
-    p_stop.setCPT( otherP_stop.getCPT )
-    p_choose.setCPT( otherP_choose.getCPT )
+    p_order.setCPT( otherP_order /*.getCPT*/ )
+    p_stop.setCPT( otherP_stop /*.getCPT*/ )
+    p_choose.setCPT( otherP_choose /*.getCPT*/ )
   }
 
   def laplaceSmooth( l:Double, vocab:Set[ObservedLabel] ) {
@@ -151,7 +151,7 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
   }
 
   override def toString =
-    //"P_Order:\n" + p_order +
+    "P_Order:\n" + p_order +
     "P_Stop:\n" + p_stop +
     "P_Choose:\n" + p_choose
 
@@ -160,9 +160,15 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
 class DMVGrammar extends AbstractDMVGrammar{
   def setParams[P<:DMVParameters]( parameters:P ) {
     val VanillaDMVParameters( newP_order, newP_stop, newP_choose) = parameters
-    p_order.setCPT( newP_order.getCPT )
-    p_stop.setCPT( newP_stop.getCPT )
-    p_choose.setCPT( newP_choose.getCPT )
+    p_order.setCPT( newP_order /*.getCPT*/ )
+    p_stop.setCPT( newP_stop /*.getCPT*/ )
+    p_choose.setCPT( newP_choose /*.getCPT*/ )
+    // p_stop.setDefault(
+    //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size )  )
+    // )
+    // p_choose.setDefault(
+    //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_choose.parents.size ) )
+    // )
   }
 
 
