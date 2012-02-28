@@ -266,7 +266,8 @@ class DMVPartialCounts {
 
     //println( "StopCounts:\n" + stopCounts + "\n\n -- END STOP COUNTS ---\n\n" )
 
-    orderCounts.expDigammaNormalize(partialCounts)
+    //orderCounts.expDigammaNormalize(partialCounts)
+    orderCounts.normalize
     stopCounts.expDigammaNormalize(partialCounts)
     chooseCounts.expDigammaNormalize(partialCounts)
     toReturn.setParams(

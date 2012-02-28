@@ -278,8 +278,8 @@ case class DMVBayesianBackoffParameters(
   stopBackoffScore:AbstractLog1dTable[ObservedLabel],
   noChooseBackoffScore:AbstractLog1dTable[ObservedLabel],
   backoffHeadScore:AbstractLog1dTable[ObservedLabel],
-  backoffArgScore:AbstractLog1dTable[ObservedLabel],
-  backoffBothScore:AbstractLog1dTable[ObservedLabel]
+  backoffArgScore:AbstractLog1dTable[ObservedLabel]//,
+  //backoffBothScore:AbstractLog1dTable[ObservedLabel]
 ) extends DMVParameters
 
 case class DMVIndependentStreamHeadsParameters(

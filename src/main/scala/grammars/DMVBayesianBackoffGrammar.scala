@@ -15,14 +15,14 @@ class DMVBayesianBackoffGrammar(
   noChooseBackoff:Double = 30,
   backoffHead:Double = 60,
   backoffArg:Double = 60,
-  backoffBoth:Double = 120,
+  //backoffBoth:Double = 120,
   // these are specific backoff parameters
   noStopBackoffScore:AbstractLog1dTable[ObservedLabel],
   stopBackoffScore:AbstractLog1dTable[ObservedLabel],
   noChooseBackoffScore:AbstractLog1dTable[ObservedLabel],
   backoffHeadScore:AbstractLog1dTable[ObservedLabel],
-  backoffArgScore:AbstractLog1dTable[ObservedLabel],
-  backoffBothScore:AbstractLog1dTable[ObservedLabel]
+  backoffArgScore:AbstractLog1dTable[ObservedLabel]//,
+  //backoffBothScore:AbstractLog1dTable[ObservedLabel]
 ) extends DMVGrammar {
 
   //println( "Forming new grammar with noStopBackoffScore of:\n" + noStopBackoffScore )
@@ -53,6 +53,9 @@ class DMVBayesianBackoffGrammar(
   p_choose.setDefault(
     Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_choose.parents.size ) )
   )
+  p_stop.setDefault(
+    Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size ) )
+  )
   // p_choose.setDefaultMap(
   //   Map[ChooseArgument,Double]().withDefaultValue(
   //     Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_choose.parents.size ) )
@@ -64,15 +67,15 @@ class DMVBayesianBackoffGrammar(
     stopBackoff:Double,
     noChooseBackoff:Double,
     backoffHead:Double,
-    backoffArg:Double,
-    backoffBoth:Double
+    backoffArg:Double//,
+    //backoffBoth:Double
   ) = this(
     noStopBackoff,
     stopBackoff,
     noChooseBackoff,
     backoffHead,
     backoffArg,
-    backoffBoth,
+    //backoffBoth,
     // these are specific backoff parameters
     noStopBackoffScore = Log1dTable(
       Set[ObservedLabel](),
@@ -84,22 +87,22 @@ class DMVBayesianBackoffGrammar(
     ),
     noChooseBackoffScore = Log1dTable(
       Set[ObservedLabel](),
-      math.log( noChooseBackoff/(noChooseBackoff + backoffHead + backoffArg + backoffBoth) )
+      math.log( noChooseBackoff/(noChooseBackoff + backoffHead + backoffArg /*+ backoffBoth */) )
     ),
     backoffHeadScore = Log1dTable(
       Set[ObservedLabel](),
-      math.log( backoffHead/(noChooseBackoff + backoffHead + backoffArg + backoffBoth) )
+      math.log( backoffHead/(noChooseBackoff + backoffHead + backoffArg /*+ backoffBoth */) )
     ),
     backoffArgScore = Log1dTable(
       Set[ObservedLabel](),
-      math.log( backoffArg/(noChooseBackoff + backoffHead + backoffArg + backoffBoth) )
-    ),
-    backoffBothScore = Log1dTable(
-      Set[ObservedLabel](),
-      math.log( backoffBoth/(noChooseBackoff + backoffHead + backoffArg + backoffBoth) )
-    )
+      math.log( backoffArg/(noChooseBackoff + backoffHead + backoffArg /*+ backoffBoth */) )
+    )//,
+    // backoffBothScore = Log1dTable(
+    //   Set[ObservedLabel](),
+    //   math.log( backoffBoth/(noChooseBackoff + backoffHead + backoffArg + backoffBoth) )
+    // )
   )
-  def this() = this( 35, 70, 30, 60, 60, 120 )
+  def this() = this( 35, 70, 30, 60, 60/*, 120*/ )
 
   def randomize( vocab:Set[ObservedLabelPair] ):Unit = randomize( vocab, 15, 10 )
   def randomize( vocab:Set[ObservedLabelPair], seed:Int ):Unit = randomize( vocab, seed, 10 )
@@ -204,6 +207,107 @@ class DMVBayesianBackoffGrammar(
     p_choose.randomize( seed, centeredOn)
   }
 
+  def setUniform( vocab:Set[ObservedLabelPair] ):Unit = {
+    p_order.setCPTMap(
+      Map(
+        (vocab).map{ w =>
+          w -> Map(
+            LeftFirst -> Double.NegativeInfinity,
+            RightFirst -> 0D
+          )
+        }.toSeq:_*
+      )
+    )
+    p_order.setValue(
+      Root,
+      LeftFirst,
+      0D
+    )
+    p_order.setValue(
+      Root,
+      RightFirst,
+      Double.NegativeInfinity
+    )
+    p_stop.setCPTMap(
+      Map(
+        (
+          dmv.rootlessStopOrNotKeys( vocab ) +
+          StopOrNot( Root, LeftAttachment, false ) +
+          StopOrNot( Root, LeftAttachment, true ) +
+          StopOrNot( Root, RightAttachment, false ) +
+          StopOrNot( Root, RightAttachment, true )
+        ).map{ k =>
+          k -> Map(
+            dmv.stopDecision.map{ d =>
+              d -> 0D
+            }.toSeq:_*
+          )
+        }.toSeq:_*
+      )
+    )
+    p_stop.normalize
+    p_choose.setCPTMap(
+      Map(
+        (
+          dmv.rootlessChooseKeys( vocab ) +
+          ChooseArgument( Root, LeftAttachment ) +
+          ChooseArgument( Root, RightAttachment )
+        ).map{ h =>
+          h -> Map(
+            vocab.map{ a:ObservedLabel =>
+              a -> 0D
+            }.toSeq:_*
+          )
+        }.toSeq:_*
+      )
+    )
+    p_choose.normalize
+
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      Stop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      Stop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
+
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
+
+  }
+
   override def clearInterpolationScores {
     println( "clearing interpolation scores in the grammar..." )
     noStopBackoffScore.setPT(
@@ -224,30 +328,30 @@ class DMVBayesianBackoffGrammar(
       Log1dTable(
         Set[ObservedLabel](),
         Math.expDigamma( math.log( noChooseBackoff ) ) -
-          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth) )
+          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg /*+ backoffBoth */) )
       )//.getPT
     )
     backoffHeadScore.setPT(
       Log1dTable(
         Set[ObservedLabel](),
         Math.expDigamma( math.log( backoffHead ) ) -
-          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth) )
+          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg /*+ backoffBoth */) )
       )//.getPT
     )
     backoffArgScore.setPT(
       Log1dTable(
         Set[ObservedLabel](),
         Math.expDigamma( math.log( backoffArg ) ) -
-          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth) )
+          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg /*+ backoffBoth */) )
       )//.getPT
     )
-    backoffBothScore.setPT(
-      Log1dTable(
-        Set[ObservedLabel](),
-        Math.expDigamma( math.log( backoffBoth ) ) -
-          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth) )
-      )//.getPT
-    )
+    // backoffBothScore.setPT(
+    //   Log1dTable(
+    //     Set[ObservedLabel](),
+    //     Math.expDigamma( math.log( backoffBoth ) ) -
+    //       Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth) )
+    //   )//.getPT
+    // )
   }
 
   override def setParams[P<:DMVParameters]( parameters:P ) {
@@ -260,8 +364,8 @@ class DMVBayesianBackoffGrammar(
       otherStopBackoffScore,
       otherNoChooseBackoffScore,
       otherBackoffHeadScore,
-      otherBackoffArgScore,
-      otherBackoffBothScore
+      otherBackoffArgScore//,
+      //otherBackoffBothScore
     ) = parameters
 
     //freeEnergy = otherFreeEnergy
@@ -273,7 +377,7 @@ class DMVBayesianBackoffGrammar(
     noChooseBackoffScore.setPT( otherNoChooseBackoffScore )//.getPT )
     backoffHeadScore.setPT( otherBackoffHeadScore )//.getPT )
     backoffArgScore.setPT( otherBackoffArgScore )//.getPT )
-    backoffBothScore.setPT( otherBackoffBothScore )//.getPT )
+    //backoffBothScore.setPT( otherBackoffBothScore )//.getPT )
 
     p_stop.setValue(
       StopOrNot( Root, RightAttachment, true ),
@@ -331,8 +435,8 @@ class DMVBayesianBackoffGrammar(
       stopBackoffScore,
       noChooseBackoffScore,
       backoffHeadScore,
-      backoffArgScore,
-      backoffBothScore
+      backoffArgScore//,
+      //backoffBothScore
     )
 
   override def emptyPartialCounts = {
@@ -343,13 +447,13 @@ class DMVBayesianBackoffGrammar(
       noChooseBackoff,
       backoffHead,
       backoffArg,
-      backoffBoth,
+      //backoffBoth,
       noStopBackoffScore,
       stopBackoffScore,
       noChooseBackoffScore,
       backoffHeadScore,
-      backoffArgScore,
-      backoffBothScore
+      backoffArgScore//,
+      //backoffBothScore
     )
   }
 
@@ -365,13 +469,14 @@ class DMVBayesianBackoffGrammar(
         backoffHeadScore +
       "\nBackoffArgScore (default = " + math.exp( backoffArgScore.getDefault ) + "):\n" +
         backoffArgScore +
-      "\nBackoffBothScore (default = " + math.exp( backoffBothScore.getDefault ) + "):\n" +
-        backoffBothScore + "\n" +
+      // "\nBackoffBothScore (default = " + math.exp( backoffBothScore.getDefault ) + "):\n" +
+      //   backoffBothScore + "\n" +
       "Alphas:\n" +
       "\tnoStopBackoffAlpha: " + noStopBackoff + "\n" +
       "\tstopBackoffAlpha: " + stopBackoff + "\n" +
       "\tnoChooseBackoffAlpha: " + noChooseBackoff + "\n" +
-      "\tbackoffArgAlpha: " + backoffArg + "\n" +
-      "\tbackoffBothAlpha: " + backoffBoth + "\n"
+      "\tbackoffHeadAlpha: " + backoffHead + "\n" +
+      "\tbackoffArgAlpha: " + backoffArg + "\n"
+      //"\tbackoffBothAlpha: " + backoffBoth + "\n"
 }
 

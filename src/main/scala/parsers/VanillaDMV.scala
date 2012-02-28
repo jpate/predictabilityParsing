@@ -194,6 +194,16 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
       0D
     )
 
+    pc.setOrderCounts(
+      Root,
+      LeftFirst,
+      0D
+    )
+    pc.setOrderCounts(
+      Root,
+      RightFirst,
+      Double.NegativeInfinity
+    )
 
     //pc.clearInterpolationScores
     val newGrammar = pc.toDMVGrammar

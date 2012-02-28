@@ -159,6 +159,8 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
         cpt.keySet.map{ parent =>
           parent -> { expDigamma( logPseudoCount ) - expDigamma( maxes( parent ) ) }
         }.toSeq:_*
+      ).withDefaultValue( 
+        expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size ) + logPseudoCount )
       )
     )
     setDefault(
