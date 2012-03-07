@@ -1265,6 +1265,11 @@ class VanillaDMVParser extends AbstractDMVParser{
           prefix + ":dependency:" + id + " " + chart.toDependencyParse + "\n" +
           prefix + ":constituency:" + id + " " + chart.toConstituencyParse
         }
+        case TimedThreeStreamSentence( id, s ) => {
+          val chart = populateChart( s )
+          prefix + ":dependency:" + id + " " + chart.toDependencyParse + "\n" +
+          prefix + ":constituency:" + id + " " + chart.toConstituencyParse
+        }
       }
     }
 }

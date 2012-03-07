@@ -146,8 +146,16 @@ abstract class TimedObservedLabelPair( val wp:ObservedLabelPair, t:Int )
   extends TimedObservedLabel( wp, t )
   //extends ObservedLabelPair( wp.obsA+"."+t, wp.obsB+"."+t )
 
+abstract class TimedObservedLabelTriple( val wt:ObservedLabelTriple, t:Int )
+  extends TimedObservedLabel( wt, t )
+  //extends ObservedLabelPair( wp.obsA+"."+t, wp.obsB+"."+t )
+
+
 case class TimedWordPair( w1:String, w2:String, time:Int ) 
   extends TimedObservedLabelPair( WordPair( w1,w2 ), time )
+
+case class TimedWordTriple( w1:String, w2:String, w3:String, time:Int ) 
+  extends TimedObservedLabelTriple( WordTriple( w1,w2,w3 ), time )
 
 trait RootState
 abstract class AbstractRoot extends ObservedLabel( "--Root--" )
@@ -194,6 +202,18 @@ abstract class ObservedLabelQuad( w1:String, w2:String, w3:String, w4:String )
   val obsC = Word( w3 )
   val obsD = Word( w4 )
 }
+abstract class ObservedLabelSextuple( w1:String, w2:String, w3:String, w4:String, w5:String,
+w6:String )
+  extends ObservedLabel ( w1 + "^" + w2 + "^" + w3 + "^" + w4 + "^" + w5 + "^" + w6 ) {
+  // private val asString = w1 + "^" + w2 + "^" + w3 + "^" + w4
+  // override val hashCode = asString.hashCode
+  val obsA = Word( w1 )
+  val obsB = Word( w2 )
+  val obsC = Word( w3 )
+  val obsD = Word( w4 )
+  val obsE = Word( w5 )
+  val obsF = Word( w6 )
+}
 
 case class WordPair( w1:String, w2:String ) extends ObservedLabelPair( w1, w2 ) {
   override val hashCode = (w1+"^"+w2).hashCode
@@ -203,6 +223,10 @@ case class WordTriple( w1:String, w2:String, w3:String ) extends ObservedLabelTr
 }
 case class WordQuad( w1:String, w2:String, w3:String, w4:String )
   extends ObservedLabelQuad( w1, w2, w3, w4 ) {
+  //override val hashCode = (w1+"^"+w2+"^"+w3+"^"+w4).hashCode
+}
+case class WordSextuple( w1:String, w2:String, w3:String, w4:String, w5:String, w6:String )
+  extends ObservedLabelSextuple( w1, w2, w3, w4, w5, w6 ) {
   //override val hashCode = (w1+"^"+w2+"^"+w3+"^"+w4).hashCode
 }
 case object RootPair extends ObservedLabelPair( "--Root--", "--Root--" )
@@ -243,11 +267,19 @@ case class TwoStreamSentence( sentenceID:String, sentence: List[WordPair] )
   extends AbstractSentence( sentenceID, sentence )
   //extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
 
+case class ThreeStreamSentence( sentenceID:String, sentence: List[WordTriple] )
+  extends AbstractSentence( sentenceID, sentence )
+  //extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
+
 case class TimedSentence( sentenceID:String, sentence: List[TimedObservedLabel] )
   extends AbstractSentence( sentenceID, sentence ) with AbstractTimedSentence
   //extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
 
 case class TimedTwoStreamSentence( sentenceID:String, sentence: List[TimedObservedLabelPair] )
+  extends AbstractSentence( sentenceID, sentence ) with AbstractTimedSentence
+  //extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
+
+case class TimedThreeStreamSentence( sentenceID:String, sentence: List[TimedObservedLabelTriple] )
   extends AbstractSentence( sentenceID, sentence ) with AbstractTimedSentence
   //extends ObservedLabel( sentenceID + ": " + sentence.mkString(""," ","" ) )
 
@@ -280,6 +312,22 @@ case class DMVBayesianBackoffParameters(
   backoffHeadScore:AbstractLog1dTable[ObservedLabel],
   backoffArgScore:AbstractLog1dTable[ObservedLabel],
   backoffBothScore:AbstractLog1dTable[ObservedLabel]
+) extends DMVParameters
+
+case class DMVBayesianBackoffSimpleThreeStreamParameters(
+  p_order:LogCPT[ObservedLabel,AttachmentOrder],
+  p_stop:LogCPT[StopOrNot,StopDecision],
+  p_choose:LogCPT[ChooseArgument,ObservedLabel],
+  noStopBackoff_Score:AbstractLog1dTable[ObservedLabel],
+  stopBackoffW_Score:AbstractLog1dTable[ObservedLabel],
+  stopBackoffA_Score:AbstractLog1dTable[ObservedLabel],
+  stopBackoffWA_Score:AbstractLog1dTable[ObservedLabel],
+  stopBackoffPA_Score:AbstractLog1dTable[ObservedLabel],
+  noChooseBackoff_Score:AbstractLog1dTable[ObservedLabel],
+  chooseBackoffW_Score:AbstractLog1dTable[ObservedLabel],
+  chooseBackoffA_Score:AbstractLog1dTable[ObservedLabel],
+  chooseBackoffWA_Score:AbstractLog1dTable[ObservedLabel],
+  chooseBackoffPA_Score:AbstractLog1dTable[ObservedLabel]
 ) extends DMVParameters
 
 case class DMVIndependentStreamHeadsParameters(
