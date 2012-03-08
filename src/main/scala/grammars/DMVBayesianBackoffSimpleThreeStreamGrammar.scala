@@ -16,16 +16,16 @@ class DMVBayesianBackoffSimpleThreeStreamGrammar(
   backoffWA_Alpha:Double = 35,
   backoffPA_Alpha:Double = 35,
   // these are specific backoff parameters
-  noStopBackoff_Score:AbstractLog1dTable[ObservedLabel],
-  stopBackoffW_Score:AbstractLog1dTable[ObservedLabel],
-  stopBackoffA_Score:AbstractLog1dTable[ObservedLabel],
-  stopBackoffWA_Score:AbstractLog1dTable[ObservedLabel],
-  stopBackoffPA_Score:AbstractLog1dTable[ObservedLabel],
-  noChooseBackoff_Score:AbstractLog1dTable[ObservedLabel],
-  chooseBackoffW_Score:AbstractLog1dTable[ObservedLabel],
-  chooseBackoffA_Score:AbstractLog1dTable[ObservedLabel],
-  chooseBackoffWA_Score:AbstractLog1dTable[ObservedLabel],
-  chooseBackoffPA_Score:AbstractLog1dTable[ObservedLabel]
+  noStopBackoff_Score:AbstractLog1dTable[StopOrNot],
+  stopBackoffW_Score:AbstractLog1dTable[StopOrNot],
+  stopBackoffA_Score:AbstractLog1dTable[StopOrNot],
+  stopBackoffWA_Score:AbstractLog1dTable[StopOrNot],
+  stopBackoffPA_Score:AbstractLog1dTable[StopOrNot],
+  noChooseBackoff_Score:AbstractLog1dTable[ChooseArgument],
+  chooseBackoffW_Score:AbstractLog1dTable[ChooseArgument],
+  chooseBackoffA_Score:AbstractLog1dTable[ChooseArgument],
+  chooseBackoffWA_Score:AbstractLog1dTable[ChooseArgument],
+  chooseBackoffPA_Score:AbstractLog1dTable[ChooseArgument]
 ) extends DMVGrammar {
 
 
@@ -79,7 +79,7 @@ class DMVBayesianBackoffSimpleThreeStreamGrammar(
     backoffPA_Alpha,
     // these are specific backoff parameters
     noStopBackoff_Score = Log1dTable(
-      Set[ObservedLabel](),
+      Set[StopOrNot](),
       Math.expDigamma( math.log( noBackoff_Alpha ) ) -
         Math.expDigamma( math.log(
             noBackoff_Alpha +
@@ -90,7 +90,7 @@ class DMVBayesianBackoffSimpleThreeStreamGrammar(
         ) )
     ),
     stopBackoffW_Score = Log1dTable(
-      Set[ObservedLabel](),
+      Set[StopOrNot](),
       Math.expDigamma( math.log( backoffW_Alpha ) ) -
         Math.expDigamma( math.log(
             noBackoff_Alpha +
@@ -101,7 +101,7 @@ class DMVBayesianBackoffSimpleThreeStreamGrammar(
         ) )
     ),
     stopBackoffA_Score = Log1dTable(
-      Set[ObservedLabel](),
+      Set[StopOrNot](),
       Math.expDigamma( math.log( backoffA_Alpha ) ) -
         Math.expDigamma( math.log(
             noBackoff_Alpha +
@@ -112,7 +112,7 @@ class DMVBayesianBackoffSimpleThreeStreamGrammar(
         ) )
     ),
     stopBackoffWA_Score = Log1dTable(
-      Set[ObservedLabel](),
+      Set[StopOrNot](),
       Math.expDigamma( math.log( backoffWA_Alpha ) ) -
         Math.expDigamma( math.log(
             noBackoff_Alpha +
@@ -123,7 +123,7 @@ class DMVBayesianBackoffSimpleThreeStreamGrammar(
         ) )
     ),
     stopBackoffPA_Score = Log1dTable(
-      Set[ObservedLabel](),
+      Set[StopOrNot](),
       Math.expDigamma( math.log( backoffPA_Alpha ) ) -
         Math.expDigamma( math.log(
             noBackoff_Alpha +
@@ -134,7 +134,7 @@ class DMVBayesianBackoffSimpleThreeStreamGrammar(
         ) )
     ),
     noChooseBackoff_Score = Log1dTable(
-      Set[ObservedLabel](),
+      Set[ChooseArgument](),
       Math.expDigamma( math.log( noBackoff_Alpha ) ) -
         Math.expDigamma( math.log(
             noBackoff_Alpha +
@@ -145,7 +145,7 @@ class DMVBayesianBackoffSimpleThreeStreamGrammar(
         ) )
     ),
     chooseBackoffW_Score = Log1dTable(
-      Set[ObservedLabel](),
+      Set[ChooseArgument](),
       Math.expDigamma( math.log( backoffW_Alpha ) ) -
         Math.expDigamma( math.log(
             noBackoff_Alpha +
@@ -156,7 +156,7 @@ class DMVBayesianBackoffSimpleThreeStreamGrammar(
         ) )
     ),
     chooseBackoffA_Score = Log1dTable(
-      Set[ObservedLabel](),
+      Set[ChooseArgument](),
       Math.expDigamma( math.log( backoffA_Alpha ) ) -
         Math.expDigamma( math.log(
             noBackoff_Alpha +
@@ -167,7 +167,7 @@ class DMVBayesianBackoffSimpleThreeStreamGrammar(
         ) )
     ),
     chooseBackoffWA_Score = Log1dTable(
-      Set[ObservedLabel](),
+      Set[ChooseArgument](),
       Math.expDigamma( math.log( backoffWA_Alpha ) ) -
         Math.expDigamma( math.log(
             noBackoff_Alpha +
@@ -178,7 +178,7 @@ class DMVBayesianBackoffSimpleThreeStreamGrammar(
         ) )
     ),
     chooseBackoffPA_Score = Log1dTable(
-      Set[ObservedLabel](),
+      Set[ChooseArgument](),
       Math.expDigamma( math.log( backoffPA_Alpha ) ) -
         Math.expDigamma( math.log(
             noBackoff_Alpha +
@@ -469,10 +469,10 @@ class DMVBayesianBackoffSimpleThreeStreamGrammar(
     stopBackoffPA_Score.setPT( otherStopBackoffPA_Score )
 
     noChooseBackoff_Score.setPT( otherNoChooseBackoff_Score )
-    chooseBackoffW_Score.setPT( otherStopBackoffW_Score )
-    chooseBackoffA_Score.setPT( otherStopBackoffA_Score )
-    chooseBackoffWA_Score.setPT( otherStopBackoffWA_Score )
-    chooseBackoffPA_Score.setPT( otherStopBackoffPA_Score )
+    chooseBackoffW_Score.setPT( otherChooseBackoffW_Score )
+    chooseBackoffA_Score.setPT( otherChooseBackoffA_Score )
+    chooseBackoffWA_Score.setPT( otherChooseBackoffWA_Score )
+    chooseBackoffPA_Score.setPT( otherChooseBackoffPA_Score )
 
     p_stop.setValue(
       StopOrNot( Root, RightAttachment, true ),

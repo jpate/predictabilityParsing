@@ -318,16 +318,16 @@ case class DMVBayesianBackoffSimpleThreeStreamParameters(
   p_order:LogCPT[ObservedLabel,AttachmentOrder],
   p_stop:LogCPT[StopOrNot,StopDecision],
   p_choose:LogCPT[ChooseArgument,ObservedLabel],
-  noStopBackoff_Score:AbstractLog1dTable[ObservedLabel],
-  stopBackoffW_Score:AbstractLog1dTable[ObservedLabel],
-  stopBackoffA_Score:AbstractLog1dTable[ObservedLabel],
-  stopBackoffWA_Score:AbstractLog1dTable[ObservedLabel],
-  stopBackoffPA_Score:AbstractLog1dTable[ObservedLabel],
-  noChooseBackoff_Score:AbstractLog1dTable[ObservedLabel],
-  chooseBackoffW_Score:AbstractLog1dTable[ObservedLabel],
-  chooseBackoffA_Score:AbstractLog1dTable[ObservedLabel],
-  chooseBackoffWA_Score:AbstractLog1dTable[ObservedLabel],
-  chooseBackoffPA_Score:AbstractLog1dTable[ObservedLabel]
+  noStopBackoff_Score:AbstractLog1dTable[StopOrNot],
+  stopBackoffW_Score:AbstractLog1dTable[StopOrNot],
+  stopBackoffA_Score:AbstractLog1dTable[StopOrNot],
+  stopBackoffWA_Score:AbstractLog1dTable[StopOrNot],
+  stopBackoffPA_Score:AbstractLog1dTable[StopOrNot],
+  noChooseBackoff_Score:AbstractLog1dTable[ChooseArgument],
+  chooseBackoffW_Score:AbstractLog1dTable[ChooseArgument],
+  chooseBackoffA_Score:AbstractLog1dTable[ChooseArgument],
+  chooseBackoffWA_Score:AbstractLog1dTable[ChooseArgument],
+  chooseBackoffPA_Score:AbstractLog1dTable[ChooseArgument]
 ) extends DMVParameters
 
 case class DMVIndependentStreamHeadsParameters(
