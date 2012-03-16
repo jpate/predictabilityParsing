@@ -29,91 +29,88 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
     val cNotStopScore = math.log( cNotStop )
     val stopUniformityScore = math.log( stopUniformity )
 
-    corpus.map{ s => s :+ FinalRoot( s.length )}.foreach{ s =>
+    corpus/*.map{ s => s :+ FinalRoot( s.length )}*/.foreach{ s =>
       (0 to (s.length-1)).foreach{ i =>
-        if( s(i).w == Root ) { // inefficient treatment of stopCounts but who cares
-          (0 to (i-1)).foreach{ leftK =>
-            // choose initialization
-            pc.incrementChooseCounts(
-              ChooseArgument( s(i).w, LeftAttachment ),
-              s(leftK).w,
-              0D
-            )
-          }
-
-        } else {
-          (0 to (i-1)).foreach{ leftK =>
-            // choose initialization
-            pc.incrementChooseCounts(
-              ChooseArgument( s(i).w, LeftAttachment ),
-              s(leftK).w,
-              0D - math.log( i - leftK ) + cAttachScore
-            )
-          }
-
-          // to s.length-2 because we don't take Root as argument
-          ((i+1) to (s.length-2)).foreach{ rightK =>
-            pc.incrementChooseCounts(
-              ChooseArgument( s(i).w, RightAttachment ),
-              s(rightK).w,
-              0D - math.log( rightK - i ) + cAttachScore
-            )
-          }
-
-          // stop initialization
-          if( i == 0 )
-            pc.incrementStopCounts(
-              StopOrNot( s(i).w, LeftAttachment, true ),
-              Stop,
-              cStopScore
-            )
-          else
-            pc.incrementStopCounts(
-              StopOrNot( s(i).w, LeftAttachment, true ),
-              NotStop,
-              cNotStopScore
-            )
-
-          if( i == (s.length-2) )
-            pc.incrementStopCounts(
-              StopOrNot( s(i).w, RightAttachment, true ),
-              Stop,
-              cStopScore
-            )
-          else
-            pc.incrementStopCounts(
-              StopOrNot( s(i).w, RightAttachment, true ),
-              NotStop,
-              cNotStopScore
-            )
-
-          if( i == 1 )
-            pc.incrementStopCounts(
-              StopOrNot( s(i).w, LeftAttachment, false ),
-              Stop,
-              cStopScore
-            )
-          else
-            pc.incrementStopCounts(
-              StopOrNot( s(i).w, LeftAttachment, false ),
-              NotStop,
-              cNotStopScore
-            )
-
-          if( i == (s.length-3) )
-            pc.incrementStopCounts(
-              StopOrNot( s(i).w, RightAttachment, false ),
-              Stop,
-              cStopScore
-            )
-          else
-            pc.incrementStopCounts(
-              StopOrNot( s(i).w, RightAttachment, false ),
-              NotStop,
-              cNotStopScore
-            )
+        (0 to (i-1)).foreach{ leftK =>
+          // choose initialization
+          pc.incrementChooseCounts(
+            ChooseArgument( s(i).w, LeftAttachment ),
+            s(leftK).w,
+            0D - math.log( i - leftK ) + cAttachScore
+          )
         }
 
+        ((i+1) to (s.length-1)).foreach{ rightK =>
+          pc.incrementChooseCounts(
+            ChooseArgument( s(i).w, RightAttachment ),
+            s(rightK).w,
+            0D - math.log( rightK - i ) + cAttachScore
+          )
+        }
+
+        // stop initialization
+        if( i == 0 )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, true ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, true ),
+            NotStop,
+            cNotStopScore
+          )
+
+        if( i == (s.length-2) )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, true ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, true ),
+            NotStop,
+            cNotStopScore
+          )
+
+        if( i == 1 )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, false ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, false ),
+            NotStop,
+            cNotStopScore
+          )
+
+        if( i == (s.length-3) )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, false ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, false ),
+            NotStop,
+            cNotStopScore
+          )
+
+        s(i).w match{
+          case Root => {}
+          case _ => pc.incrementSealedCounts( s(i).w, 0D )
+        }
+
+        pc.incrementChooseCounts(
+          ChooseArgument( Root, LeftAttachment ),
+          s(i).w,
+          cAttachScore
+        )
         // order initialization
         pc.setOrderCounts( s(i).w, RightFirst, rightFirstScore )
         pc.setOrderCounts( s(i).w, LeftFirst, Math.subtractLogProb( 0D, rightFirstScore ) )
@@ -172,37 +169,16 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
       Double.NegativeInfinity
     )
 
-    pc.setStopCounts(
-      StopOrNot( Root, LeftAttachment, true ),
-      NotStop,
-      0D
-    )
-    pc.setStopCounts(
-      StopOrNot( Root, LeftAttachment, true ),
-      Stop,
-      Double.NegativeInfinity
-    )
-
-    pc.setStopCounts(
-      StopOrNot( Root, LeftAttachment, false ),
-      NotStop,
-      Double.NegativeInfinity
-    )
-    pc.setStopCounts(
-      StopOrNot( Root, LeftAttachment, false ),
-      Stop,
-      0D
-    )
 
     pc.setOrderCounts(
       Root,
       LeftFirst,
-      0D
+      Double.NegativeInfinity
     )
     pc.setOrderCounts(
       Root,
       RightFirst,
-      Double.NegativeInfinity
+      0D
     )
 
     //pc.clearInterpolationScores
@@ -676,6 +652,14 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
             )
           }
 
+          if( j < s.length ) // no Root
+            matrix(i)(j).keySet.filter{ _.mark == Sealed }.foreach{ sealedItem =>
+              pc.incrementSealedCounts(
+                sealedItem.obs.w,
+                matrix(i)(j)( sealedItem ).score
+              )
+            }
+
           // Ok, now increment choose counts. The re-estimated probability of an attachment is just
           // the product of not stopping, the previous estimate of the probability of attachment,
           // and the marginal score of the head. There's no need to keep track of the denominator
@@ -730,9 +714,6 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
                         treeScore
                 )
               }
-
-
-
             }
           }
 

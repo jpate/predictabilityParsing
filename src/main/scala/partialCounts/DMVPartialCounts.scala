@@ -10,6 +10,7 @@ class DMVPartialCounts {
   val orderCounts = new Log2dTable( Set[ObservedLabel](), dmv.attachmentOrder )
   val stopCounts = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
   val chooseCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+  val sealedCounts = new Log1dTable( Set[ObservedLabel]() )
 
   def chooseKeys = chooseCounts.parents
 
@@ -44,16 +45,22 @@ class DMVPartialCounts {
     stopCounts.setCPT( newStopCounts /*.getCPT*/ )
   }
 
+  def setSealedCounts( newSealedCounts:AbstractLog1dTable[ObservedLabel] ) {
+    sealedCounts.setPT( newSealedCounts /*.getCPT*/ )
+  }
+
   def setChooseCounts( newChooseCounts:AbstractLog2dTable[ChooseArgument,ObservedLabel] ) {
     chooseCounts.setCPT( newChooseCounts /*.getCPT*/ )
   }
 
   def setParameters(
     updatedOrder:AbstractLog2dTable[ObservedLabel,AttachmentOrder],
+    updatedSealed:AbstractLog1dTable[ObservedLabel],
     updatedStop:AbstractLog2dTable[StopOrNot,StopDecision],
     updatedChoose:AbstractLog2dTable[ChooseArgument,ObservedLabel]
   ) {
     setOrderCounts( updatedOrder )
+    setSealedCounts( updatedSealed )
     setStopCounts( updatedStop )
     setChooseCounts( updatedChoose )
   }
@@ -93,6 +100,15 @@ class DMVPartialCounts {
     chooseCounts.setValue( chooseKey, arg, newCount )
   }
 
+  def incrementSealedCounts( sealedItem:ObservedLabel, increment:Double ) {
+    sealedCounts.setValue(
+      sealedItem,
+      Math.sumLogProb( sealedCounts(sealedItem), increment )
+    )
+  }
+  def setSealedCounts( sealedItem:ObservedLabel, newCount:Double ) {
+    sealedCounts.setValue( sealedItem, newCount )
+  }
 
   def +( otherCounts:DMVPartialCounts ) = {
     val toReturn = new DMVPartialCounts
@@ -100,6 +116,7 @@ class DMVPartialCounts {
 
     toReturn.setParameters(
       orderCounts + otherCounts.orderCounts,
+      sealedCounts + otherCounts.sealedCounts,
       stopCounts + otherCounts.stopCounts,
       chooseCounts + otherCounts.chooseCounts
     )
@@ -143,6 +160,13 @@ class DMVPartialCounts {
       incrementOrderCounts( w , LeftFirst , otherCounts.orderCounts( w, LeftFirst ) )
       incrementOrderCounts( w , RightFirst , otherCounts.orderCounts( w, RightFirst ) )
     }
+
+
+
+    otherCounts.sealedCounts.domain.foreach{ w =>
+      incrementSealedCounts( w , otherCounts.sealedCounts( w ) )
+    }
+
 
     //otherCounts.stopCounts.divideBy( otherP_data )
     //otherCounts.stopCounts.normalize

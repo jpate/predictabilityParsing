@@ -190,6 +190,7 @@ class DMVBayesianBackoffSimpleThreeStreamGrammar(
     )
   )
 
+  /*
   def randomize( vocab:Set[ObservedLabelTriple] ):Unit = randomize( vocab, 15, 10 )
   def randomize( vocab:Set[ObservedLabelTriple], seed:Int ):Unit = randomize( vocab, seed, 10 )
   def randomize( vocab:Set[ObservedLabelTriple], seed:Int, centeredOn:Int ):Unit = {
@@ -392,7 +393,9 @@ class DMVBayesianBackoffSimpleThreeStreamGrammar(
       0D
     )
 
+
   }
+  */
 
       // override def clearInterpolationScores {
       //   println( "clearing interpolation scores in the grammar..." )

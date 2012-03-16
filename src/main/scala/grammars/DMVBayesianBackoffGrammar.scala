@@ -25,6 +25,8 @@ class DMVBayesianBackoffGrammar(
   backoffBothScore:AbstractLog1dTable[ChooseArgument]
 ) extends DMVGrammar {
 
+  println( "Creating new DMVGrammar. The noStopBackoffScore is:\n" + noStopBackoffScore )
+
   //println( "Forming new grammar with noStopBackoffScore of:\n" + noStopBackoffScore )
 
   p_stop.setDefault(
@@ -40,9 +42,19 @@ class DMVBayesianBackoffGrammar(
   // )
 
   override def orderScore( word:ObservedLabel, pref:AttachmentOrder ) =// p_order( word, pref )
-    pref match {
-      case LeftFirst => Double.NegativeInfinity
-      case RightFirst => 0D
+    word match {
+      case _:AbstractRoot => {
+        pref match {
+          case LeftFirst => 0D
+          case RightFirst => Double.NegativeInfinity
+        }
+      }
+      case _ => {
+        pref match {
+          case LeftFirst => Double.NegativeInfinity
+          case RightFirst => 0D
+        }
+      }
     }
 
   // p_stop.setDefaultMap(
@@ -104,210 +116,6 @@ class DMVBayesianBackoffGrammar(
   )
   def this() = this( 35, 70, 30, 60, 60, 120 )
 
-  def randomize( vocab:Set[ObservedLabelPair] ):Unit = randomize( vocab, 15, 10 )
-  def randomize( vocab:Set[ObservedLabelPair], seed:Int ):Unit = randomize( vocab, seed, 10 )
-  def randomize( vocab:Set[ObservedLabelPair], seed:Int, centeredOn:Int ):Unit = {
-    p_order.setCPTMap(
-      Map(
-        (vocab).map{ w =>
-          w -> Map(
-            LeftFirst -> Double.NegativeInfinity,
-            RightFirst -> 0D
-          )
-        }.toSeq:_*
-      )
-    )
-    p_order.setValue(
-      Root,
-      LeftFirst,
-      0D
-    )
-    p_order.setValue(
-      Root,
-      RightFirst,
-      Double.NegativeInfinity
-    )
-    p_stop.setCPTMap(
-      Map(
-        (
-          dmv.rootlessStopOrNotKeys( vocab ) +
-          StopOrNot( Root, LeftAttachment, false ) +
-          StopOrNot( Root, LeftAttachment, true ) +
-          StopOrNot( Root, RightAttachment, false ) +
-          StopOrNot( Root, RightAttachment, true )
-        ).map{ k =>
-          k -> Map(
-            dmv.stopDecision.map{ d =>
-              d -> Double.NegativeInfinity
-            }.toSeq:_*
-          )
-        }.toSeq:_*
-      )
-    )
-    p_stop.randomize( seed, centeredOn)
-    p_choose.setCPTMap(
-      Map(
-        (
-          dmv.rootlessChooseKeys( vocab ) +
-          ChooseArgument( Root, LeftAttachment ) +
-          ChooseArgument( Root, RightAttachment )
-        ).map{ h =>
-          h -> Map(
-            vocab.map{ a:ObservedLabel =>
-              a -> Double.NegativeInfinity
-            }.toSeq:_*
-          )
-        }.toSeq:_*
-      )
-    )
-
-    p_stop.setValue(
-      StopOrNot( Root, RightAttachment, true ),
-      Stop,
-      0D
-    )
-    p_stop.setValue(
-      StopOrNot( Root, RightAttachment, true ),
-      NotStop,
-      Double.NegativeInfinity
-    )
-    p_stop.setValue(
-      StopOrNot( Root, RightAttachment, false ),
-      Stop,
-      0D
-    )
-    p_stop.setValue(
-      StopOrNot( Root, RightAttachment, false ),
-      NotStop,
-      Double.NegativeInfinity
-    )
-
-    p_stop.setValue(
-      StopOrNot( Root, LeftAttachment, true ),
-      NotStop,
-      0D
-    )
-    p_stop.setValue(
-      StopOrNot( Root, LeftAttachment, true ),
-      Stop,
-      Double.NegativeInfinity
-    )
-
-    p_stop.setValue(
-      StopOrNot( Root, LeftAttachment, false ),
-      NotStop,
-      Double.NegativeInfinity
-    )
-    p_stop.setValue(
-      StopOrNot( Root, LeftAttachment, false ),
-      Stop,
-      0D
-    )
-
-    p_choose.randomize( seed, centeredOn)
-  }
-
-  def setUniform( vocab:Set[ObservedLabelPair] ):Unit = {
-    p_order.setCPTMap(
-      Map(
-        (vocab).map{ w =>
-          w -> Map(
-            LeftFirst -> Double.NegativeInfinity,
-            RightFirst -> 0D
-          )
-        }.toSeq:_*
-      )
-    )
-    p_order.setValue(
-      Root,
-      LeftFirst,
-      0D
-    )
-    p_order.setValue(
-      Root,
-      RightFirst,
-      Double.NegativeInfinity
-    )
-    p_stop.setCPTMap(
-      Map(
-        (
-          dmv.rootlessStopOrNotKeys( vocab ) +
-          StopOrNot( Root, LeftAttachment, false ) +
-          StopOrNot( Root, LeftAttachment, true ) +
-          StopOrNot( Root, RightAttachment, false ) +
-          StopOrNot( Root, RightAttachment, true )
-        ).map{ k =>
-          k -> Map(
-            dmv.stopDecision.map{ d =>
-              d -> 0D
-            }.toSeq:_*
-          )
-        }.toSeq:_*
-      )
-    )
-    p_stop.normalize
-    p_choose.setCPTMap(
-      Map(
-        (
-          dmv.rootlessChooseKeys( vocab ) +
-          ChooseArgument( Root, LeftAttachment ) +
-          ChooseArgument( Root, RightAttachment )
-        ).map{ h =>
-          h -> Map(
-            vocab.map{ a:ObservedLabel =>
-              a -> 0D
-            }.toSeq:_*
-          )
-        }.toSeq:_*
-      )
-    )
-    p_choose.normalize
-
-    p_stop.setValue(
-      StopOrNot( Root, RightAttachment, true ),
-      Stop,
-      0D
-    )
-    p_stop.setValue(
-      StopOrNot( Root, RightAttachment, true ),
-      NotStop,
-      Double.NegativeInfinity
-    )
-    p_stop.setValue(
-      StopOrNot( Root, RightAttachment, false ),
-      Stop,
-      0D
-    )
-    p_stop.setValue(
-      StopOrNot( Root, RightAttachment, false ),
-      NotStop,
-      Double.NegativeInfinity
-    )
-
-    p_stop.setValue(
-      StopOrNot( Root, LeftAttachment, true ),
-      NotStop,
-      0D
-    )
-    p_stop.setValue(
-      StopOrNot( Root, LeftAttachment, true ),
-      Stop,
-      Double.NegativeInfinity
-    )
-
-    p_stop.setValue(
-      StopOrNot( Root, LeftAttachment, false ),
-      NotStop,
-      Double.NegativeInfinity
-    )
-    p_stop.setValue(
-      StopOrNot( Root, LeftAttachment, false ),
-      Stop,
-      0D
-    )
-
-  }
-
   override def clearInterpolationScores {
     println( "clearing interpolation scores in the grammar..." )
     noStopBackoffScore.setPT(
@@ -368,6 +176,9 @@ class DMVBayesianBackoffGrammar(
       otherBackoffBothScore
     ) = parameters
 
+    println(
+      "setting parameters in DMVBayesianBackoffGrammar. otherNoStopBackoffScore is:\n" + otherNoStopBackoffScore )
+
     //freeEnergy = otherFreeEnergy
     p_order.setCPT( otherP_order )//.getCPT )
     p_stop.setCPT( otherP_stop )//.getCPT )
@@ -378,6 +189,10 @@ class DMVBayesianBackoffGrammar(
     backoffHeadScore.setPT( otherBackoffHeadScore )//.getPT )
     backoffArgScore.setPT( otherBackoffArgScore )//.getPT )
     backoffBothScore.setPT( otherBackoffBothScore )//.getPT )
+
+    println(
+      "setting parameters in DMVBayesianBackoffGrammar. now noStopBackoffScore is:\n" +
+      noStopBackoffScore )
 
     p_stop.setValue(
       StopOrNot( Root, RightAttachment, true ),

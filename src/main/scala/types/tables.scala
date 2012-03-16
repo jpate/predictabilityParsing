@@ -120,8 +120,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       cpt.keySet.map( parent =>
         if( cpt( parent ).values.size > 0 )
           parent -> expDigamma(
-            //((log( pseudoCount * cpt(parent).values.size ))::cpt(parent).values.toList).reduce( Math.sumLogProb(_,_) )
-            logSum((log( pseudoCount * cpt(parent).values.size ))::cpt(parent).values.toList)
+            logSum(log( pseudoCount * cpt(parent).values.size )::cpt(parent).values.toList)
           )
         else
           parent -> Double.NegativeInfinity
@@ -142,22 +141,24 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
                     this(parent, child),
                     logPseudoCount
                   )
-                ) - expDigamma( maxes(parent) )
+                //) - expDigamma( maxes(parent) )
+                ) - maxes(parent)
               )
           }.toSeq:_*
-        )//.withDefaultValue( expDigamma( logPseudoCount ) - maxes(parent) )
+        )
       }.toSeq:_*
-    )/*.withDefaultValue(
-      Map[U,Double]().withDefaultValue(
-        expDigamma( logPseudoCount ) -
-          expDigamma( math.log( parents.size ) + logPseudoCount )
-      )
-    )*/
+    )
+
+    assert(
+      cpt.keySet.forall{ parent =>
+        logSum( cpt( parent ).values.toSeq ) <= 0D
+      }
+    )
 
     setDefaultMap(
       Map(
         cpt.keySet.map{ parent =>
-          parent -> { expDigamma( logPseudoCount ) - expDigamma( maxes( parent ) ) }
+          parent -> { expDigamma( logPseudoCount ) - maxes( parent ) }
         }.toSeq:_*
       ).withDefaultValue( 
         expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size ) + logPseudoCount )

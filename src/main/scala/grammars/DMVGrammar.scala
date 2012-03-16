@@ -1,5 +1,7 @@
 package predictabilityParsing.grammars
 
+import collection.mutable.Map
+
 import predictabilityParsing.types.labels._
 import predictabilityParsing.types.tables._
 import predictabilityParsing.partialCounts.DMVPartialCounts
@@ -149,6 +151,211 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
       )
     }
   }
+
+  def randomize( vocab:Set[_<:ObservedLabel] ):Unit = randomize( vocab, 15, 10 )
+  def randomize( vocab:Set[_<:ObservedLabel], seed:Int ):Unit = randomize( vocab, seed, 10 )
+  def randomize( vocab:Set[_<:ObservedLabel], seed:Int, centeredOn:Int ):Unit = {
+    p_order.setCPTMap(
+      Map(
+        (vocab).map{ w =>
+          w -> Map(
+            LeftFirst -> Double.NegativeInfinity,
+            RightFirst -> 0D
+          )
+        }.toSeq:_*
+      )
+    )
+    p_order.setValue(
+      Root,
+      LeftFirst,
+      0D
+    )
+    p_order.setValue(
+      Root,
+      RightFirst,
+      Double.NegativeInfinity
+    )
+    p_stop.setCPTMap(
+      Map(
+        (
+          dmv.rootlessStopOrNotKeys( vocab ) +
+          StopOrNot( Root, LeftAttachment, false ) +
+          StopOrNot( Root, LeftAttachment, true ) +
+          StopOrNot( Root, RightAttachment, false ) +
+          StopOrNot( Root, RightAttachment, true )
+        ).map{ k =>
+          k -> Map(
+            dmv.stopDecision.map{ d =>
+              d -> Double.NegativeInfinity
+            }.toSeq:_*
+          )
+        }.toSeq:_*
+      )
+    )
+    p_stop.randomize( seed, centeredOn)
+    p_choose.setCPTMap(
+      Map(
+        (
+          dmv.rootlessChooseKeys( vocab ) +
+          ChooseArgument( Root, LeftAttachment ) +
+          ChooseArgument( Root, RightAttachment )
+        ).map{ h =>
+          h -> Map(
+            vocab.map{ a:ObservedLabel =>
+              a -> Double.NegativeInfinity
+            }.toSeq:_*
+          )
+        }.toSeq:_*
+      )
+    )
+
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      Stop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      Stop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
+
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
+
+    p_choose.randomize( seed, centeredOn)
+  }
+
+  def setUniform( vocab:Set[_<:ObservedLabel] ):Unit = {
+    p_order.setCPTMap(
+      Map(
+        (vocab).map{ w =>
+          w -> Map(
+            LeftFirst -> Double.NegativeInfinity,
+            RightFirst -> 0D
+          )
+        }.toSeq:_*
+      )
+    )
+    p_order.setValue(
+      Root,
+      LeftFirst,
+      0D
+    )
+    p_order.setValue(
+      Root,
+      RightFirst,
+      Double.NegativeInfinity
+    )
+    p_stop.setCPTMap(
+      Map(
+        (
+          dmv.rootlessStopOrNotKeys( vocab ) +
+          StopOrNot( Root, LeftAttachment, false ) +
+          StopOrNot( Root, LeftAttachment, true ) +
+          StopOrNot( Root, RightAttachment, false ) +
+          StopOrNot( Root, RightAttachment, true )
+        ).map{ k =>
+          k -> Map(
+            dmv.stopDecision.map{ d =>
+              d -> 0D
+            }.toSeq:_*
+          )
+        }.toSeq:_*
+      )
+    )
+    p_stop.normalize
+    p_choose.setCPTMap(
+      Map(
+        (
+          dmv.rootlessChooseKeys( vocab ) +
+          ChooseArgument( Root, LeftAttachment ) +
+          ChooseArgument( Root, RightAttachment )
+        ).map{ h =>
+          h -> Map(
+            vocab.map{ a:ObservedLabel =>
+              a -> 0D
+            }.toSeq:_*
+          )
+        }.toSeq:_*
+      )
+    )
+    p_choose.normalize
+
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      Stop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      Stop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
+
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
+
+  }
+
 
   override def toString =
     "P_Order:\n" + p_order +
