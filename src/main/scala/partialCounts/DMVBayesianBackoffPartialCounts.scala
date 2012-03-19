@@ -165,8 +165,8 @@ class DMVBayesianBackoffPartialCounts(
     noStopBackoffScore,
     stopBackoffScore,
     noChooseBackoffScore,
-    backoffArgScore,
     backoffHeadScore,
+    backoffArgScore,
     backoffBothScore
   )
 
@@ -564,9 +564,9 @@ class DMVBayesianBackoffPartialCounts(
       )
     }
 
-    println( "[------------]" )
-    println( chooseRecoverDepLexSums )
-    println( "[____________]" )
+    //println( "[------------]" )
+    // println( chooseRecoverDepLexSums )
+    // println( "[____________]" )
 
     chooseRecoverDepLexSums.expDigammaNormalize()
 
@@ -1129,18 +1129,18 @@ class DMVBayesianBackoffPartialCounts(
                             chooseRecoverDepLexSums( backoffChosenArg, recoveredLex )
                       )
                     )
-                println( chooseKey + " --> " + arg + "\n\t" + " ( " +
-                  (backoffKey, backoffHeadKey, backoffChosenArg, recoveredLex ) +
-                      math.exp( newChooseBackoffArgScore( backoffKey ) ) + " * " +
-                        math.exp( chooseBackoffArgCounts( chooseKey, backoffChosenArg ) ) + " * " +
-                          math.exp( chooseRecoverDepLexSums( backoffChosenArg, recoveredLex ) ) +
-                            " = " +
-                      math.exp(
-                        newChooseBackoffArgScore( backoffKey ) +
-                          chooseBackoffArgCounts( chooseKey, backoffChosenArg ) +
-                            chooseRecoverDepLexSums( backoffChosenArg, recoveredLex )
-                      )
-                )
+                // println( chooseKey + " --> " + arg + "\n\t" + " ( " +
+                //   (backoffKey, backoffHeadKey, backoffChosenArg, recoveredLex ) +
+                //       math.exp( newChooseBackoffArgScore( backoffKey ) ) + " * " +
+                //         math.exp( chooseBackoffArgCounts( chooseKey, backoffChosenArg ) ) + " * " +
+                //           math.exp( chooseRecoverDepLexSums( backoffChosenArg, recoveredLex ) ) +
+                //             " = " +
+                //       math.exp(
+                //         newChooseBackoffArgScore( backoffKey ) +
+                //           chooseBackoffArgCounts( chooseKey, backoffChosenArg ) +
+                //             chooseRecoverDepLexSums( backoffChosenArg, recoveredLex )
+                //       )
+                // )
                 backedoffChoose.setValue(
                   chooseKey,
                   arg,
@@ -1233,7 +1233,7 @@ class DMVBayesianBackoffPartialCounts(
     //   freeEnergyElementOne + " + " + freeEnergyElementTwo + " - " + freeEnergyElementThree + " + " +
     //   freeEnergyElementFour + " = " + freeEnergy )
 
-    println( "newNoStopBackoffScore:\n" +newNoStopBackoffScore )
+    //println( "newNoStopBackoffScore:\n" +newNoStopBackoffScore )
 
     toReturn.setParams(
       DMVBayesianBackoffParameters(

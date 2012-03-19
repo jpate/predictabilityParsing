@@ -25,7 +25,7 @@ class DMVBayesianBackoffGrammar(
   backoffBothScore:AbstractLog1dTable[ChooseArgument]
 ) extends DMVGrammar {
 
-  println( "Creating new DMVGrammar. The noStopBackoffScore is:\n" + noStopBackoffScore )
+  //println( "Creating new DMVGrammar. The noStopBackoffScore is:\n" + noStopBackoffScore )
 
   //println( "Forming new grammar with noStopBackoffScore of:\n" + noStopBackoffScore )
 
@@ -176,8 +176,8 @@ class DMVBayesianBackoffGrammar(
       otherBackoffBothScore
     ) = parameters
 
-    println(
-      "setting parameters in DMVBayesianBackoffGrammar. otherNoStopBackoffScore is:\n" + otherNoStopBackoffScore )
+    // println(
+    //   "setting parameters in DMVBayesianBackoffGrammar. otherNoStopBackoffScore is:\n" + otherNoStopBackoffScore )
 
     //freeEnergy = otherFreeEnergy
     p_order.setCPT( otherP_order )//.getCPT )
@@ -190,9 +190,9 @@ class DMVBayesianBackoffGrammar(
     backoffArgScore.setPT( otherBackoffArgScore )//.getPT )
     backoffBothScore.setPT( otherBackoffBothScore )//.getPT )
 
-    println(
-      "setting parameters in DMVBayesianBackoffGrammar. now noStopBackoffScore is:\n" +
-      noStopBackoffScore )
+    // println(
+    //   "setting parameters in DMVBayesianBackoffGrammar. now noStopBackoffScore is:\n" +
+    //   noStopBackoffScore )
 
     p_stop.setValue(
       StopOrNot( Root, RightAttachment, true ),
