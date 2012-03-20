@@ -1079,54 +1079,6 @@ class DMVBayesianBackoffSimpleThreeStreamPartialCounts(
       }
     }
 
-    sealedCounts.domain.foreach{ arg =>
-      val WordTriple( dw, dp, da ) = arg
-
-      val wToRecover = Word( dw )
-      val aToRecover = Word( da )
-      val waToRecover = WordPair( dw, da )
-      val paToRecover = WordPair( dp, da )
-
-      val backoffDepW = WordPair( dp, da )
-      val backoffDepA = WordPair( dw, dp )
-      val backoffDepWA = Word( dp )
-      val backoffDepPA = Word( dw )
-
-
-      chooseRecoverDepWSums.setValue(
-        backoffDepW,
-        wToRecover,
-        logSum(
-          chooseRecoverDepWSums( backoffDepW, wToRecover ),
-          sealedCounts( arg )
-        )
-      )
-      chooseRecoverDepASums.setValue(
-        backoffDepA,
-        aToRecover,
-        logSum(
-          chooseRecoverDepASums( backoffDepA, aToRecover ),
-          sealedCounts( arg )
-        )
-      )
-      chooseRecoverDepWASums.setValue(
-        backoffDepWA,
-        waToRecover,
-        logSum(
-          chooseRecoverDepWASums( backoffDepWA, waToRecover ),
-          sealedCounts( arg )
-        )
-      )
-      chooseRecoverDepPASums.setValue(
-        backoffDepPA,
-        paToRecover,
-        logSum(
-          chooseRecoverDepPASums( backoffDepPA, paToRecover ),
-          sealedCounts( arg )
-        )
-      )
-
-    }
 
     /*
     // bring tied rules to average:

@@ -10,7 +10,6 @@ class DMVPartialCounts {
   val orderCounts = new Log2dTable( Set[ObservedLabel](), dmv.attachmentOrder )
   val stopCounts = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
   val chooseCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
-  val sealedCounts = new Log1dTable( Set[ObservedLabel]() )
 
   def chooseKeys = chooseCounts.parents
 
@@ -45,9 +44,6 @@ class DMVPartialCounts {
     stopCounts.setCPT( newStopCounts /*.getCPT*/ )
   }
 
-  def setSealedCounts( newSealedCounts:AbstractLog1dTable[ObservedLabel] ) {
-    sealedCounts.setPT( newSealedCounts /*.getCPT*/ )
-  }
 
   def setChooseCounts( newChooseCounts:AbstractLog2dTable[ChooseArgument,ObservedLabel] ) {
     chooseCounts.setCPT( newChooseCounts /*.getCPT*/ )
@@ -55,12 +51,10 @@ class DMVPartialCounts {
 
   def setParameters(
     updatedOrder:AbstractLog2dTable[ObservedLabel,AttachmentOrder],
-    updatedSealed:AbstractLog1dTable[ObservedLabel],
     updatedStop:AbstractLog2dTable[StopOrNot,StopDecision],
     updatedChoose:AbstractLog2dTable[ChooseArgument,ObservedLabel]
   ) {
     setOrderCounts( updatedOrder )
-    setSealedCounts( updatedSealed )
     setStopCounts( updatedStop )
     setChooseCounts( updatedChoose )
   }
@@ -100,23 +94,12 @@ class DMVPartialCounts {
     chooseCounts.setValue( chooseKey, arg, newCount )
   }
 
-  def incrementSealedCounts( sealedItem:ObservedLabel, increment:Double ) {
-    sealedCounts.setValue(
-      sealedItem,
-      Math.sumLogProb( sealedCounts(sealedItem), increment )
-    )
-  }
-  def setSealedCounts( sealedItem:ObservedLabel, newCount:Double ) {
-    sealedCounts.setValue( sealedItem, newCount )
-  }
-
   def +( otherCounts:DMVPartialCounts ) = {
     val toReturn = new DMVPartialCounts
 
 
     toReturn.setParameters(
       orderCounts + otherCounts.orderCounts,
-      sealedCounts + otherCounts.sealedCounts,
       stopCounts + otherCounts.stopCounts,
       chooseCounts + otherCounts.chooseCounts
     )
@@ -154,49 +137,17 @@ class DMVPartialCounts {
     //println( "regular destructivePlus" )
     val otherP_data = otherCounts.getTotalScore
 
-    //otherCounts.orderCounts.divideBy( otherP_data )
-    //otherCounts.orderCounts.normalize
     otherCounts.orderCounts.parents.foreach{ w =>
       incrementOrderCounts( w , LeftFirst , otherCounts.orderCounts( w, LeftFirst ) )
       incrementOrderCounts( w , RightFirst , otherCounts.orderCounts( w, RightFirst ) )
     }
 
-
-
-    otherCounts.sealedCounts.domain.foreach{ w =>
-      incrementSealedCounts( w , otherCounts.sealedCounts( w ) )
-    }
-
-
-    //otherCounts.stopCounts.divideBy( otherP_data )
-    //otherCounts.stopCounts.normalize
     otherCounts.stopCounts.parents.foreach{ stopKey =>
       incrementStopCounts( stopKey , Stop , otherCounts.stopCounts( stopKey , Stop ) )
       incrementStopCounts( stopKey , NotStop , otherCounts.stopCounts( stopKey , NotStop ) )
     }
 
-    // println( "chooseKeys is:\n" + chooseKeys.mkString( "\t","\n\t","\n\n" ) )
-    // otherCounts.divideChooseCounts( otherP_data )
-    // otherCounts.normalizeChooseCounts
-    // println( "Trying to add in chooseKeys:\n" + otherCounts.chooseKeys.mkString("\t","\n\t","\n\n" )
-    // )
-    // otherCounts.chooseKeys.foreach{ chooseKey =>
-    //   //otherCounts.chooseCounts(chooseKey).keySet.foreach{ w =>
-    //   otherCounts.orderCounts.parents.foreach{ w =>
-    //     // println( "Incrementing " + chooseKey + " --> " + w + ": by " + 
-    //     //   otherCounts.chooseCounts( chooseKey , w ) + " - " + otherP_data
-    //     // )
-    //     incrementChooseCounts(
-    //       chooseKey,
-    //       w,
-    //       otherCounts.chooseCounts( chooseKey , w ) - otherP_data
-    //     )
-    //   }
-    // }
 
-
-    //otherCounts.chooseCounts.divideBy( otherP_data )
-    //otherCounts.chooseCounts.normalize
     otherCounts.chooseCounts.parents.foreach{ chooseKey =>
       otherCounts.chooseCounts(chooseKey).keySet.foreach{ w =>
         incrementChooseCounts(

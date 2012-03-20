@@ -29,9 +29,9 @@ class DMVBayesianBackoffGrammar(
 
   //println( "Forming new grammar with noStopBackoffScore of:\n" + noStopBackoffScore )
 
-  p_stop.setDefault(
-    Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size )  )
-  )
+  // p_stop.setDefault(
+  //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size )  )
+  // )
   // println( "Setting stop default to: " + (
   //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size )  ) ) )
   // println( "Testing stop default: " +
@@ -42,19 +42,9 @@ class DMVBayesianBackoffGrammar(
   // )
 
   override def orderScore( word:ObservedLabel, pref:AttachmentOrder ) =// p_order( word, pref )
-    word match {
-      case _:AbstractRoot => {
-        pref match {
-          case LeftFirst => 0D
-          case RightFirst => Double.NegativeInfinity
-        }
-      }
-      case _ => {
-        pref match {
-          case LeftFirst => Double.NegativeInfinity
-          case RightFirst => 0D
-        }
-      }
+    pref match {
+      case LeftFirst => Double.NegativeInfinity
+      case RightFirst => 0D
     }
 
   // p_stop.setDefaultMap(
@@ -62,12 +52,12 @@ class DMVBayesianBackoffGrammar(
   //     Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size ) )
   //   )
   // )
-  p_choose.setDefault(
-    Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_choose.parents.size ) )
-  )
-  p_stop.setDefault(
-    Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size ) )
-  )
+  // p_choose.setDefault(
+  //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_choose.parents.size ) )
+  // )
+  // p_stop.setDefault(
+  //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size ) )
+  // )
   // p_choose.setDefaultMap(
   //   Map[ChooseArgument,Double]().withDefaultValue(
   //     Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_choose.parents.size ) )

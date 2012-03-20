@@ -8,7 +8,7 @@ import predictabilityParsing.util.Math
 import math.log
 
 
-class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVParser{
+class VanillaDMVEstimator extends AbstractDMVParser{
   val g:AbstractDMVGrammar = new DMVGrammar//( vocabulary = vocab )
 
   //def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar ) }
@@ -100,11 +100,6 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
             NotStop,
             cNotStopScore
           )
-
-        s(i).w match{
-          case Root => {}
-          case _ => pc.incrementSealedCounts( s(i).w, 0D )
-        }
 
         pc.incrementChooseCounts(
           ChooseArgument( Root, LeftAttachment ),
@@ -226,7 +221,7 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
 
       var oScore = Double.NegativeInfinity
       var score = Double.NegativeInfinity
-      def computeMarginal{ score = oScore + iScore }
+      def computeMarginal { score = oScore + iScore }
 
       def incrementIScore( inc:Double ) { iScore = Math.sumLogProb( iScore, inc ) }
       def incrementOScore( inc:Double ) { oScore = Math.sumLogProb( oScore, inc ) }
@@ -239,17 +234,6 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
         val h = headEntry.label
         assert( label == h )
         val a = argEntry.label
-        // println( "Adding dependency from " + headEntry.label + " to " + argEntry.label + " at score: " + 
-        //   g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) + " + " +
-        //   g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) + " + " +
-        //   argEntry.iScore + " + " +
-        //   headEntry.iScore + " = " + (
-        //     g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) +
-        //     g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) +
-        //     argEntry.iScore +
-        //     headEntry.iScore
-        //   )
-        // )
         incrementIScore(
           g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) +
           g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) +
@@ -652,14 +636,6 @@ class VanillaDMVEstimator /*( vocab:Set[ObservedLabel] )*/ extends AbstractDMVPa
             )
           }
 
-          if( j < s.length ) // no Root
-            matrix(i)(j).keySet.filter{ _.mark == Sealed }.foreach{ sealedItem =>
-              pc.incrementSealedCounts(
-                sealedItem.obs.w,
-                matrix(i)(j)( sealedItem ).score
-              )
-            }
-
           // Ok, now increment choose counts. The re-estimated probability of an attachment is just
           // the product of not stopping, the previous estimate of the probability of attachment,
           // and the marginal score of the head. There's no need to keep track of the denominator
@@ -839,9 +815,6 @@ class VanillaDMVParser extends AbstractDMVParser{
     g.setParams( givenGrammar.getVanillaParams )
     //println( "viterbi grammar is:\n" + g )
   }
-  //def setGrammar( givenGrammar:DMVGrammar ) { g = givenGrammar }
-
-  //def setGrammar( grammarParams:DMVParameters ) { g.setParams( grammarParams ) }
 
 
   class ViterbiChart( s:List[TimedObservedLabel] ) {
@@ -855,72 +828,109 @@ class VanillaDMVParser extends AbstractDMVParser{
     // Ok, stupidly simple entry class
     abstract class Entry(
       val label:MarkedObservation,
-      val score:Double,
-      val headChild:Option[Entry],
-      val argChild:Option[Entry]
+      //val headChild:Option[Entry],
+      val span:Span
     ) {
       def constituencyParse:String
       def dependencyParse:Set[DirectedArc]
-      //println( "\t\tCreating entry " + constituencyParse )
+      var headChild:Option[Entry] = None
+      var argChild:Option[Entry] = None
+      var score:Double = Double.NegativeInfinity
+
+      def addDependency( headEntry:Entry, argEntry:Entry ) {
+        val h = headEntry.label
+        assert( label == h )
+        assert(
+          ( headEntry.span.end == argEntry.span.start ) ||
+          ( headEntry.span.start == argEntry.span.end )
+        )
+        assert(
+          ( headEntry.span.end == headEntry.span.end && h.attachmentDirection == LeftAttachment ) ||
+          ( headEntry.span.start == headEntry.span.start && h.attachmentDirection == RightAttachment )
+        )
+        val a = argEntry.label
+
+        if( a.obs.w != Root ) {
+          val newDependencyScore = 
+            g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) +
+            g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) +
+            argEntry.score +
+            headEntry.score
+
+          if(
+            argChild.isEmpty ||
+            ( newDependencyScore > score ) ||
+            ( newDependencyScore == score && r.nextDouble >= 0.5 )
+          ) {
+            headChild = Some( headEntry )
+            argChild = Some( argEntry )
+            score = newDependencyScore
+          }
+        }
+
+      }
+
+      override def toString = 
+        span + ": " + label + {
+          if ( argChild.isEmpty )
+            "\n  score: " +  math.exp( score )
+          else
+            "\n  --> " + argChild.get.label + ": " +  math.exp( score  )
+        }
     }
 
-    object NullEntry extends Entry(
-      //MarkedObservation( FinalRoot(0), Sealed ),
-      MarkedObservation( InitialRoot, Sealed ),
-      Double.NegativeInfinity,
-      None,
-      None
-    ) {
-      def constituencyParse:String = ""
-      def dependencyParse:Set[DirectedArc] = Set()
-    }
 
     class UnaryEntry(
-      label:MarkedObservation,
-      score:Double,
-      headChild:Entry
-    ) extends Entry( label, score, Some(headChild), None ) {
-      def constituencyParse = "(" + label + " " + headChild.constituencyParse + " )"
-      def dependencyParse = headChild.dependencyParse
+      //label:MarkedObservation,
+      headEntry:Entry
+    ) extends Entry( headEntry.label.seal.get, headEntry.span ) {
+      headChild = Some( headEntry )
+      score = g.stopScore(
+          StopOrNot(label.obs.w, headEntry.label.attachmentDirection, adj(headEntry.label,span) ),
+          Stop
+        ) + headEntry.score
+
+      def constituencyParse = "(" + label + " " + headChild.get.constituencyParse + " )"
+      def dependencyParse = headChild.get.dependencyParse
     }
 
-    class TerminalEntry( label:MarkedObservation, score:Double )
-      extends Entry( label, score, None, None ) {
+    class TerminalEntry( label:MarkedObservation, index:Int )
+      extends Entry( label, Span( index, index + 1 ) ) {
+
+      score = label.mark match {
+        case UnsealedLeftFirst =>
+          g.orderScore( label.obs.w, LeftFirst )
+        case UnsealedRightFirst =>
+          g.orderScore( label.obs.w, RightFirst )
+      }
+
       def constituencyParse = "(" + label + " " + label.obs + ")"
       def dependencyParse = Set[DirectedArc]()
     }
 
-    abstract class BinaryEntry(
-      headChild:Entry,
-      argChild:Entry,
-      score:Double
-    ) extends Entry( headChild.label, score, Some(headChild), Some(argChild) ) {
+    class BinaryEntry(
+      headEntry:Entry,
+      span:Span
+    ) extends Entry( headEntry.label, span ) {
+
+      headChild = Some( headEntry )
+
       def dependencyParse =
-        headChild.dependencyParse ++
-          argChild.dependencyParse +
-            DirectedArc(headChild.label.obs, argChild.label.obs )
-    }
+        headChild.get.dependencyParse ++
+          argChild.get.dependencyParse +
+            DirectedArc(label.obs, argChild.get.label.obs )
 
-    class LeftHeadedEntry(
-      headChild:Entry,
-      argChild:Entry,
-      score:Double
-    ) extends BinaryEntry( headChild, argChild, score ) {
       def constituencyParse =
-        "(" + headChild.label + " " +
-          headChild.constituencyParse + " " + argChild.constituencyParse +
-        " ) "
-    }
-
-    class RightHeadedEntry(
-      headChild:Entry,
-      argChild:Entry,
-      score:Double
-    ) extends BinaryEntry( headChild, argChild, score ) {
-      def constituencyParse =
-        "(" + headChild.label + " " +
-          argChild.constituencyParse + " " + headChild.constituencyParse +
-        " ) "
+        label.mark.attachmentDirection match {
+          case RightAttachment =>
+            "(" + label + " " +
+              headChild.get.constituencyParse + " " + argChild.get.constituencyParse +
+            " ) "
+          case LeftAttachment =>
+            "(" + label + " " +
+              argChild.get.constituencyParse + " " + headChild.get.constituencyParse +
+            " ) "
+        }
     }
 
 
@@ -931,247 +941,109 @@ class VanillaDMVParser extends AbstractDMVParser{
       if( g.orderScore( w.w , LeftFirst ) > g.orderScore( w.w , RightFirst ) ) {
         val unsealedLeftFirst = MarkedObservation( w, UnsealedLeftFirst )
         matrix(index)(index+1) +=
-          unsealedLeftFirst -> new TerminalEntry( unsealedLeftFirst, g.orderScore( w.w, LeftFirst ) )
+          unsealedLeftFirst -> new TerminalEntry( unsealedLeftFirst, index )
 
         val sealedLeft = unsealedLeftFirst.seal.get
         matrix(index)(index+1) +=
-          sealedLeft -> new TerminalEntry(
-            sealedLeft,
-            matrix(index)(index+1)(unsealedLeftFirst).score +
-              g.stopScore( StopOrNot( w.w, LeftAttachment, true ), Stop )
-          )
+          sealedLeft -> new UnaryEntry( matrix(index)(index+1)(unsealedLeftFirst) )
 
         val sealedBoth = sealedLeft.seal.get
         matrix(index)(index+1) +=
-          sealedBoth -> new TerminalEntry(
-            sealedBoth,
-            matrix(index)(index+1)(sealedLeft).score +
-              g.stopScore( StopOrNot( w.w, RightAttachment, true ), Stop )
-          )
+          sealedBoth -> new UnaryEntry( matrix(index)(index+1)(sealedLeft) )
 
       } else {
         val unsealedRightFirst = MarkedObservation( w, UnsealedRightFirst )
         matrix(index)(index+1) +=
-          unsealedRightFirst -> new TerminalEntry( unsealedRightFirst, g.orderScore( w.w, RightFirst ) )
+          unsealedRightFirst -> new TerminalEntry( unsealedRightFirst, index )
 
         val sealedRight = unsealedRightFirst.seal.get
         matrix(index)(index+1) +=
-          sealedRight -> new TerminalEntry(
-            sealedRight,
-            matrix(index)(index+1)(unsealedRightFirst).score +
-              g.stopScore( StopOrNot( w.w, RightAttachment, true ), Stop )
-          )
+          sealedRight -> new UnaryEntry( matrix(index)(index+1)(unsealedRightFirst) )
 
         val sealedBoth = sealedRight.seal.get
         matrix(index)(index+1) +=
-          sealedBoth -> new TerminalEntry(
-            sealedBoth,
-            matrix(index)(index+1)(sealedRight).score +
-              g.stopScore( StopOrNot( w.w, LeftAttachment, true ), Stop )
-          )
+          sealedBoth -> new UnaryEntry( matrix(index)(index+1)(sealedRight) )
       }
-      //println( (index,index+1) + ": " + matrix(index)(index+1).keySet )
     }
 
+    // Re-writing synFill so we don't explicitly touch score at all, only add entries and
+    // dependents.
     def synFill( start:Int, end:Int ) {
       // First, let's just add all the possible heads with possible dependencies. Since we are
       // guaranteed that end-start>1, we cannot have any seals until we have added heads to the
       // current span.
 
       ( (start+1) to (end-1) ).foreach{ k =>
-        //println( "\t" + Tuple3(start,k,end ) )
-        val rightArgs = matrix(k)(end).keySet.filter{ _.mark == Sealed }
-        val leftArgs = matrix(start)(k).keySet.filter{ _.mark == Sealed }
+        val rightArguments = matrix(k)(end).keySet.filter{ _.mark == Sealed }.filterNot{ _.obs.w == Root }
+        val leftArguments = matrix(start)(k).keySet.filter{ _.mark == Sealed }
 
         val unsealedLeftHeads = matrix(start)(k).keySet.filter{ _.mark == UnsealedRightFirst }
-        //println( unsealedLeftHeads.mkString( "{ ", ", ", " }" ) )
-        // println( "adding unsealedLeftHeads" )
-        // println( "\t\t\t\t\t" + unsealedLeftHeads.mkString( "{ ", ", ", " }" ) )
-        // println( "\t\t\t\t\t" + rightArgs.mkString( "< ", ", ", " >" ) )
         unsealedLeftHeads.foreach{ h =>
-
-          val firstRightArg = rightArgs.head
-          val firstRightArgScore = 
-            g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ), NotStop ) +
-            g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , firstRightArg.obs.w ) +
-            matrix(start)(k)(h).score +
-            matrix(k)(end)(firstRightArg).score
-          val Tuple2( bestArg, bestArgScore ) =
-            rightArgs.tail.foldLeft(
-              Tuple2( firstRightArg, firstRightArgScore )
-              //Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
-            ){ (bestArgAndScore,arg) =>
-              val bestScore = bestArgAndScore._2
-              val newScore =
-                g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ), NotStop ) +
-                g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , arg.obs.w ) +
-                matrix(start)(k)(h).score +
-                matrix(k)(end)(arg).score
-
-              if( newScore >= bestScore )
-                Tuple2( arg, newScore )
-              else
-                bestArgAndScore
-            }
-
-          // println( "firstRightArgScore: " +
-          //   g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ), NotStop ) +
-          //   " + " + 
-          //   g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , firstRightArg.obs.w ) +
-          //     " + " + 
-          //   matrix(start)(k)(h).score + " + " + 
-          //   matrix(k)(end)(firstRightArg).score
-          // )
-          //println( "bestArgScore: " + bestArg + " (" + bestArgScore + ")" )
-          if( bestArgScore >= matrix(start)(end).getOrElse( h , NullEntry ).score ) {
-            matrix(start)(end) +=
-              h -> new LeftHeadedEntry(
-                matrix(start)(k)(h),
-                matrix(k)(end)(bestArg),
-                bestArgScore
-              )
+          if( !( matrix(start)(end).contains( h ) ) )
+            matrix(start)(end) += h -> new BinaryEntry( matrix(start)(k)(h), Span(start,end) )
+          rightArguments.foreach{ a =>
+            matrix(start)(end)(h).addDependency(
+              matrix(start)(k)(h),
+              matrix(k)(end)(a)
+            )
           }
         }
 
-        //println( "adding unsealedRightHeads" )
         val unsealedRightHeads = matrix(k)(end).keySet.filter{ _.mark == UnsealedLeftFirst }
         unsealedRightHeads.foreach{ h =>
+          if( !( matrix(start)(end).contains( h ) ) )
+            matrix(start)(end) += h -> new BinaryEntry( matrix(k)(end)(h), Span(start,end) )
 
-          val firstLeftArg = leftArgs.head
-          val firstLeftArgScore = 
-            g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ), NotStop ) +
-            g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , firstLeftArg.obs.w ) +
-            matrix(start)(k)(firstLeftArg).score +
-            matrix(k)(end)(h).score
-          val Tuple2( bestArg, bestArgScore ) =
-            leftArgs.tail.foldLeft(
-              Tuple2( firstLeftArg, firstLeftArgScore )
-              //Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
-            ){ (bestArgAndScore,arg) =>
-              val bestScore = bestArgAndScore._2
-              val newScore =
-                g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ), NotStop ) +
-                g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , arg.obs.w ) +
-                matrix(start)(k)(arg).score +
-                matrix(k)(end)(h).score
-
-              if( newScore >= bestScore )
-                Tuple2( arg, newScore )
-              else
-                bestArgAndScore
-            }
-
-          if( bestArgScore >= matrix(start)(end).getOrElse( h , NullEntry ).score ) {
-            matrix(start)(end) +=
-              h -> new RightHeadedEntry(
-                matrix(k)(end)(h),
-                matrix(start)(k)(bestArg),
-                bestArgScore
-              )
+          leftArguments.foreach{ a => 
+            matrix(start)(end)(h).addDependency(
+              matrix(k)(end)(h),
+              matrix(start)(k)(a)
+            )
           }
         }
 
 
 
-        //println( "adding halfSealedLeftHeads" )
-        val halfSealedLeftHeads = matrix(start)(k).keySet.filter{ _.mark == SealedLeft }
+        val halfSealedLeftHeads =
+          matrix(start)(k).keySet.filter{ _.mark == SealedLeft }
         halfSealedLeftHeads.foreach{ h =>
-          val firstRightArg = rightArgs.head
-          val firstRightArgScore = 
-            g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ), NotStop ) +
-            g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , firstRightArg.obs.w ) +
-            matrix(start)(k)(h).score +
-            matrix(k)(end)(firstRightArg).score
-          val Tuple2( bestArg, bestArgScore ) =
-            rightArgs.tail.foldLeft(
-              Tuple2( firstRightArg, firstRightArgScore )
-              //Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
-            ){ (bestArgAndScore,arg) =>
-              val bestScore = bestArgAndScore._2
-              val newScore =
-                g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(start,k) ) ), NotStop ) +
-                g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , arg.obs.w ) +
-                matrix(start)(k)(h).score +
-                matrix(k)(end)(arg).score
-
-              if( newScore >= bestScore )
-                Tuple2( arg, newScore )
-              else
-                bestArgAndScore
-            }
-
-          if( bestArgScore >= matrix(start)(end).getOrElse( h , NullEntry ).score ) {
-            matrix(start)(end) +=
-              h -> new LeftHeadedEntry(
-                matrix(start)(k)(h),
-                matrix(k)(end)(bestArg),
-                bestArgScore
-              )
+          if( !( matrix(start)(end).contains( h ) ) )
+            matrix(start)(end) += h -> new BinaryEntry( matrix(start)(k)(h), Span(start,end) )
+          rightArguments.foreach{ a =>
+            matrix(start)(end)(h).addDependency(
+              matrix(start)(k)(h),
+              matrix(k)(end)(a)
+            )
           }
         }
 
-        //println( "adding halfSealedRightHeads" )
-        val halfSealedRightHeads = matrix(k)(end).keySet.filter{ _.mark == SealedRight }
+        val halfSealedRightHeads =
+          matrix(k)(end).keySet.filter{ _.mark == SealedRight }
         halfSealedRightHeads.foreach{ h =>
-          val firstLeftArg = leftArgs.head
-          val firstLeftArgScore =
-            g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ), NotStop ) +
-            g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , firstLeftArg.obs.w ) +
-            matrix(start)(k)(firstLeftArg).score +
-            matrix(k)(end)(h).score
-          val Tuple2( bestArg, bestArgScore ) =
-            leftArgs.tail.foldLeft(
-              Tuple2( firstLeftArg, firstLeftArgScore )
-              //Tuple2[MarkedObservation,Double]( null, Double.NegativeInfinity )
-            ){ (bestArgAndScore,arg) =>
-              val bestScore = bestArgAndScore._2
-              val newScore =
-                g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,end) ) ), NotStop ) +
-                g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , arg.obs.w ) +
-                matrix(start)(k)(arg).score +
-                matrix(k)(end)(h).score
-
-              if( newScore >= bestScore )
-                Tuple2( arg, newScore )
-              else
-                bestArgAndScore
-            }
-
-          if( bestArgScore >= matrix(start)(end).getOrElse( h , NullEntry ).score ) {
-            matrix(start)(end) +=
-              h -> new RightHeadedEntry(
-                matrix(k)(end)(h),
-                matrix(start)(k)(bestArg),
-                bestArgScore
-              )
+          if( !( matrix(start)(end).contains( h ) ) )
+            matrix(start)(end) += h -> new BinaryEntry( matrix(k)(end)(h), Span(start,end) )
+          leftArguments.foreach{ a =>
+            matrix(start)(end)(h).addDependency(
+              matrix(k)(end)(h),
+              matrix(start)(k)(a)
+            )
           }
         }
 
       }
 
-      matrix(start)(end).keySet.filter{ _.mark.sealCount == 0 }.foreach{ h =>
-        assert( !( matrix(start)(end).contains( h.seal.get ) ) )
-        matrix(start)(end) +=
-          h.seal.get -> new UnaryEntry(
-            h.seal.get,
-            matrix(start)(end)(h).score +
-              g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, Span( start,end) ) ), Stop ),
-            matrix(start)(end)(h)
-          )
+      matrix(start)(end).keySet.filter{ h =>
+        (h.mark == UnsealedLeftFirst ) | (h.mark == UnsealedRightFirst)
+      }.foreach{ h =>
+        if( !( matrix(start)(end).contains( h.seal.get ) ) )
+          matrix(start)(end) += h.seal.get -> new UnaryEntry( matrix(start)(end)(h) )
       }
-
-      matrix(start)(end).keySet.filter{ _.mark.sealCount == 1 }.foreach{ h =>
-        assert( !( matrix(start)(end).contains( h.seal.get ) ) )
-        matrix(start)(end) +=
-          h.seal.get -> new UnaryEntry(
-            h.seal.get,
-            matrix(start)(end)(h).score +
-              g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, Span( start,end) ) ), Stop ),
-            matrix(start)(end)(h)
-          )
+      matrix(start)(end).keySet.filter{ h =>
+        (h.mark == SealedLeft ) | (h.mark == SealedRight)
+      }.foreach{ h =>
+        if( !( matrix(start)(end).contains( h.seal.get ) ) )
+          matrix(start)(end) += h.seal.get -> new UnaryEntry( matrix(start)(end)(h) )
       }
-
-      //println( (start,end) + ": " + matrix(start)(end).keySet )
     }
 
 
@@ -1185,6 +1057,13 @@ class VanillaDMVParser extends AbstractDMVParser{
         MarkedObservation( FinalRoot( s.length-1 ) , Sealed )
       ).dependencyParse.toList.sortWith{ _.arg.t < _.arg.t }.map{_.head.t}.mkString( "[ ", ", ", " ] " )
 
+    override def toString =
+      matrix.map{ row =>
+        row.map{ x =>
+          if( x != null )
+            x.values.mkString( "\n", "\n", "\n" )
+        }.mkString("\n","\n","\n")
+      }.mkString("\n","\n","\n\n")
   }
 
   /*
@@ -1199,21 +1078,10 @@ class VanillaDMVParser extends AbstractDMVParser{
       else
         new ViterbiChart( s )
 
-    //println( s.mkString("[ ", ", ", " ]" ) )
-    // println( "Testing stop default from parser: " +
-    //   g.stopScore( StopOrNot( Word("yoyoyo"), RightAttachment, true ), Stop )
-    // )
-    // println( "Testing stop default from parser: " +
-    //   g.stopScore( StopOrNot( Word("yoyoyo"), RightAttachment, true ), NotStop )
-    // )
-    // println( "Testing choose default from parser: " +
-    //   g.chooseScore( ChooseArgument( Root, RightAttachment ), Word("yoyoyo") )
-    // )
     (1 to ( chart.size )) foreach{ j =>
       chart.lexFill( j-1 )
       if( j > 1 )
         (0 to (j-2)).reverse.foreach{ i =>
-          //println( (i,j) )
           chart.synFill( i , j )
         }
     }
