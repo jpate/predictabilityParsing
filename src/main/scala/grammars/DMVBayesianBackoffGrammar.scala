@@ -17,21 +17,19 @@ class DMVBayesianBackoffGrammar(
   backoffArg:Double = 60,
   backoffBoth:Double = 120,
   // these are specific backoff parameters
-  noStopBackoffScore:AbstractLog1dTable[StopOrNot],
-  stopBackoffScore:AbstractLog1dTable[StopOrNot],
-  noChooseBackoffScore:AbstractLog1dTable[ChooseArgument],
-  backoffHeadScore:AbstractLog1dTable[ChooseArgument],
-  backoffArgScore:AbstractLog1dTable[ChooseArgument],
-  backoffBothScore:AbstractLog1dTable[ChooseArgument]
+  noStopBackoffScore:AbstractLog1dTable[ObservedLabel],
+  stopBackoffScore:AbstractLog1dTable[ObservedLabel],
+  noChooseBackoffScore:AbstractLog1dTable[ObservedLabel],
+  backoffHeadScore:AbstractLog1dTable[ObservedLabel],
+  backoffArgScore:AbstractLog1dTable[ObservedLabel],
+  backoffBothScore:AbstractLog1dTable[ObservedLabel]
 ) extends DMVGrammar {
-
-  //println( "Creating new DMVGrammar. The noStopBackoffScore is:\n" + noStopBackoffScore )
 
   //println( "Forming new grammar with noStopBackoffScore of:\n" + noStopBackoffScore )
 
-  // p_stop.setDefault(
-  //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size )  )
-  // )
+  p_stop.setDefault(
+    Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size )  )
+  )
   // println( "Setting stop default to: " + (
   //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size )  ) ) )
   // println( "Testing stop default: " +
@@ -52,12 +50,12 @@ class DMVBayesianBackoffGrammar(
   //     Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size ) )
   //   )
   // )
-  // p_choose.setDefault(
-  //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_choose.parents.size ) )
-  // )
-  // p_stop.setDefault(
-  //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size ) )
-  // )
+  p_choose.setDefault(
+    Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_choose.parents.size ) )
+  )
+  p_stop.setDefault(
+    Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size ) )
+  )
   // p_choose.setDefaultMap(
   //   Map[ChooseArgument,Double]().withDefaultValue(
   //     Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_choose.parents.size ) )
@@ -80,72 +78,74 @@ class DMVBayesianBackoffGrammar(
     backoffBoth,
     // these are specific backoff parameters
     noStopBackoffScore = Log1dTable(
-      Set[StopOrNot](),
+      Set[ObservedLabel](),
       math.log( noStopBackoff /(noStopBackoff + stopBackoff) )
     ),
     stopBackoffScore = Log1dTable(
-      Set[StopOrNot](),
+      Set[ObservedLabel](),
       math.log( stopBackoff /(noStopBackoff + stopBackoff) )
     ),
     noChooseBackoffScore = Log1dTable(
-      Set[ChooseArgument](),
+      Set[ObservedLabel](),
       math.log( noChooseBackoff/(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
     ),
     backoffHeadScore = Log1dTable(
-      Set[ChooseArgument](),
+      Set[ObservedLabel](),
       math.log( backoffHead/(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
     ),
     backoffArgScore = Log1dTable(
-      Set[ChooseArgument](),
+      Set[ObservedLabel](),
       math.log( backoffArg/(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
     ),
     backoffBothScore = Log1dTable(
-      Set[ChooseArgument](),
+      Set[ObservedLabel](),
       math.log( backoffBoth/(noChooseBackoff + backoffHead + backoffArg + backoffBoth) )
     )
   )
   def this() = this( 35, 70, 30, 60, 60, 120 )
 
+
+
   override def clearInterpolationScores {
     println( "clearing interpolation scores in the grammar..." )
     noStopBackoffScore.setPT(
       Log1dTable(
-        Set[StopOrNot](),
+        Set[ObservedLabel](),
         Math.expDigamma( math.log( noStopBackoff ) ) -
           Math.expDigamma( math.log(noStopBackoff + stopBackoff) )
       )//.getPT
     )
     stopBackoffScore.setPT(
       Log1dTable(
-        Set[StopOrNot](),
+        Set[ObservedLabel](),
         Math.expDigamma( math.log( stopBackoff ) ) -
           Math.expDigamma( math.log(noStopBackoff + stopBackoff) )
       )//.getPT
     )
     noChooseBackoffScore.setPT(
       Log1dTable(
-        Set[ChooseArgument](),
+        Set[ObservedLabel](),
         Math.expDigamma( math.log( noChooseBackoff ) ) -
           Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
       )//.getPT
     )
     backoffHeadScore.setPT(
       Log1dTable(
-        Set[ChooseArgument](),
+        Set[ObservedLabel](),
         Math.expDigamma( math.log( backoffHead ) ) -
           Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
       )//.getPT
     )
     backoffArgScore.setPT(
       Log1dTable(
-        Set[ChooseArgument](),
+        Set[ObservedLabel](),
         Math.expDigamma( math.log( backoffArg ) ) -
           Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
       )//.getPT
     )
     backoffBothScore.setPT(
       Log1dTable(
-        Set[ChooseArgument](),
+        Set[ObservedLabel](),
         Math.expDigamma( math.log( backoffBoth ) ) -
           Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth) )
       )//.getPT
@@ -166,9 +166,6 @@ class DMVBayesianBackoffGrammar(
       otherBackoffBothScore
     ) = parameters
 
-    // println(
-    //   "setting parameters in DMVBayesianBackoffGrammar. otherNoStopBackoffScore is:\n" + otherNoStopBackoffScore )
-
     //freeEnergy = otherFreeEnergy
     p_order.setCPT( otherP_order )//.getCPT )
     p_stop.setCPT( otherP_stop )//.getCPT )
@@ -179,10 +176,6 @@ class DMVBayesianBackoffGrammar(
     backoffHeadScore.setPT( otherBackoffHeadScore )//.getPT )
     backoffArgScore.setPT( otherBackoffArgScore )//.getPT )
     backoffBothScore.setPT( otherBackoffBothScore )//.getPT )
-
-    // println(
-    //   "setting parameters in DMVBayesianBackoffGrammar. now noStopBackoffScore is:\n" +
-    //   noStopBackoffScore )
 
     p_stop.setValue(
       StopOrNot( Root, RightAttachment, true ),

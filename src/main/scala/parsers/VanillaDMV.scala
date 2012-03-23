@@ -1,5 +1,6 @@
 package predictabilityParsing.parsers
 
+import scalala.library.Numerics.logSum
 import predictabilityParsing.grammars.AbstractDMVGrammar
 import predictabilityParsing.grammars.DMVGrammar
 import predictabilityParsing.partialCounts.DMVPartialCounts
@@ -13,7 +14,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
   //def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar ) }
 
-  def setHarmonicGrammar[O<:TimedObservedLabel](
+  def setAdditiveHarmonicGrammar[O<:TimedObservedLabel](
     corpus:List[List[O]],
     rightFirst:Double = 0.75,
     cAttach:Double = 15.0,
@@ -22,6 +23,182 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     stopUniformity:Double = 20.0
   ) {
     val pc = g.emptyPartialCounts //new DMVPartialCounts
+    println( "Additive Harmonic Grammar" )
+
+    val rightFirstScore = math.log( rightFirst )
+    val cAttachScore = math.log( cAttach )
+    val cStopScore = math.log( cStop )
+    val cNotStopScore = math.log( cNotStop )
+    val stopUniformityScore = math.log( stopUniformity )
+
+    corpus/*.map{ s => s :+ FinalRoot( s.length )}*/.foreach{ s =>
+      (0 to (s.length-1)).foreach{ i =>
+        (0 to (i-1)).foreach{ leftK =>
+          // choose initialization
+          pc.incrementChooseCounts(
+            ChooseArgument( s(i).w, LeftAttachment ),
+            s(leftK).w,
+            logSum(
+              0D - math.log( i - leftK ) , cAttachScore
+            )
+          )
+        }
+
+        ((i+1) to (s.length-1)).foreach{ rightK =>
+          pc.incrementChooseCounts(
+            ChooseArgument( s(i).w, RightAttachment ),
+            s(rightK).w,
+            logSum(
+              0D - math.log( rightK - i ) , cAttachScore
+            )
+          )
+        }
+
+        // stop initialization
+        if( i == 0 )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, true ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, true ),
+            NotStop,
+            cNotStopScore
+          )
+
+        if( i == (s.length-2) )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, true ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, true ),
+            NotStop,
+            cNotStopScore
+          )
+
+        if( i == 1 )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, false ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, false ),
+            NotStop,
+            cNotStopScore
+          )
+
+        if( i == (s.length-3) )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, false ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, false ),
+            NotStop,
+            cNotStopScore
+          )
+
+        pc.incrementChooseCounts(
+          ChooseArgument( Root, LeftAttachment ),
+          s(i).w,
+          cAttachScore
+        )
+        // order initialization
+        pc.setOrderCounts( s(i).w, RightFirst, rightFirstScore )
+        pc.setOrderCounts( s(i).w, LeftFirst, Math.subtractLogProb( 0D, rightFirstScore ) )
+      }
+
+    }
+
+
+    // uniformness smoothing for stop
+    pc.stopCounts.parents.foreach{ stopKey =>
+      pc.incrementStopCounts( stopKey, Stop, stopUniformityScore )
+      pc.incrementStopCounts( stopKey, NotStop, stopUniformityScore )
+    }
+
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, true ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, true ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, false ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+
+    pc.setOrderCounts(
+      Root,
+      LeftFirst,
+      Double.NegativeInfinity
+    )
+    pc.setOrderCounts(
+      Root,
+      RightFirst,
+      0D
+    )
+
+    //pc.clearInterpolationScores
+    val newGrammar = pc.toDMVGrammar
+    //newGrammar.clearInterpolationScores
+    println( "setting harmonic initialization:" )
+    setGrammar( newGrammar )
+  }
+
+  def setMultiplicativeHarmonicGrammar[O<:TimedObservedLabel](
+    corpus:List[List[O]],
+    rightFirst:Double = 0.75,
+    cAttach:Double = 15.0,
+    cStop:Double = 3.0,
+    cNotStop:Double = 1.0,
+    stopUniformity:Double = 20.0
+  ) {
+    val pc = g.emptyPartialCounts //new DMVPartialCounts
+    println( "Multiplicative Harmonic Grammar" )
 
     val rightFirstScore = math.log( rightFirst )
     val cAttachScore = math.log( cAttach )
@@ -221,7 +398,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
       var oScore = Double.NegativeInfinity
       var score = Double.NegativeInfinity
-      def computeMarginal { score = oScore + iScore }
+      def computeMarginal { score = oScore + iScore - treeScore }
 
       def incrementIScore( inc:Double ) { iScore = Math.sumLogProb( iScore, inc ) }
       def incrementOScore( inc:Double ) { oScore = Math.sumLogProb( oScore, inc ) }
@@ -710,6 +887,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
       // println( "partial counts for " + s.mkString( "[ ", ", ", ", " ) + ":\n" + pc )
       //println( "\n\n ---  DONE WITH toPartialCounts  ---\n\n" )
+      //println(">")
       pc
     }
 

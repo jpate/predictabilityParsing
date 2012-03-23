@@ -306,12 +306,12 @@ case class DMVBayesianBackoffParameters(
   otherP_order:LogCPT[ObservedLabel,AttachmentOrder],
   otherP_stop:LogCPT[StopOrNot,StopDecision],
   otherP_choose:LogCPT[ChooseArgument,ObservedLabel],
-  noStopBackoffScore:AbstractLog1dTable[StopOrNot],
-  stopBackoffScore:AbstractLog1dTable[StopOrNot],
-  noChooseBackoffScore:AbstractLog1dTable[ChooseArgument],
-  backoffHeadScore:AbstractLog1dTable[ChooseArgument],
-  backoffArgScore:AbstractLog1dTable[ChooseArgument],
-  backoffBothScore:AbstractLog1dTable[ChooseArgument]
+  noStopBackoffScore:AbstractLog1dTable[ObservedLabel],
+  stopBackoffScore:AbstractLog1dTable[ObservedLabel],
+  noChooseBackoffScore:AbstractLog1dTable[ObservedLabel],
+  backoffHeadScore:AbstractLog1dTable[ObservedLabel],
+  backoffArgScore:AbstractLog1dTable[ObservedLabel],
+  backoffBothScore:AbstractLog1dTable[ObservedLabel]
 ) extends DMVParameters
 
 case class DMVBayesianBackoffSimpleThreeStreamParameters(

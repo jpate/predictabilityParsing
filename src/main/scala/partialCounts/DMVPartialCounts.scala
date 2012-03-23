@@ -172,6 +172,8 @@ class DMVPartialCounts {
     // val toReturn = new DMVGrammar( orderCounts.parents.toSet )
     val toReturn = associatedGrammar
 
+    //println( "DMVPartialCounts.toDMVGrammar" )
+
     //println( "StopCounts:\n" + stopCounts + "\n\n -- END STOP COUNTS ---\n\n" )
 
     toReturn.setParams(
