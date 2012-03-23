@@ -62,6 +62,10 @@ abstract class StopDecision( s:String ) extends HiddenLabel( s )
 object Stop extends StopDecision( "--Stop--" )
 object NotStop extends StopDecision( "--NotStop--" )
 
+abstract class BackoffDecision( s:String ) extends HiddenLabel( s )
+object Backoff extends BackoffDecision( "--Backoff--" )
+object NotBackoff extends BackoffDecision( "--NotBackoff--" )
+
 // Think of adj as the inverse of: Have we attached anything in this direction yet? This way it
 // makes sense when sealing a lexical item which has no dependents.
 case class StopOrNot( w:ObservedLabel, dir:AttachmentDirection, adj:Boolean )
@@ -103,6 +107,7 @@ package object dmv {
   )
   val attachmentDirection:Set[AttachmentDirection] = Set( LeftAttachment, RightAttachment )
   val stopDecision:Set[StopDecision] = Set( Stop, NotStop )
+  val backoffDecision:Set[BackoffDecision] = Set( Backoff, NotBackoff )
 
   // def stopOrNotKeys( vocab:Set[_<:ObservedLabel] ) =
   //   (vocab + Root).flatMap{ w =>
@@ -306,12 +311,9 @@ case class DMVBayesianBackoffParameters(
   otherP_order:LogCPT[ObservedLabel,AttachmentOrder],
   otherP_stop:LogCPT[StopOrNot,StopDecision],
   otherP_choose:LogCPT[ChooseArgument,ObservedLabel],
-  noStopBackoffScore:AbstractLog1dTable[ObservedLabel],
-  stopBackoffScore:AbstractLog1dTable[ObservedLabel],
-  noChooseBackoffScore:AbstractLog1dTable[ObservedLabel],
-  backoffHeadScore:AbstractLog1dTable[ObservedLabel],
-  backoffArgScore:AbstractLog1dTable[ObservedLabel],
-  backoffBothScore:AbstractLog1dTable[ObservedLabel]
+  stopBackoffScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
+  backoffHeadScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
+  backoffArgScore:AbstractLog2dTable[WordPair,BackoffDecision]
 ) extends DMVParameters
 
 case class DMVBayesianBackoffSimpleThreeStreamParameters(

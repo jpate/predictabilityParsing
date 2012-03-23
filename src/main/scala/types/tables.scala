@@ -36,17 +36,17 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       Map( child -> super.getDefault )
     ).getOrElse(
       child,
-      defaultMap( parent )
+      defaultMap( child )
     )
 
   def getDefault( k:T ):Double = defaultMap( k )
 
-  private val defaultMap = Map[T,Double]().withDefaultValue( super.getDefault )
-  def setDefaultMap( newDefaultMap:collection.mutable.Map[T,Double] ) {
+  private val defaultMap = Map[U,Double]().withDefaultValue( super.getDefault )
+  def setDefaultMap( newDefaultMap:collection.mutable.Map[U,Double] ) {
     defaultMap.clear
     defaultMap ++= newDefaultMap
   }
-  def setDefaultMap( newDefaultMap:collection.immutable.Map[T,Double] ) {
+  def setDefaultMap( newDefaultMap:collection.immutable.Map[U,Double] ) {
     defaultMap.clear
     defaultMap ++= newDefaultMap
   }
@@ -166,6 +166,55 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     )
     setDefault(
       expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size ) + logPseudoCount )
+    )
+  }
+
+  def expDigammaNormalize( pseudoCountMap:scala.collection.Map[U,Double] ) {
+    //val logPseudoCount = log( pseudoCount )
+    val logPseudoCountMap = pseudoCountMap.mapValues( log( _ ) )
+    val maxes = Map(
+      cpt.keySet.map( parent =>
+        if( cpt( parent ).values.size > 0 )
+          parent -> expDigamma(
+            logSum( log(pseudoCountMap.values.reduce(_+_))::cpt(parent).values.toList )
+          )
+        else
+          parent -> Double.NegativeInfinity
+          //parent -> 0D
+      ).toSeq:_*
+    )
+
+    cpt = Map(
+      cpt.keySet.map{ parent =>
+        parent -> Map(
+          cpt(parent).keySet.map{ child =>
+            if( maxes( parent ) == Double.NegativeInfinity )
+              child -> Double.NegativeInfinity
+            else
+              child -> (
+                expDigamma(
+                  logSum(
+                    this(parent, child),
+                    logPseudoCountMap( child )
+                  )
+                //) - expDigamma( maxes(parent) )
+                ) - maxes(parent)
+              )
+          }.toSeq:_*
+        )
+      }.toSeq:_*
+    )
+
+    assert(
+      cpt.keySet.forall{ parent =>
+        logSum( cpt( parent ).values.toSeq ) <= 0D
+      }
+    )
+
+    setDefaultMap(
+      logPseudoCountMap.mapValues{ alpha =>
+        alpha - logSum( logPseudoCountMap.values.toSeq )
+      }
     )
   }
 
@@ -312,6 +361,19 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
     toReturn.setCPTMap( cpt )
     toReturn.setDefault( getDefault )
     toReturn.setDefaultMap( getDefaultMap )
+    toReturn
+  }
+}
+
+object Log2dTable {
+  def apply[T<:Label,U<:Label]( parents:Set[T], children:Set[U], defaultMap:collection.immutable.Map[U,Double] ) = {
+    val toReturn = new Log2dTable( parents, children )
+    toReturn.setDefaultMap( defaultMap )
+    toReturn
+  }
+  def apply[T<:Label,U<:Label]( parents:Set[T], children:Set[U], defaultMap:collection.mutable.Map[U,Double] ) = {
+    val toReturn = new Log2dTable( parents, children )
+    toReturn.setDefaultMap( defaultMap )
     toReturn
   }
 }

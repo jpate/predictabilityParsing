@@ -28,258 +28,168 @@ import predictabilityParsing.util.Math
 class DMVBayesianBackoffPartialCounts(
   // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
   // decisions are drawn
-  noStopBackoff:Double = 35,
-  stopBackoff:Double = 70,
-  noChooseBackoff:Double = 30,
-  backoffHead:Double = 60,
-  backoffArg:Double = 60,
-  backoffBoth:Double = 120,
+  noBackoffAlpha:Double = 35,
+  backoffAlpha:Double = 70,
   // these are specific backoff parameters
-  noStopBackoffScore:AbstractLog1dTable[ObservedLabel],
-  stopBackoffScore:AbstractLog1dTable[ObservedLabel],
-  noChooseBackoffScore:AbstractLog1dTable[ObservedLabel],
-  backoffHeadScore:AbstractLog1dTable[ObservedLabel],
-  backoffArgScore:AbstractLog1dTable[ObservedLabel],
-  backoffBothScore:AbstractLog1dTable[ObservedLabel]
+  stopBackoffScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
+  headBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
+  argBackoffScore:AbstractLog2dTable[WordPair,BackoffDecision]
 ) extends DMVPartialCounts {
 
 
   def this(
-    noStopBackoff:Double,
-    stopBackoff:Double,
-    noChooseBackoff:Double,
-    backoffHead:Double,
-    backoffArg:Double,
-    backoffBoth:Double
+    noBackoffAlpha:Double,
+    backoffAlpha:Double
   ) = this(
-    noStopBackoff,
-    stopBackoff,
-    noChooseBackoff,
-    backoffHead,
-    backoffArg,
-    backoffBoth,
+    noBackoffAlpha,
+    backoffAlpha,
     // these are specific backoff parameters
-    noStopBackoffScore = Log1dTable(
-      Set[ObservedLabel](),
-      Math.expDigamma( math.log( noStopBackoff ) ) -
-        Math.expDigamma( math.log(noStopBackoff + stopBackoff) )
+    stopBackoffScore = Log2dTable(
+      Set[StopOrNot](),
+      dmv.backoffDecision,
+      Map[BackoffDecision,Double](
+        Backoff -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
+        },
+        NotBackoff -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
+        }
+      )
     ),
-    stopBackoffScore = Log1dTable(
-      Set[ObservedLabel](),
-      Math.expDigamma( math.log( stopBackoff ) ) -
-        Math.expDigamma( math.log(noStopBackoff + stopBackoff) )
+    headBackoffScore = Log2dTable(
+      Set[ChooseArgument](),
+      dmv.backoffDecision,
+      Map[BackoffDecision,Double](
+        Backoff -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
+        },
+        NotBackoff -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
+        }
+      )
     ),
-    noChooseBackoffScore = Log1dTable(
-      Set[ObservedLabel](),
-      Math.expDigamma( math.log( noChooseBackoff ) ) -
-        Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-    ),
-    backoffHeadScore = Log1dTable(
-      Set[ObservedLabel](),
-      Math.expDigamma( math.log( backoffHead ) ) -
-        Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-    ),
-    backoffArgScore = Log1dTable(
-      Set[ObservedLabel](),
-      Math.expDigamma( math.log( backoffArg ) ) -
-        Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-    ),
-    backoffBothScore = Log1dTable(
-      Set[ObservedLabel](),
-      Math.expDigamma( math.log( backoffBoth ) ) -
-        Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
+    argBackoffScore = Log2dTable(
+      Set[WordPair](),
+      dmv.backoffDecision,
+      Map[BackoffDecision,Double](
+        Backoff -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
+        },
+        NotBackoff -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
+        }
+      )
     )
   )
-  def this() = this( 35, 70, 30, 60, 60, 120 ) // defaults inspired by Headden for use on wsj10
+  def this() = this( 35, 70 ) // defaults inspired by Headden for use on wsj10
 
   override def clearInterpolationScores {
     println( "clearing interpolation scores..." )
-    noStopBackoffScore.setPT(
-      Log1dTable(
-        Set[ObservedLabel](),
-        Math.expDigamma( math.log( noStopBackoff ) ) -
-          Math.expDigamma( math.log(noStopBackoff + stopBackoff) )
-      )//.getPT
+    val expDigammaDenom = Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
+    val backoffDefault = Math.expDigamma( math.log( backoffAlpha ) ) - expDigammaDenom
+    val noBackoffDefault = Math.expDigamma( math.log( noBackoffAlpha ) ) - expDigammaDenom
+    stopBackoffScore.setCPT(
+      Log2dTable(
+        Set[StopOrNot](),
+        dmv.backoffDecision,
+        Map(
+          Backoff -> backoffDefault,
+          NotBackoff -> noBackoffAlpha
+        )
+      )
     )
-    stopBackoffScore.setPT(
-      Log1dTable(
-        Set[ObservedLabel](),
-        Math.expDigamma( math.log( stopBackoff ) ) -
-          Math.expDigamma( math.log(noStopBackoff + stopBackoff) )
-      )//.getPT
+    headBackoffScore.setCPT(
+      Log2dTable(
+        Set[ChooseArgument](),
+        dmv.backoffDecision,
+        Map(
+          Backoff -> backoffDefault,
+          NotBackoff -> noBackoffAlpha
+        )
+      )
     )
-    noChooseBackoffScore.setPT(
-      Log1dTable(
-        Set[ObservedLabel](),
-        Math.expDigamma( math.log( noChooseBackoff ) ) -
-          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-      )//.getPT
-    )
-    backoffHeadScore.setPT(
-      Log1dTable(
-        Set[ObservedLabel](),
-        Math.expDigamma( math.log( backoffArg ) ) -
-          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-      )//.getPT
-    )
-    backoffArgScore.setPT(
-      Log1dTable(
-        Set[ObservedLabel](),
-        Math.expDigamma( math.log( backoffArg ) ) -
-          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-      ) //.getPT
-    )
-    backoffBothScore.setPT(
-      Log1dTable(
-        Set[ObservedLabel](),
-        Math.expDigamma( math.log( backoffBoth ) ) -
-          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-      ) //.getPT
+    argBackoffScore.setCPT(
+      Log2dTable(
+        Set[WordPair](),
+        dmv.backoffDecision,
+        Map(
+          Backoff -> backoffDefault,
+          NotBackoff -> noBackoffAlpha
+        )
+      )
     )
   }
 
-  // noChooseBackoffScore.setDefault( 
-  //   math.log( backoffArg/(noChooseBackoff + backoffArg + backoffBoth) )
-  // )
-  // backoffBothScore.setDefault(
-  //   math.log( backoffBoth/(noChooseBackoff + backoffArg + backoffBoth) )
-  // )
-  // backoffArgScore.setDefault(
-  //   math.log( backoffArg/(noChooseBackoff + backoffArg + backoffBoth) )
-  // )
-
-  // noStopBackoffScore.setDefault(
-  //   math.log( noStopBackoff /(noStopBackoff + stopBackoff) )
-  // )
-  // stopBackoffScore.setDefault(
-  //   math.log( stopBackoff /(noStopBackoff + stopBackoff) )
-  // )
-
   override def associatedGrammar = new DMVBayesianBackoffGrammar(
-    noStopBackoff,
-    stopBackoff,
-    noChooseBackoff,
-    backoffHead,
-    backoffArg,
-    backoffBoth,
-    noStopBackoffScore,
+    noBackoffAlpha,
+    backoffAlpha,
     stopBackoffScore,
-    noChooseBackoffScore,
-    backoffHeadScore,
-    backoffArgScore,
-    backoffBothScore
+    headBackoffScore,
+    argBackoffScore
   )
 
   def associatedGrammar(
-    newNoStopBackoffScore:AbstractLog1dTable[ObservedLabel],
-    newStopBackoffScore:AbstractLog1dTable[ObservedLabel],
-    newNoChooseBackoffScore:AbstractLog1dTable[ObservedLabel],
-    newBackoffHeadScore:AbstractLog1dTable[ObservedLabel],
-    newBackoffArgScore:AbstractLog1dTable[ObservedLabel],
-    newBackoffBothScore:AbstractLog1dTable[ObservedLabel]
+    newStopBackoffScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
+    newBackoffHeadScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
+    newBackoffArgScore:AbstractLog2dTable[WordPair,BackoffDecision]
   ):AbstractDMVGrammar = new DMVBayesianBackoffGrammar(
-    noStopBackoff,
-    stopBackoff,
-    noChooseBackoff,
-    backoffHead,
-    backoffArg,
-    backoffBoth,
-    newNoStopBackoffScore,
+    noBackoffAlpha,
+    backoffAlpha,
     newStopBackoffScore,
-    newNoChooseBackoffScore,
     newBackoffHeadScore,
-    newBackoffArgScore,
-    newBackoffBothScore
+    newBackoffArgScore
   )
 
   override def toDMVGrammar = {
     print( "Computing DMVBayesianBackoffGrammar..." )
 
-    // println( "order counts is:\n" + orderCounts )
-    // println( "stopcounts is:\n" + stopCounts )
-    // println( "chooseCounts is:\n" + chooseCounts )
+    val backoffAlphaMap = Map( Backoff -> backoffAlpha, NotBackoff -> noBackoffAlpha )
 
-    // println( "\n\n\n[[[====================]]]\n\n\n")
-
-    // We'll be incrementing these throughout the function as we are going to compute each element
-    // of Kurihara and Sato (2006), eqn 8 anyway. The first element of eqn 8 has already been
-    // computed for us and is totalScore (assuming this is the partial counts that's been collected
-    // from VanillaDMV.computePartialCounts).
-    // var freeEnergyElementOne = -1 * totalScore
-    // var freeEnergyElementTwo = 0D
-    // var freeEnergyElementThree = 0D
-    // var freeEnergyElementFour = 0D
-
-    // expDigamma without exp because we are in log-space
-    def expDigamma( input:Double ) = {
-      import math.{exp,log}
-      var r = 0D
-      var x = exp( input )
-      while( x <= 5 ) {
-        r -= 1/x
-        x += 1
-      }
-      val f = 1/(x*x)
-      val t = f*(-1D/12.0 + f*(1D/120.0 + f*(-1D/252.0 + f*(1/240.0 + f*(-1/132.0
-          + f*(691/32760.0 + f*(-1/12.0 + f*3617/8160.0)))))));
-      r + log(x) - 0.5/x + t;
-    }
 
     // First, compute new interpolation parameters, starting with stop
-    val stopNoBackoffInterpolationSums = new Log1dTable( Set[ObservedLabel]() )
-    val stopBackoffInterpolationSums = new Log1dTable( Set[ObservedLabel]() )
-    val stopBackoffInterpolationDenom = new Log1dTable( Set[ObservedLabel]() )
-    //val stopBackoffInterpolationTypeCounts = new Log1dTable( Set[ObservedLabel]() )
+    val stopBackoffInterpolationSums = new Log2dTable( Set[StopOrNot](), dmv.backoffDecision )
+    val stopBackoffInterpolationTiedSums = new Log1dTable( Set[StopOrNot]() )
 
     // // We'll also be summing over the backoff terms to produce the tied backoff rules in this loop.
-    val stopNoBackoffCounts =
-      new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
-    // val stopBackoffTypeCounts =
-    //   new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
+    val stopNoBackoffCounts = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
+    val stopBackoffCounts = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
 
-    //println( "Summing over stopCounts to get counts for interpolation parameters and each backoff distribution." )
     stopCounts.parents.foreach{ stopKey =>
       stopKey.w match {
-        case WordPair( h1,h2) => {
+        case WordPair( h1, h2 ) => {
           dmv.stopDecision.foreach{ dec =>
-            val backoffStopKey = StopOrNot(Word(h2), stopKey.dir, /*true*/ stopKey.adj )
             val backoffHead = Word(h2)
+            val backoffStopKey = StopOrNot( backoffHead, stopKey.dir, stopKey.adj )
 
             val thisNoBackoffComponent =
-              stopCounts( stopKey, dec ) + noStopBackoffScore( stopKey.w )
+              stopCounts( stopKey, dec ) + stopBackoffScore( stopKey, NotBackoff )
             val thisBackoffComponent =
-              stopCounts( stopKey, dec ) + stopBackoffScore( stopKey.w )
+              stopCounts( stopKey, dec ) + stopBackoffScore( stopKey, Backoff )
 
-            // for interpolation parameters, sum over everything except head word.
-            stopNoBackoffInterpolationSums.setValue(
-              stopKey.w,
+            // for interpolation parameters, sum out backoff set
+            stopBackoffInterpolationSums.setValue(
+              stopKey,
+              NotBackoff,
               logSum(
-                stopNoBackoffInterpolationSums( stopKey.w ),
+                stopBackoffInterpolationSums( stopKey, NotBackoff ),
                 thisNoBackoffComponent
               )
             )
             // Use backoff head because our interpolation rules are tied
-            stopBackoffInterpolationSums.setValue(
-              backoffHead,
-              //stopKey.w,
+            stopBackoffInterpolationTiedSums.setValue(
+              backoffStopKey,
               logSum(
-                stopBackoffInterpolationSums( backoffHead ),
+                stopBackoffInterpolationTiedSums( backoffStopKey ),
                 thisBackoffComponent
               )
             )
-            // stopBackoffInterpolationTypeCounts.setValue(
-            //   backoffHead,
-            //   logSum(
-            //     stopBackoffInterpolationTypeCounts(backoffHead), 0D
-            //   )
-            // )
-            stopBackoffInterpolationDenom.setValue(
-              stopKey.w,
-              logSum(
-                stopBackoffInterpolationDenom( stopKey.w ),
-                thisNoBackoffComponent
-              )
-            )
+
 
             // for backoff distribution, only sum over elements of the backoff set.
             stopNoBackoffCounts.setValue(
@@ -298,13 +208,6 @@ class DMVBayesianBackoffPartialCounts(
                 thisBackoffComponent
               )
             )
-            // stopBackoffTypeCounts.setValue(
-            //   backoffStopKey,
-            //   dec,
-            //   logSum(
-            //     stopBackoffTypeCounts(backoffStopKey,dec), 0D
-            //   )
-            // )
 
           }
         }
@@ -312,8 +215,44 @@ class DMVBayesianBackoffPartialCounts(
       }
     }
 
+    stopBackoffInterpolationSums.parents.foreach{ stopKey =>
+      val WordPair( h1, h2 ) = stopKey.w
+      val backoffHead = Word(h2)
+      val backoffStopKey = StopOrNot( backoffHead, stopKey.dir, stopKey.adj )
+
+      stopBackoffInterpolationSums.setValue(
+        stopKey,
+        Backoff,
+        stopBackoffInterpolationTiedSums( stopKey )//, Backoff )
+      )
+    }
+
     val rootStopCounts =
       new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
+
+    rootStopCounts.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
+    rootStopCounts.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+
+    rootStopCounts.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
+    rootStopCounts.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+
     rootStopCounts.setValue(
       StopOrNot( Root, RightAttachment, true ),
       Stop,
@@ -335,171 +274,32 @@ class DMVBayesianBackoffPartialCounts(
       Double.NegativeInfinity
     )
 
-    rootStopCounts.setValue(
-      StopOrNot( Root, LeftAttachment, true ),
-      NotStop,
-      0D
-    )
-    rootStopCounts.setValue(
-      StopOrNot( Root, LeftAttachment, true ),
-      Stop,
-      Double.NegativeInfinity
-    )
 
-    rootStopCounts.setValue(
-      StopOrNot( Root, LeftAttachment, false ),
-      NotStop,
-      Double.NegativeInfinity
-    )
-    rootStopCounts.setValue(
-      StopOrNot( Root, LeftAttachment, false ),
-      Stop,
-      0D
-    )
+    stopBackoffInterpolationSums.expDigammaNormalize( backoffAlphaMap )
 
-    // bring tied rules to average:
-    // stopBackoffInterpolationTypeCounts.domain.foreach{ backoffHead =>
-    //   stopBackoffInterpolationSums.setValue(
-    //     backoffHead,
-    //     stopBackoffInterpolationSums( backoffHead ) -
-    //       stopBackoffInterpolationTypeCounts( backoffHead )
-    //   )
-    // }
-    // stopBackoffCounts.parents.foreach{ backoffHead =>
-    //   dmv.stopDecision.foreach{ dec =>
-    //     stopBackoffCounts.setValue(
-    //       backoffHead,
-    //       dec,
-    //       stopBackoffCounts( backoffHead, dec ) -
-    //         stopBackoffTypeCounts( backoffHead, dec )
-    //     )
-    //   }
-    // }
-
-
-    //println( "Finishing up sums for stop denominator." )
-    stopBackoffInterpolationDenom.domain.foreach{ denom =>
-      val WordPair( h1, h2 ) = denom
-      val backoffHead = Word( h2 )
-      stopBackoffInterpolationDenom.setValue(
-        denom,
-        logSum(
-          Seq(
-            stopBackoffInterpolationDenom( denom ),
-            stopBackoffInterpolationSums( backoffHead ),
-            math.log( stopBackoff + noStopBackoff )
-          )
-        )
-      )
-    }
-
-    val newNoStopBackoffScore = new Log1dTable( Set[ObservedLabel]() )
-    val newStopBackoffScore = new Log1dTable( Set[ObservedLabel]() )
-
-    // println( "\n\nstopNoBackoffInterpolationSums:\n" + stopNoBackoffInterpolationSums )
-    // println( "\n\nstopBackoffInterpolationSums:\n" + stopBackoffInterpolationSums + "\n\n---\n\n" )
-
-          // val toCalculateFreeEnergyElementTwoNoBackoffSums = new Log1dTable( Set[ObservedLabel]() )
-          // val toCalculateFreeEnergyElementTwoBackoffNumerator = Log1dTable( Set[ObservedLabel](), 0D )
-          // val toCalculateFreeEnergyElementTwoBackoffDenom = Log1dTable( Set[ObservedLabel]() , 0D )
-
-    //println( "Estimating new stop interpolation distributions." )
-    stopBackoffInterpolationDenom.domain.foreach{ h =>
-
-      val WordPair( h1, h2 ) = h
-      val backoffHead = Word( h2 )
-      val expDigammaDenom = expDigamma( stopBackoffInterpolationDenom( h ) )
-
-      val thisStopNoBackoffTotal = logSum(
-        stopNoBackoffInterpolationSums( h ),
-        math.log( noStopBackoff )
-      )
-      newNoStopBackoffScore.setValue(
-        h,
-        expDigamma( thisStopNoBackoffTotal) - expDigammaDenom
-      )
-
-
-      val thisStopBackoffTotal = logSum(
-        stopBackoffInterpolationSums( backoffHead ),
-        math.log( stopBackoff )
-      )
-      newStopBackoffScore.setValue(
-        h,
-        expDigamma(
-          thisStopBackoffTotal
-        ) - expDigammaDenom
-      )
-
-            // val realSpaceNoBackoffTotal = math.exp(thisStopNoBackoffTotal)
-            // val realSpaceBackoffTotal = math.exp(thisStopBackoffTotal)
-
-            // // I think lgamma takes its argument in real space, not log space
-            // // decision to not backoff has only one child, so we can just add it in here
-            // freeEnergyElementTwo += lgamma( realSpaceNoBackoffTotal ) - lgamma( noStopBackoff )
-
-            // // decision to backoff has only many children, so we have to sum up
-            // toCalculateFreeEnergyElementTwoBackoffNumerator.setValue(
-            //   backoffHead,
-            //   toCalculateFreeEnergyElementTwoBackoffNumerator( backoffHead ) + realSpaceBackoffTotal
-            // )
-            // toCalculateFreeEnergyElementTwoBackoffDenom.setValue(
-            //   backoffHead,
-            //   toCalculateFreeEnergyElementTwoBackoffDenom( backoffHead ) + stopBackoff
-            // )
-
-            // freeEnergyElementThree += lgamma( realSpaceNoBackoffTotal ) - lgamma( noStopBackoff )
-            // freeEnergyElementThree += lgamma( realSpaceBackoffTotal ) - lgamma( stopBackoff )
-
-            // freeEnergyElementFour +=
-            //   ( realSpaceNoBackoffTotal - noStopBackoff ) * newNoStopBackoffScore( h )
-            // freeEnergyElementFour +=
-            //   ( realSpaceBackoffTotal - stopBackoff ) * newStopBackoffScore( h )
-    }
-
-    val stopBackoffDefaultDenom = expDigamma( math.log( noStopBackoff + stopBackoff ) )
-    newNoStopBackoffScore.setDefault(
-      expDigamma( math.log( noStopBackoff ) ) -
-        stopBackoffDefaultDenom
-    )
-    newStopBackoffScore.setDefault(
-      expDigamma( math.log( stopBackoff ) ) -
-        stopBackoffDefaultDenom
-    )
-
-          // toCalculateFreeEnergyElementTwoBackoffNumerator.domain.foreach{ backoffHead =>
-          //   freeEnergyElementTwo +=
-          //     lgamma( toCalculateFreeEnergyElementTwoBackoffNumerator( backoffHead ) ) -
-          //       lgamma( toCalculateFreeEnergyElementTwoBackoffDenom( backoffHead ) )
-          // }
 
 
     // whew, now let's get interpolation parameters for chooseScore
 
-    val chooseBackoffInterpolationDenom = new Log1dTable( Set[ObservedLabel]() )
+    val chooseBackoffHeadInterpolationSums =
+      new Log2dTable( Set[ChooseArgument](), dmv.backoffDecision )
+    val chooseBackoffHeadInterpolationTiedSums = new Log1dTable( Set[ChooseArgument]() )
 
-    val chooseNoBackoffInterpolationSums = new Log1dTable( Set[ObservedLabel]() )
-    val chooseBackoffArgInterpolationSums = new Log1dTable( Set[ObservedLabel]() )
-    val chooseBackoffHeadInterpolationSums = new Log1dTable( Set[ObservedLabel]() )
-    val chooseBackoffBothInterpolationSums = new Log1dTable( Set[ObservedLabel]() )
-
-    // val chooseBackoffHeadInterpolationTypeCounts = new Log1dTable( Set[ObservedLabel]() )
-    // val chooseBackoffArgInterpolationTypeCounts = new Log1dTable( Set[ObservedLabel]() )
-    // val chooseBackoffBothInterpolationTypeCounts = new Log1dTable( Set[ObservedLabel]() )
-
-    // val chooseBackoffHeadTypeCounts =
-    //   new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
-    // val chooseBackoffArgTypeCounts =
-    //   new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
-    // val chooseBackoffBothTypeCounts =
-    //   new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+    val chooseBackoffArgInterpolationSums =
+      new Log2dTable( Set[Word](), dmv.backoffDecision )
+    val chooseBackoffArgInterpolationTiedSums = new Log1dTable( Set[Word]() )
 
     // along with backoff terms
-    val chooseNoBackoffCounts =
-      new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+    val noBackoffHeadCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+    val backoffHeadCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+
+    val noBackoffArgCounts = new Log2dTable( Set[ChooseArgument](), Set[WordPair]() )
+    val backoffArgCounts = new Log2dTable( Set[ChooseArgument](), Set[Word]() )
 
     val rootChooseCounts =
       new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+
+
 
     //println( "Summing over chooseCounts to get counts for interpolation parameters and each backoff distribution." )
     chooseCounts.parents.foreach{ chooseKey =>
@@ -511,148 +311,101 @@ class DMVBayesianBackoffPartialCounts(
             arg match {
               case WordPair( a1, a2 ) => {
 
-                val interpolationKey = WordQuad( h1, h2, a1, a2 )
-                val interpolationBackoffArgKey = WordTriple( h1, h2, a2 )
-                val interpolationBackoffHeadKey = WordTriple( h2, a1, a2 )
-                val interpolationBackoffBothKey = WordPair( h2, a2 )
+                val attachDir = chooseKey.dir
+
+                val interpolationBackoffHead = Word( h2 )
+                val interpolationBackoffHeadKey =
+                  ChooseArgument( interpolationBackoffHead, attachDir )
+
+                val argPair = WordPair( a1, a2 )
                 val backoffArg = Word(a2)
+                val recoveredLex = Word(a1)
 
-                val thisNoBackoffComponent =
-                  chooseCounts( chooseKey, arg ) + noChooseBackoffScore( interpolationKey )
+
+
+                val thisNoBackoffHeadComponent =
+                  chooseCounts( chooseKey, arg ) + headBackoffScore( chooseKey, NotBackoff )
                 val thisBackoffHeadComponent =
-                  chooseCounts( chooseKey, arg ) + backoffHeadScore( interpolationKey )
-                val thisBackoffArgComponent =
-                  chooseCounts( chooseKey, arg ) + backoffArgScore( interpolationKey )
-                val thisBackoffBothComponent =
-                  chooseCounts( chooseKey, arg ) + backoffBothScore( interpolationKey )
+                  chooseCounts( chooseKey, arg ) + headBackoffScore( chooseKey, Backoff )
 
-                chooseNoBackoffInterpolationSums.setValue(
-                  interpolationKey,
-                  logSum(
-                    chooseNoBackoffInterpolationSums( interpolationKey ),
-                    thisNoBackoffComponent
-                  )
-                )
+                val thisNoBackoffArgComponent =
+                  chooseCounts( chooseKey, arg ) + argBackoffScore( argPair, NotBackoff )
+                val thisBackoffArgComponent =
+                  chooseCounts( chooseKey, arg ) + argBackoffScore( argPair, Backoff )
+
+
 
                 chooseBackoffHeadInterpolationSums.setValue(
+                  chooseKey,
+                  NotBackoff,
+                  logSum(
+                    chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ),
+                    thisNoBackoffHeadComponent
+                  )
+                )
+                chooseBackoffHeadInterpolationTiedSums.setValue(
                   interpolationBackoffHeadKey,
                   logSum(
-                    chooseBackoffArgInterpolationSums( interpolationBackoffHeadKey ),
+                    chooseBackoffHeadInterpolationTiedSums( interpolationBackoffHeadKey ),
                     thisBackoffHeadComponent
                   )
                 )
-                // chooseBackoffHeadInterpolationTypeCounts.setValue(
-                //   interpolationBackoffHeadKey,
-                //   logSum(
-                //     chooseBackoffHeadInterpolationTypeCounts( interpolationBackoffHeadKey), 0D
-                //   )
-                // )
 
                 chooseBackoffArgInterpolationSums.setValue(
-                  interpolationBackoffArgKey,
+                  argPair,
+                  NotBackoff,
                   logSum(
-                    chooseBackoffArgInterpolationSums( interpolationBackoffArgKey ),
+                    chooseBackoffArgInterpolationSums( argPair, NotBackoff ),
+                    thisNoBackoffArgComponent
+                  )
+                )
+                chooseBackoffArgInterpolationTiedSums.setValue(
+                  backoffArg,
+                  logSum(
+                    chooseBackoffArgInterpolationTiedSums( backoffArg ),
                     thisBackoffArgComponent
                   )
                 )
-                // chooseBackoffArgInterpolationTypeCounts.setValue(
-                //   interpolationBackoffArgKey,
-                //   logSum(
-                //     chooseBackoffArgInterpolationTypeCounts( interpolationBackoffArgKey), 0D
-                //   )
-                // )
 
-                chooseBackoffBothInterpolationSums.setValue(
-                  interpolationBackoffBothKey,
-                  logSum(
-                    chooseBackoffBothInterpolationSums( interpolationBackoffBothKey ),
-                    thisBackoffBothComponent
-                  )
-                )
-                // chooseBackoffBothInterpolationTypeCounts.setValue(
-                //   interpolationBackoffBothKey,
-                //   logSum(
-                //     chooseBackoffBothInterpolationTypeCounts( interpolationBackoffBothKey ), 0D
-                //   )
-                // )
-
-                chooseBackoffInterpolationDenom.setValue(
-                  interpolationKey,
-                  logSum(
-                    chooseBackoffInterpolationDenom( interpolationKey ),
-                    thisNoBackoffComponent
-                  )
-                )
 
 
                 // Also, count up for each backoff distribution (not the interpolation parameters).
-                chooseNoBackoffCounts.setValue(
+                noBackoffHeadCounts.setValue(
+                  backoffHeadKey,
+                  arg,
+                  logSum(
+                    backoffHeadCounts( backoffHeadKey, arg ),
+                    thisBackoffHeadComponent
+                  )
+                )
+                backoffHeadCounts.setValue(
                   chooseKey,
                   arg,
                   logSum(
                     chooseNoBackoffCounts( chooseKey, arg ),
-                    thisNoBackoffComponent
-                  )
-                )
-                chooseBackoffHeadCounts.setValue(
-                  backoffHeadKey,
-                  arg,
-                  logSum(
-                    chooseBackoffHeadCounts( backoffHeadKey, arg ),
                     thisBackoffHeadComponent
                   )
                 )
-                // chooseBackoffHeadTypeCounts.setValue(
-                //   backoffHeadKey,
-                //   arg,
-                //   logSum(
-                //     chooseBackoffHeadTypeCounts( backoffHeadKey, arg ),
-                //     0D
-                //   )
-                // )
-                chooseBackoffArgCounts.setValue(
-                  chooseKey,
-                  backoffArg,
+                noBackoffArgCounts.setValue(
+                  backoffHeadKey,
+                  argPair,
                   logSum(
-                    chooseBackoffArgCounts( chooseKey, backoffArg ),
-                    thisBackoffArgComponent
+                    noBackoffArgCounts( backoffHeadKey, argPair ),
+                    thisNoBackoffArgComponent
                   )
                 )
-                // chooseBackoffArgTypeCounts.setValue(
-                //   chooseKey,
-                //   backoffArg,
-                //   logSum(
-                //     chooseBackoffArgTypeCounts( chooseKey, backoffArg ),
-                //     0D
-                //   )
-                // )
-                chooseBackoffBothCounts.setValue(
+                backoffArgCounts.setValue(
                   backoffHeadKey,
                   backoffArg,
                   logSum(
-                    chooseBackoffBothCounts( backoffHeadKey, backoffArg ),
-                    thisBackoffBothComponent
+                    backoffArgCounts( backoffHeadKey, backoffArg ),
+                    thisBackoffArgComponent
                   )
                 )
-                // chooseBackoffBothTypeCounts.setValue(
-                //   backoffHeadKey,
-                //   backoffArg,
-                //   logSum(
-                //     chooseBackoffBothTypeCounts( backoffHeadKey, backoffArg ),
-                //     0D
-                //   )
-                // )
 
               }
               case rootArg:AbstractRoot => {
-                rootChooseCounts.setValue(
-                  chooseKey,
-                  arg,
-                  logSum(
-                    rootChooseCounts( chooseKey, arg ),
-                    chooseCounts( chooseKey, arg )
-                  )
-                )
+                assert( chooseCounts( chooseKey, arg ) == Double.NegativeInfinity )
               }
             }
           }
@@ -672,218 +425,183 @@ class DMVBayesianBackoffPartialCounts(
       }
     }
 
-    // bring tied rules to average:
-
-    // chooseBackoffHeadInterpolationSums.domain.foreach{ backoffHeadKey =>
-    //   chooseBackoffHeadInterpolationSums.setValue(
-    //     backoffHeadKey,
-    //     chooseBackoffHeadInterpolationSums( backoffHeadKey ) -
-    //       chooseBackoffHeadInterpolationTypeCounts( backoffHeadKey )
-    //   )
-    // }
-    // chooseBackoffArgInterpolationSums.domain.foreach{ backoffArgKey =>
-    //   chooseBackoffArgInterpolationSums.setValue(
-    //     backoffArgKey,
-    //     chooseBackoffArgInterpolationSums( backoffArgKey ) -
-    //       chooseBackoffArgInterpolationTypeCounts( backoffArgKey )
-    //   )
-    // }
-    // chooseBackoffBothInterpolationSums.domain.foreach{ backoffBothKey =>
-    //   chooseBackoffBothInterpolationSums.setValue(
-    //     backoffBothKey,
-    //     chooseBackoffBothInterpolationSums( backoffBothKey ) -
-    //       chooseBackoffBothInterpolationTypeCounts( backoffBothKey )
-    //   )
-    // }
 
 
 
-    // chooseBackoffHeadCounts.parents.foreach{ backoffHeadKey =>
-    //   chooseBackoffHeadCounts(backoffHeadKey).keySet.foreach{ arg =>
-    //     chooseBackoffHeadCounts.setValue(
-    //       backoffHeadKey,
-    //       arg,
-    //       chooseBackoffHeadCounts( backoffHeadKey, arg ) -
-    //         chooseBackoffHeadTypeCounts( backoffHeadKey, arg )
-    //     )
-    //   }
-    // }
-    // chooseBackoffArgCounts.parents.foreach{ backoffArgKey =>
-    //   chooseBackoffArgCounts(backoffArgKey).keySet.foreach{ backedOffArg =>
-    //     chooseBackoffArgCounts.setValue(
-    //       backoffArgKey,
-    //       backedOffArg,
-    //       chooseBackoffArgCounts( backoffArgKey, backedOffArg ) -
-    //         chooseBackoffArgTypeCounts( backoffArgKey, backedOffArg )
-    //     )
-    //   }
-    // }
-    // chooseBackoffBothCounts.parents.foreach{ backoffBothKey =>
-    //   chooseBackoffBothCounts(backoffBothKey).keySet.foreach{ backoffArg=>
-    //     chooseBackoffBothCounts.setValue(
-    //       backoffBothKey,
-    //       backoffArg,
-    //       chooseBackoffBothCounts( backoffBothKey, backoffArg) -
-    //         chooseBackoffBothTypeCounts( backoffBothKey, backoffArg)
-    //     )
-    //   }
-    // }
 
-    //println( "Finishing up sums for choose denominator." )
-    chooseBackoffInterpolationDenom.domain.foreach{ denom =>
-      val WordQuad( h1, h2, a1, a2 ) = denom
-      val interpolationBackoffHeadKey = WordTriple( h2, a1, a2 )
-      val interpolationBackoffArgKey = WordTriple( h1, h2, a2 )
-      val interpolationBackoffBothKey = WordPair( h2, a2 )
-      chooseBackoffInterpolationDenom.setValue(
-        denom,
-        logSum(
-          Seq(
-            chooseBackoffInterpolationDenom( denom ),
-            chooseBackoffArgInterpolationSums( interpolationBackoffArgKey ),
-            chooseBackoffHeadInterpolationSums( interpolationBackoffHeadKey ),
-            chooseBackoffBothInterpolationSums( interpolationBackoffBothKey ),
-            math.log( noChooseBackoff + backoffHead + backoffArg + backoffBoth )
-          )
-        )
-      )
-    }
 
-    val newNoChooseBackoffScore = new Log1dTable( Set[ObservedLabel]() )
-    val newChooseBackoffHeadScore = new Log1dTable( Set[ObservedLabel]() )
-    val newChooseBackoffArgScore = new Log1dTable( Set[ObservedLabel]() )
-    val newChooseBackoffBothScore = new Log1dTable( Set[ObservedLabel]() )
+          // //chooseBackoffInterpolationDenom.domain.foreach{ denom =>
+          // chooseNoBackoffInterpolationSums.domain.foreach{ denom =>
+          //   val WordQuad( h1, h2, a1, a2 ) = denom.h
+
+          //   val interpolationBackoffHead = WordTriple( h2, a1, a2 )
+          //   val interpolationBackoffArg = WordTriple( h1, h2, a2 )
+          //   val interpolationBackoffBoth = WordPair( h2, a2 )
+
+          //   val attachDir = denom.dir
+
+          //   val interpolationBackoffArgKey =
+          //     ChooseArgument( interpolationBackoffArg, attachDir )
+          //   val interpolationBackoffHeadKey =
+          //     ChooseArgument( interpolationBackoffHead, attachDir )
+          //   val interpolationBackoffBothKey =
+          //     ChooseArgument( interpolationBackoffBoth, attachDir )
+
+
+          //   chooseBackoffInterpolationDenom.setValue(
+          //     denom,
+          //     logSum(
+          //       Seq(
+          //         //chooseBackoffInterpolationDenom( denom ),
+          //         chooseNoBackoffInterpolationSums( denom ),
+          //         chooseBackoffArgInterpolationSums( interpolationBackoffArgKey ),
+          //         chooseBackoffHeadInterpolationSums( interpolationBackoffHeadKey ),
+          //         chooseBackoffBothInterpolationSums( interpolationBackoffBothKey ),
+          //         math.log( noChooseBackoff + backoffHead + backoffArg + backoffBoth )
+          //       )
+          //     )
+          //   )
+          // }
+
+          // val newNoChooseBackoffScore = new Log1dTable( Set[ChooseArgument]() )
+          // val newChooseBackoffHeadScore = new Log1dTable( Set[ChooseArgument]() )
+          // val newChooseBackoffArgScore = new Log1dTable( Set[ChooseArgument]() )
+          // val newChooseBackoffBothScore = new Log1dTable( Set[ChooseArgument]() )
 
           // val toCalculateFreeEnergyElementTwoBackoffArgNumerator = Log1dTable( Set[ObservedLabel](), 0D )
           // val toCalculateFreeEnergyElementTwoBackoffArgDenom = Log1dTable( Set[ObservedLabel](), 0D )
           // val toCalculateFreeEnergyElementTwoBackoffBothNumerator = Log1dTable( Set[ObservedLabel](), 0D )
           // val toCalculateFreeEnergyElementTwoBackoffBothDenom = Log1dTable( Set[ObservedLabel]() , 0D)
 
-    //println( "Estimating new choose interpolation distributions." )
-    chooseBackoffInterpolationDenom.domain.foreach{ ha =>
-      val WordQuad( h1, h2, a1, a2 ) = ha
-      val backoffHeadKey = WordTriple( h2,a1,a2)
-      val backoffArgKey = WordTriple( h1,h2,a2)
-      val backoffBothKey = WordPair( h2, a2 )
-      val expDigammaDenom = expDigamma( chooseBackoffInterpolationDenom( ha ) )
+          // //println( "Estimating new choose interpolation distributions." )
+          // chooseBackoffInterpolationDenom.domain.foreach{ ha =>
+          //   val WordQuad( h1, h2, a1, a2 ) = ha.h
 
-      val thisChooseNoBackoffTotal = logSum(
-        chooseNoBackoffInterpolationSums( ha ),
-        math.log( noChooseBackoff )
-      )
-      newNoChooseBackoffScore.setValue(
-        ha,
-        expDigamma(
-          thisChooseNoBackoffTotal
-        ) - expDigammaDenom
-      )
+          //   val interpolationBackoffHead = WordTriple( h2,a1,a2)
+          //   val interpolationBackoffArg = WordTriple( h1,h2,a2)
+          //   val interpolationBackoffBoth = WordPair( h2, a2 )
 
-      val thisChooseBackoffHeadTotal = logSum(
-        chooseBackoffHeadInterpolationSums( backoffHeadKey ),
-        math.log( backoffHead )
-      )
-      newChooseBackoffHeadScore.setValue(
-        ha,
-        expDigamma(
-          thisChooseBackoffHeadTotal
-        ) - expDigammaDenom
-      )
+          //   val attachDir = ha.dir
+
+          //   val backoffArgKey =
+          //     ChooseArgument( interpolationBackoffArg, attachDir )
+          //   val backoffHeadKey =
+          //     ChooseArgument( interpolationBackoffHead, attachDir )
+          //   val backoffBothKey =
+          //     ChooseArgument( interpolationBackoffBoth, attachDir )
+
+          //   val expDigammaDenom = Math.expDigamma( chooseBackoffInterpolationDenom( ha ) )
 
 
-      val thisChooseBackoffArgTotal = logSum(
-        chooseBackoffArgInterpolationSums( backoffArgKey ),
-        math.log( backoffArg )
-      )
-      newChooseBackoffArgScore.setValue(
-        ha,
-        expDigamma(
-          thisChooseBackoffArgTotal
-        ) - expDigammaDenom
-      )
 
-      val thisChooseBackoffBothTotal = logSum(
-        chooseBackoffBothInterpolationSums( backoffBothKey ),
-        math.log( backoffBoth )
-      )
+          //   val thisChooseNoBackoffTotal = logSum(
+          //     chooseNoBackoffInterpolationSums( ha ),
+          //     math.log( noChooseBackoff )
+          //   )
+          //   newNoChooseBackoffScore.setValue(
+          //     ha,
+          //     expDigamma(
+          //       thisChooseNoBackoffTotal
+          //     ) - expDigammaDenom
+          //   )
 
-      newChooseBackoffBothScore.setValue(
-        ha,
-        expDigamma(
-          thisChooseBackoffBothTotal
-        ) - expDigammaDenom
-      )
 
-            // val realSpaceNoBackoffTotal = math.exp( thisChooseNoBackoffTotal )
-            // val realSpaceBackoffArgTotal = math.exp( thisChooseBackoffArgTotal )
-            // val realSpaceBackoffBothTotal = math.exp( thisChooseBackoffBothTotal )
+          //   val thisChooseBackoffHeadTotal = logSum(
+          //     chooseBackoffHeadInterpolationSums( backoffHeadKey ),
+          //     math.log( backoffHead )
+          //   )
+          //   newChooseBackoffHeadScore.setValue(
+          //     ha,
+          //     expDigamma(
+          //       thisChooseBackoffHeadTotal
+          //     ) - expDigammaDenom
+          //   )
 
-            // freeEnergyElementTwo += lgamma( realSpaceNoBackoffTotal ) - lgamma( noChooseBackoff )
 
-            // toCalculateFreeEnergyElementTwoBackoffArgNumerator.setValue(
-            //   backoffArgKey,
-            //   toCalculateFreeEnergyElementTwoBackoffArgNumerator( backoffArgKey ) +
-            //     realSpaceBackoffArgTotal
-            // )
-            // toCalculateFreeEnergyElementTwoBackoffArgDenom.setValue(
-            //   backoffArgKey,
-            //   toCalculateFreeEnergyElementTwoBackoffArgDenom( backoffArgKey ) +
-            //     backoffArg
-            // )
+          //   val thisChooseBackoffArgTotal = logSum(
+          //     chooseBackoffArgInterpolationSums( backoffArgKey ),
+          //     math.log( backoffArg )
+          //   )
+          //   newChooseBackoffArgScore.setValue(
+          //     ha,
+          //     expDigamma(
+          //       thisChooseBackoffArgTotal
+          //     ) - expDigammaDenom
+          //   )
 
-            // toCalculateFreeEnergyElementTwoBackoffBothNumerator.setValue(
-            //   backoffBothKey,
-            //   toCalculateFreeEnergyElementTwoBackoffBothNumerator( backoffBothKey ) +
-            //     realSpaceBackoffBothTotal
-            // )
-            // toCalculateFreeEnergyElementTwoBackoffBothDenom.setValue(
-            //   backoffBothKey,
-            //   toCalculateFreeEnergyElementTwoBackoffBothDenom( backoffBothKey ) +
-            //     backoffBoth
-            // )
 
-            // freeEnergyElementThree += lgamma( realSpaceNoBackoffTotal ) - lgamma( noStopBackoff )
-            // freeEnergyElementThree += lgamma( realSpaceBackoffArgTotal ) - lgamma( backoffArg )
-            // freeEnergyElementThree += lgamma( realSpaceBackoffBothTotal ) - lgamma( backoffBoth )
+          //   val thisChooseBackoffBothTotal = logSum(
+          //     chooseBackoffBothInterpolationSums( backoffBothKey ),
+          //     math.log( backoffBoth )
+          //   )
+          //   newChooseBackoffBothScore.setValue(
+          //     ha,
+          //     expDigamma(
+          //       thisChooseBackoffBothTotal
+          //     ) - expDigammaDenom
+          //   )
 
-            // freeEnergyElementFour +=
-            //   ( realSpaceNoBackoffTotal - noChooseBackoff ) * newNoChooseBackoffScore( ha )
-            // freeEnergyElementFour +=
-            //   ( realSpaceBackoffArgTotal - backoffArg ) * newChooseBackoffArgScore( ha )
-            // freeEnergyElementFour +=
-            //   ( realSpaceBackoffBothTotal - backoffBoth ) * newChooseBackoffBothScore( ha )
-    }
+          //         // val realSpaceNoBackoffTotal = math.exp( thisChooseNoBackoffTotal )
+          //         // val realSpaceBackoffArgTotal = math.exp( thisChooseBackoffArgTotal )
+          //         // val realSpaceBackoffBothTotal = math.exp( thisChooseBackoffBothTotal )
 
-    val chooseBackoffDefaultDenom = expDigamma(
-      math.log( noChooseBackoff + backoffHead + backoffArg + backoffBoth )
-    )
+          //         // freeEnergyElementTwo += lgamma( realSpaceNoBackoffTotal ) - lgamma( noChooseBackoff )
 
-    newNoChooseBackoffScore.setDefault(
-      expDigamma( math.log( noChooseBackoff ) ) -
-        chooseBackoffDefaultDenom
-    )
-    newChooseBackoffHeadScore.setDefault(
-      expDigamma( math.log( backoffHead ) ) -
-        chooseBackoffDefaultDenom
-    )
-    newChooseBackoffArgScore.setDefault(
-      expDigamma( math.log( backoffArg ) ) -
-        chooseBackoffDefaultDenom
-    )
-    newChooseBackoffBothScore.setDefault(
-      expDigamma( math.log( backoffBoth ) ) -
-        chooseBackoffDefaultDenom
-    )
+          //         // toCalculateFreeEnergyElementTwoBackoffArgNumerator.setValue(
+          //         //   backoffArgKey,
+          //         //   toCalculateFreeEnergyElementTwoBackoffArgNumerator( backoffArgKey ) +
+          //         //     realSpaceBackoffArgTotal
+          //         // )
+          //         // toCalculateFreeEnergyElementTwoBackoffArgDenom.setValue(
+          //         //   backoffArgKey,
+          //         //   toCalculateFreeEnergyElementTwoBackoffArgDenom( backoffArgKey ) +
+          //         //     backoffArg
+          //         // )
 
-          // toCalculateFreeEnergyElementTwoBackoffArgNumerator.domain.foreach{ backoffArg =>
-          //   freeEnergyElementTwo +=
-          //     lgamma( toCalculateFreeEnergyElementTwoBackoffArgNumerator( backoffArg ) ) -
-          //       lgamma( toCalculateFreeEnergyElementTwoBackoffArgDenom( backoffArg ) )
+          //         // toCalculateFreeEnergyElementTwoBackoffBothNumerator.setValue(
+          //         //   backoffBothKey,
+          //         //   toCalculateFreeEnergyElementTwoBackoffBothNumerator( backoffBothKey ) +
+          //         //     realSpaceBackoffBothTotal
+          //         // )
+          //         // toCalculateFreeEnergyElementTwoBackoffBothDenom.setValue(
+          //         //   backoffBothKey,
+          //         //   toCalculateFreeEnergyElementTwoBackoffBothDenom( backoffBothKey ) +
+          //         //     backoffBoth
+          //         // )
+
+          //         // freeEnergyElementThree += lgamma( realSpaceNoBackoffTotal ) - lgamma( noStopBackoff )
+          //         // freeEnergyElementThree += lgamma( realSpaceBackoffArgTotal ) - lgamma( backoffArg )
+          //         // freeEnergyElementThree += lgamma( realSpaceBackoffBothTotal ) - lgamma( backoffBoth )
+
+          //         // freeEnergyElementFour +=
+          //         //   ( realSpaceNoBackoffTotal - noChooseBackoff ) * newNoChooseBackoffScore( ha )
+          //         // freeEnergyElementFour +=
+          //         //   ( realSpaceBackoffArgTotal - backoffArg ) * newChooseBackoffArgScore( ha )
+          //         // freeEnergyElementFour +=
+          //         //   ( realSpaceBackoffBothTotal - backoffBoth ) * newChooseBackoffBothScore( ha )
           // }
-          // toCalculateFreeEnergyElementTwoBackoffBothNumerator.domain.foreach{ backoffBoth =>
-          //   freeEnergyElementTwo +=
-          //     lgamma( toCalculateFreeEnergyElementTwoBackoffBothNumerator( backoffBoth ) ) -
-          //       lgamma( toCalculateFreeEnergyElementTwoBackoffBothDenom( backoffBoth ) )
-          // }
+
+          // val chooseBackoffDefaultDenom = expDigamma(
+          //   math.log( noChooseBackoff + backoffHead + backoffArg + backoffBoth )
+          // )
+
+          // newNoChooseBackoffScore.setDefault(
+          //   expDigamma( math.log( noChooseBackoff ) ) -
+          //     chooseBackoffDefaultDenom
+          // )
+          // newChooseBackoffHeadScore.setDefault(
+          //   expDigamma( math.log( backoffHead ) ) -
+          //     chooseBackoffDefaultDenom
+          // )
+          // newChooseBackoffArgScore.setDefault(
+          //   expDigamma( math.log( backoffArg ) ) -
+          //     chooseBackoffDefaultDenom
+          // )
+          // newChooseBackoffBothScore.setDefault(
+          //   expDigamma( math.log( backoffBoth ) ) -
+          //     chooseBackoffDefaultDenom
+          // )
+
 
 
     // Ok, now compute backed-off parameters
@@ -897,14 +615,13 @@ class DMVBayesianBackoffPartialCounts(
       dmv.stopDecision.foreach{ stopDecision =>
         stopKey.w match {
           case WordPair( h1, h2 ) => {
-            // back off over valence as well
-            val backoffHeadKey = StopOrNot( Word(h2), stopKey.dir, /*true*/ stopKey.adj )
+            val backoffHeadKey = StopOrNot( Word(h2), stopKey.dir, stopKey.adj )
             backedoffStop.setValue(
               stopKey,
               stopDecision,
               logSum(
-                newNoStopBackoffScore(stopKey.w) + stopNoBackoffCounts( stopKey, stopDecision ),
-                newStopBackoffScore(stopKey.w) + stopBackoffCounts( backoffHeadKey, stopDecision )
+                stopBackoffInterpolationSums( stopKey, NotBackoff ) + stopNoBackoffCounts( stopKey, stopDecision ),
+                stopBackoffInterpolationSums( stopKey, Backoff ) + stopBackoffCounts( backoffHeadKey, stopDecision )
               )
             )
 
@@ -976,7 +693,8 @@ class DMVBayesianBackoffPartialCounts(
             val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
             arg match {
               case WordPair( a1, a2 ) => {
-                val backoffKey = WordQuad( h1, h2, a1, a2 )
+                val backoffWords = WordQuad( h1, h2, a1, a2 )
+                val backoffKey = ChooseArgument( backoffWords, chooseKey.dir )
                 val backoffChosenArg = Word(a2)
                 // println( "\t\t incrementing " + (chooseKey, arg) + " by " +
                 //   math.exp( newNoChooseBackoffScore( backoffKey ) ) + " * " +
@@ -989,35 +707,54 @@ class DMVBayesianBackoffPartialCounts(
                 // assert(
                 //   logSum(
                 //     newNoChooseBackoffScore( backoffKey ),
-                //     newChooseBackoffArgScore( backoffKey ),
+                //     newChooseBackoffArgScore( backoffKey ) + chooseRecoverDepLexSums( arg, ,
                 //     newChooseBackoffBothScore( backoffKey )
                 //   ) <= 0D
                 // )
                 // assert( newNoChooseBackoffScore( backoffKey ) <= 0D )
                 // assert( newChooseBackoffArgScore( backoffKey ) <= 0D )
                 // assert( newChooseBackoffBothScore( backoffKey ) <= 0D )
+                val recoveredLex = Word( a1 )
                 chooseDefaults +=
                   chooseKey ->
                     logSum(
                       Seq(
-                        chooseDefaults( chooseKey ),
-                        newChooseBackoffArgScore.getDefault + chooseBackoffArgCounts.getDefault( chooseKey ),
-                        newChooseBackoffBothScore.getDefault + chooseBackoffBothCounts.getDefault( backoffHeadKey )
+                        //chooseDefaults( chooseKey ),
+                        newChooseBackoffArgScore.getDefault +
+                          chooseBackoffArgCounts.getDefault( chooseKey ) +
+                            chooseRecoverDepLexSums( backoffChosenArg, recoveredLex ),
+                        newChooseBackoffBothScore.getDefault +
+                          chooseBackoffBothCounts.getDefault( backoffHeadKey ) +
+                            chooseRecoverDepLexSums( backoffChosenArg, recoveredLex )
                       )
                     )
+                println( chooseKey + " --> " + arg + "\n\t" + " ( " +
+                  (backoffKey, backoffHeadKey, backoffChosenArg, recoveredLex ) +
+                      math.exp( newChooseBackoffArgScore( backoffKey ) ) + " * " +
+                        math.exp( chooseBackoffArgCounts( chooseKey, backoffChosenArg ) ) + " * " +
+                          math.exp( chooseRecoverDepLexSums( backoffChosenArg, recoveredLex ) ) +
+                            " = " +
+                      math.exp(
+                        newChooseBackoffArgScore( backoffKey ) +
+                          chooseBackoffArgCounts( chooseKey, backoffChosenArg ) +
+                            chooseRecoverDepLexSums( backoffChosenArg, recoveredLex )
+                      )
+                )
                 backedoffChoose.setValue(
                   chooseKey,
                   arg,
                   logSum(
                     Seq(
-                      backedoffChoose( chooseKey, arg ),
+                      //backedoffChoose( chooseKey, arg ),
                       newNoChooseBackoffScore( backoffKey ) + chooseNoBackoffCounts( chooseKey, arg ),
                       newChooseBackoffHeadScore( backoffKey ) +
                         chooseBackoffHeadCounts( backoffHeadKey, arg ),
                       newChooseBackoffArgScore( backoffKey ) +
-                        chooseBackoffArgCounts( chooseKey, backoffChosenArg ),
+                        chooseBackoffArgCounts( chooseKey, backoffChosenArg ) +
+                          chooseRecoverDepLexSums( backoffChosenArg, recoveredLex ),
                       newChooseBackoffBothScore( backoffKey ) +
-                        chooseBackoffBothCounts( backoffHeadKey, backoffChosenArg )
+                        chooseBackoffBothCounts( backoffHeadKey, backoffChosenArg ) +
+                          chooseRecoverDepLexSums( backoffChosenArg, recoveredLex )
                     )
                   )
                 )
@@ -1095,18 +832,17 @@ class DMVBayesianBackoffPartialCounts(
     //   freeEnergyElementOne + " + " + freeEnergyElementTwo + " - " + freeEnergyElementThree + " + " +
     //   freeEnergyElementFour + " = " + freeEnergy )
 
+    println( "newNoStopBackoffScore:\n" +newNoStopBackoffScore )
+
     toReturn.setParams(
       DMVBayesianBackoffParameters(
         // freeEnergy,
         orderCounts.toLogCPT,
         backedoffStop.asLogCPT,
         backedoffChoose.asLogCPT,
-        newNoStopBackoffScore,
-        newStopBackoffScore,
-        newNoChooseBackoffScore,
-        newChooseBackoffArgScore,
-        newChooseBackoffHeadScore,
-        newChooseBackoffBothScore
+        stopBackoffInterpolationSums,
+        chooseBackoffHeadInterpolationSums,
+        chooseBackoffArgInterpolationSums
       )
     )
 
@@ -1117,12 +853,8 @@ class DMVBayesianBackoffPartialCounts(
   override def toString =
     super.toString +
       "Alphas:\n" +
-      "\tnoStopBackoffAlpha: " + noStopBackoff + "\n" +
-      "\tstopBackoffAlpha: " + stopBackoff + "\n" +
-      "\tnoChooseBackoffAlpha: " + noChooseBackoff + "\n" +
-      "\tbackoffHeadAlpha: " + backoffHead + "\n" +
-      "\tbackoffArgAlpha: " + backoffArg + "\n" +
-      "\tbackoffBothAlpha: " + backoffBoth + "\n"
+      "\tnoBackoffAlpha: " + noBackoffAlpha + "\n" +
+      "\tbackoffAlpha: " + backoffAlpha + "\n" +
 
 
 }
