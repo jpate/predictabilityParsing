@@ -983,13 +983,14 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
 }
 
-class VanillaDMVParser extends AbstractDMVParser{
+class VanillaDMVParser( val randomSeed:Int = 10 ) extends AbstractDMVParser{
   import scala.util.Random
-  private val r = new Random(10) // 10 for now
+  private val r = new Random(randomSeed)
 
   val g:AbstractDMVGrammar = new DMVGrammar//( vocabulary = Set[ObservedLabel]() )
 
   def setGrammar( givenGrammar:DMVGrammar ) {
+    println( "VanillaDMVParser.setGrammar" )
     g.setParams( givenGrammar.getVanillaParams )
     //println( "viterbi grammar is:\n" + g )
   }
@@ -1019,12 +1020,8 @@ class VanillaDMVParser extends AbstractDMVParser{
         val h = headEntry.label
         assert( label == h )
         assert(
-          ( headEntry.span.end == argEntry.span.start ) ||
-          ( headEntry.span.start == argEntry.span.end )
-        )
-        assert(
-          ( headEntry.span.end == headEntry.span.end && h.attachmentDirection == LeftAttachment ) ||
-          ( headEntry.span.start == headEntry.span.start && h.attachmentDirection == RightAttachment )
+          ( headEntry.span.start == argEntry.span.end && h.attachmentDirection == LeftAttachment ) ||
+          ( headEntry.span.end == argEntry.span.start && h.attachmentDirection == RightAttachment )
         )
         val a = argEntry.label
 
@@ -1159,6 +1156,7 @@ class VanillaDMVParser extends AbstractDMVParser{
         unsealedLeftHeads.foreach{ h =>
           if( !( matrix(start)(end).contains( h ) ) )
             matrix(start)(end) += h -> new BinaryEntry( matrix(start)(k)(h), Span(start,end) )
+
           rightArguments.foreach{ a =>
             matrix(start)(end)(h).addDependency(
               matrix(start)(k)(h),
@@ -1187,6 +1185,7 @@ class VanillaDMVParser extends AbstractDMVParser{
         halfSealedLeftHeads.foreach{ h =>
           if( !( matrix(start)(end).contains( h ) ) )
             matrix(start)(end) += h -> new BinaryEntry( matrix(start)(k)(h), Span(start,end) )
+
           rightArguments.foreach{ a =>
             matrix(start)(end)(h).addDependency(
               matrix(start)(k)(h),
@@ -1200,6 +1199,7 @@ class VanillaDMVParser extends AbstractDMVParser{
         halfSealedRightHeads.foreach{ h =>
           if( !( matrix(start)(end).contains( h ) ) )
             matrix(start)(end) += h -> new BinaryEntry( matrix(k)(end)(h), Span(start,end) )
+
           leftArguments.foreach{ a =>
             matrix(start)(end)(h).addDependency(
               matrix(k)(end)(h),

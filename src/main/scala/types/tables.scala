@@ -2,7 +2,7 @@ package predictabilityParsing.types.tables
 
 import scalala.library.Numerics.logSum
 import predictabilityParsing.types.labels._
-import predictabilityParsing.util.Math
+import predictabilityParsing.util.Math.expDigamma
 import scala.collection.mutable.Map
 import math.{exp,log}
 
@@ -29,29 +29,55 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
 
 
   def values = cpt.values
-  def apply( k:T ) = cpt.getOrElse( k, Map[U,Double]().withDefaultValue( getDefault ) )
+  //def apply( k:T ) = cpt.getOrElse( k, Map[U,Double]().withDefaultValue( getDefault ) )
+  def apply( k:T ) = cpt.getOrElse( k, defaultChildMap )
   def apply( parent:T, child:U ) =
     cpt.getOrElse(
       parent,
-      Map( child -> super.getDefault )
+      defaultChildMap
     ).getOrElse(
       child,
-      defaultMap( child )
+      defaultParentMap( parent )
     )
+    // cpt( parent )( child )
+    // cpt.getOrElse(
+    //   parent,
+    //   defaultParentMap( parent )
+    // ).getOrElse(
+    //   child,
+    //   defaultChildMap( child )
+    // )
 
-  def getDefault( k:T ):Double = defaultMap( k )
+  def getParentDefault( k:T ):Double = defaultParentMap( k )
+  def getChildDefault( k:U ):Double = defaultChildMap( k )
 
-  private val defaultMap = Map[U,Double]().withDefaultValue( super.getDefault )
-  def setDefaultMap( newDefaultMap:collection.mutable.Map[U,Double] ) {
-    defaultMap.clear
-    defaultMap ++= newDefaultMap
+  def getDefaultParentMap = defaultParentMap
+  def getDefaultChildMap = defaultChildMap
+
+  private val defaultParentMap = Map[T,Double]().withDefaultValue( super.getDefault )
+  private val defaultChildMap = Map[U,Double]().withDefaultValue( super.getDefault )
+
+  def setDefaultParentMap( newDefaultParentMap:collection.mutable.Map[T,Double] ) {
+    defaultParentMap.clear
+    defaultParentMap ++= newDefaultParentMap
   }
-  def setDefaultMap( newDefaultMap:collection.immutable.Map[U,Double] ) {
-    defaultMap.clear
-    defaultMap ++= newDefaultMap
+  def setDefaultParentMap( newDefaultParentMap:collection.immutable.Map[T,Double] ) {
+    defaultParentMap.clear
+    defaultParentMap ++= newDefaultParentMap
   }
 
-  def getDefaultMap = defaultMap
+  def setDefaultChildMap( newDefaultChildMap:collection.mutable.Map[U,Double] ) {
+    defaultChildMap.clear
+    defaultChildMap ++= newDefaultChildMap
+  }
+  def setDefaultChildMap( newDefaultChildMap:collection.immutable.Map[U,Double] ) {
+    defaultChildMap.clear
+    defaultChildMap ++= newDefaultChildMap
+  }
+  def setDefaultChildMap( newDefaultChildMap:collection.Map[U,Double] ) {
+    defaultChildMap.clear
+    defaultChildMap ++= newDefaultChildMap
+  }
 
   def setCPTMap( updatedCPT: Map[T,Map[U,Double]] ) {
     cpt = updatedCPT
@@ -60,7 +86,8 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
   def setCPT( updatedCPT: AbstractLog2dTable[T,U] ) {
     cpt = updatedCPT.getCPT
     setDefault( updatedCPT.getDefault )
-    setDefaultMap( updatedCPT.getDefaultMap )
+    setDefaultParentMap( updatedCPT.getDefaultParentMap )
+    setDefaultChildMap( updatedCPT.getDefaultChildMap )
   }
 
   def setValue( parent:T, child:U, newValue:Double ) {
@@ -98,20 +125,6 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     )
   }
 
-  // expDigamma without exp because we are in log-space
-  private def expDigamma( input:Double ) = 
-      {
-        var r = 0D
-        var x = exp( input )
-        while( x <= 5 ) {
-          r -= 1/x
-          x += 1
-        }
-        val f = 1/(x*x)
-        val t = f*(-1D/12.0 + f*(1D/120.0 + f*(-1D/252.0 + f*(1/240.0 + f*(-1/132.0
-            + f*(691/32760.0 + f*(-1/12.0 + f*3617/8160.0)))))));
-        r + log(x) - 0.5/x + t;
-      }
 
   // right now assumes symmetric prior
   def expDigammaNormalize( pseudoCount:Double = 1D ) {
@@ -155,7 +168,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       }
     )
 
-    setDefaultMap(
+    setDefaultParentMap(
       Map(
         cpt.keySet.map{ parent =>
           parent -> { expDigamma( logPseudoCount ) - maxes( parent ) }
@@ -211,11 +224,12 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       }
     )
 
-    setDefaultMap(
-      logPseudoCountMap.mapValues{ alpha =>
-        alpha - logSum( logPseudoCountMap.values.toSeq )
-      }
-    )
+    val defaultDenom = logSum( logPseudoCountMap.values.toSeq )
+    setDefaultChildMap( logPseudoCountMap.mapValues{ alpha => alpha - defaultDenom } )
+
+      // logPseudoCountMap.mapValues{ alpha =>
+      //   alpha - logSum( logPseudoCountMap.values.toSeq )
+      // }
   }
 
   def randomize( seed:Int, centeredOn:Int ) {
@@ -353,14 +367,16 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
     toReturn.setCPTMap( cpt )
     toReturn.normalize
     toReturn.setDefault( getDefault )
-    toReturn.setDefaultMap( getDefaultMap )
+    toReturn.setDefaultParentMap( getDefaultParentMap )
+    toReturn.setDefaultChildMap( getDefaultChildMap )
     toReturn
   }
   def asLogCPT = {
     val toReturn = new LogCPT( parents, Set[U]() )
     toReturn.setCPTMap( cpt )
     toReturn.setDefault( getDefault )
-    toReturn.setDefaultMap( getDefaultMap )
+    toReturn.setDefaultParentMap( getDefaultParentMap )
+    toReturn.setDefaultChildMap( getDefaultChildMap )
     toReturn
   }
 }
@@ -368,12 +384,12 @@ class Log2dTable[T<:Label,U<:Label]( passedParents:Iterable[T], passedChildren:I
 object Log2dTable {
   def apply[T<:Label,U<:Label]( parents:Set[T], children:Set[U], defaultMap:collection.immutable.Map[U,Double] ) = {
     val toReturn = new Log2dTable( parents, children )
-    toReturn.setDefaultMap( defaultMap )
+    toReturn.setDefaultChildMap( defaultMap )
     toReturn
   }
   def apply[T<:Label,U<:Label]( parents:Set[T], children:Set[U], defaultMap:collection.mutable.Map[U,Double] ) = {
     val toReturn = new Log2dTable( parents, children )
-    toReturn.setDefaultMap( defaultMap )
+    toReturn.setDefaultChildMap( defaultMap )
     toReturn
   }
 }

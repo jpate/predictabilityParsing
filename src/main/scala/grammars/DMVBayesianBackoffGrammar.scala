@@ -29,8 +29,8 @@ class DMVBayesianBackoffGrammar(
   backoffAlpha:Double = 70,
   // these are specific backoff parameters
   stopBackoffScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
-  headBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
-  argBackoffScore:AbstractLog2dTable[WordPair,BackoffDecision]
+  headBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision]//,
+  //argBackoffScore:AbstractLog2dTable[WordPair,BackoffDecision]
 ) extends DMVGrammar {
 
   def this(
@@ -67,21 +67,21 @@ class DMVBayesianBackoffGrammar(
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
         }
       )
-    ),
-    argBackoffScore = Log2dTable(
-      Set[WordPair](),
-      dmv.backoffDecision,
-      Map[BackoffDecision,Double](
-        Backoff -> {
-          Math.expDigamma( math.log( backoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-        },
-        NotBackoff -> {
-          Math.expDigamma( math.log( backoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-        }
-      )
-    )
+    )//,
+    // argBackoffScore = Log2dTable(
+    //   Set[WordPair](),
+    //   dmv.backoffDecision,
+    //   Map[BackoffDecision,Double](
+    //     Backoff -> {
+    //       Math.expDigamma( math.log( backoffAlpha ) ) -
+    //         Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
+    //     },
+    //     NotBackoff -> {
+    //       Math.expDigamma( math.log( backoffAlpha ) ) -
+    //         Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
+    //     }
+    //   )
+    // )
   )
   def this() = this( 35, 70 ) // defaults inspired by Headden for use on wsj10
 
@@ -186,13 +186,11 @@ class DMVBayesianBackoffGrammar(
 
   override def setParams[P<:DMVParameters]( parameters:P ) {
     val DMVBayesianBackoffParameters(
-      //otherFreeEnergy,
       otherP_order,
       otherP_stop,
       otherP_choose,
       otherStopBackoffScore,
-      otherBackoffHeadScore,
-      otherBackoffArgScore
+      otherBackoffHeadScore
     ) = parameters
 
     p_order.setCPT( otherP_order )
@@ -200,7 +198,6 @@ class DMVBayesianBackoffGrammar(
     p_choose.setCPT( otherP_choose )
     stopBackoffScore.setCPT( otherStopBackoffScore )
     headBackoffScore.setCPT( otherBackoffHeadScore )
-    argBackoffScore.setCPT( otherBackoffArgScore )
 
     p_stop.setValue(
       StopOrNot( Root, RightAttachment, true ),
@@ -255,8 +252,7 @@ class DMVBayesianBackoffGrammar(
       p_stop,
       p_choose,
       stopBackoffScore,
-      headBackoffScore,
-      argBackoffScore
+      headBackoffScore
     )
 
   override def emptyPartialCounts = {
@@ -265,8 +261,7 @@ class DMVBayesianBackoffGrammar(
       noBackoffAlpha,
       backoffAlpha,
       stopBackoffScore,
-      headBackoffScore,
-      argBackoffScore
+      headBackoffScore
     )
   }
 
@@ -276,8 +271,6 @@ class DMVBayesianBackoffGrammar(
         stopBackoffScore +
       "\nHeadBackoffScore:\n" +
         headBackoffScore +
-      "\nArgBackoffScore:\n" +
-        argBackoffScore +
       "Alphas:\n" +
       "\tnoBackoffAlpha: " + noBackoffAlpha + "\n" +
       "\tbackoffAlpha: " + backoffAlpha + "\n"

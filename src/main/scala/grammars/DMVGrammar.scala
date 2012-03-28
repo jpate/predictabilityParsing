@@ -358,9 +358,9 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
 
 
   override def toString =
-    "P_Order:\n" + p_order +
-    "P_Stop:\n" + p_stop +
-    "P_Choose:\n" + p_choose
+    "P_Order (" + p_order.getDefault + "):\n" + p_order +
+    "P_Stop (" + p_stop.getDefault + "):\n" + p_stop +
+    "P_Choose (" + p_choose.getDefault + "):\n" + p_choose
 
 }
 
