@@ -286,7 +286,7 @@ class DMVBayesianBackoffPartialCounts(
                   ChooseArgument( interpolationBackoffHead, attachDir )
 
                 val argPair = WordPair( a1, a2 )
-                val backoffArg = Word(a2)
+                // val backoffArg = Word(a2)
 
                 val thisNoBackoffHeadComponent =
                   chooseCounts( chooseKey, arg ) + headBackoffScore( chooseKey, NotBackoff )
@@ -314,17 +314,19 @@ class DMVBayesianBackoffPartialCounts(
                 // Also, count up for each backoff distribution (not the interpolation parameters).
                 noBackoffHeadCounts.setValue(
                   chooseKey,
-                  backoffArg,
+                  //backoffArg,
+                  arg,
                   logSum(
-                    noBackoffHeadCounts( chooseKey, backoffArg ),
+                    noBackoffHeadCounts( chooseKey, arg /*backoffArg*/ ),
                     thisNoBackoffHeadComponent
                   )
                 )
                 backoffHeadCounts.setValue(
                   backoffHeadKey,
-                  backoffArg,
+                  //backoffArg,
+                  arg,
                   logSum(
-                    backoffHeadCounts( backoffHeadKey, backoffArg ),
+                    backoffHeadCounts( backoffHeadKey, arg /*backoffArg*/ ),
                     thisBackoffHeadComponent
                   )
                 )
@@ -449,7 +451,8 @@ class DMVBayesianBackoffPartialCounts(
             arg match {
               case WordPair( a1, a2 ) => {
                 //val backoffWords = WordQuad( h1, h2, a1, a2 )
-                val backoffArg = Word(a2)
+                //val backoffArg = Word(a2)
+
                 //val backoffKey = ChooseArgument( backoffWords, chooseKey.dir )
                 // println( "\t\t incrementing " + (chooseKey, arg) + " by " +
                 //   math.exp( newNoChooseBackoffScore( backoffKey ) ) + " * " +
@@ -459,15 +462,16 @@ class DMVBayesianBackoffPartialCounts(
                 //   math.exp( newChooseBackoffBothScore( backoffKey ) ) + " * " + 
                 //     math.exp( chooseBackoffBothCounts( backoffHeadKey, backoffChosenArg ) )
                 // )
+
                 backedoffChoose.setValue(
                   chooseKey,
                   arg,
                   logSum(
                     Seq(
                       chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
-                        noBackoffHeadCounts( chooseKey, backoffArg ),
+                        noBackoffHeadCounts( chooseKey, arg /*backoffArg*/ ),
                       chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
-                        backoffHeadCounts( backoffHeadKey, backoffArg )
+                        backoffHeadCounts( backoffHeadKey, arg /*backoffArg*/ )
                     )
                   )
                 )

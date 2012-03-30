@@ -210,7 +210,6 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
                     this(parent, child),
                     logPseudoCountMap( child )
                   )
-                //) - expDigamma( maxes(parent) )
                 ) - maxes(parent)
               )
           }.toSeq:_*
