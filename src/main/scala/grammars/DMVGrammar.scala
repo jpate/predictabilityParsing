@@ -168,12 +168,12 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
     p_order.setValue(
       Root,
       LeftFirst,
-      0D
+      Double.NegativeInfinity
     )
     p_order.setValue(
       Root,
       RightFirst,
-      Double.NegativeInfinity
+      0D
     )
     p_stop.setCPTMap(
       Map(
@@ -358,9 +358,9 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
 
 
   override def toString =
-    "P_Order (" + p_order.getDefault + "):\n" + p_order +
-    "P_Stop (" + p_stop.getDefault + "):\n" + p_stop +
-    "P_Choose (" + p_choose.getDefault + "):\n" + p_choose
+    "P_Order (" + math.exp( p_order.getDefault ) + "):\n" + p_order +
+    "P_Stop (" + math.exp( p_stop.getDefault ) + "):\n" + p_stop +
+    "P_Choose (" + math.exp( p_choose.getDefault ) + "):\n" + p_choose
 
 }
 

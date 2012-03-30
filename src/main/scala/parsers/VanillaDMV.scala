@@ -14,18 +14,189 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
   //def setGrammar( givenGrammar:DMVGrammar ) { g.setParams( givenGrammar ) }
 
-  def setAdditiveHarmonicGrammar[O<:TimedObservedLabel](
+  def setHardlineStopHarmonicGrammar[O<:TimedObservedLabel](
     corpus:List[List[O]],
-    rightFirst:Double = 0.75,
     cAttach:Double = 15.0,
     cStop:Double = 3.0,
     cNotStop:Double = 1.0,
     stopUniformity:Double = 20.0
   ) {
-    val pc = g.emptyPartialCounts //new DMVPartialCounts
-    println( "Additive Harmonic Grammar" )
+    val pc = g.emptyPartialCounts
+    println( "Hardline Stop Harmonic Grammar" )
 
-    val rightFirstScore = math.log( rightFirst )
+    val cAttachScore = math.log( cAttach )
+    val cStopScore = math.log( cStop )
+    val cNotStopScore = math.log( cNotStop )
+    val stopUniformityScore = math.log( stopUniformity )
+
+    corpus/*.map{ s => s :+ FinalRoot( s.length )}*/.foreach{ s =>
+      (0 to (s.length-1)).foreach{ i =>
+        (0 to (i-1)).foreach{ leftK =>
+          // choose initialization
+          pc.incrementChooseCounts(
+            ChooseArgument( s(i).w, LeftAttachment ),
+            s(leftK).w,
+            logSum(
+              0D - math.log( i - leftK ) , cAttachScore
+            )
+          )
+        }
+
+        ((i+1) to (s.length-1)).foreach{ rightK =>
+          pc.incrementChooseCounts(
+            ChooseArgument( s(i).w, RightAttachment ),
+            s(rightK).w,
+            logSum(
+              0D - math.log( rightK - i ) , cAttachScore
+            )
+          )
+        }
+
+        // stop initialization
+        if( i == 0 )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, true ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, true ),
+            NotStop,
+            cNotStopScore
+          )
+
+        if( i == (s.length-1) )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, true ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, true ),
+            NotStop,
+            cNotStopScore
+          )
+
+        if( i == 1 )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, false ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, false ),
+            NotStop,
+            cNotStopScore
+          )
+
+        if( i == (s.length-2) )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, false ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, false ),
+            NotStop,
+            cNotStopScore
+          )
+
+        pc.incrementChooseCounts(
+          ChooseArgument( Root, LeftAttachment ),
+          s(i).w,
+          cAttachScore
+        )
+        // order initialization
+        pc.setOrderCounts( s(i).w, RightFirst, 0D )
+        pc.setOrderCounts( s(i).w, LeftFirst, Double.NegativeInfinity )
+      }
+
+    }
+
+
+    // uniformness smoothing for stop
+    pc.stopCounts.parents.foreach{ stopKey =>
+      pc.incrementStopCounts( stopKey, Stop, stopUniformityScore )
+      pc.incrementStopCounts( stopKey, NotStop, stopUniformityScore )
+    }
+
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, true ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, true ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, false ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+
+    pc.setOrderCounts(
+      Root,
+      LeftFirst,
+      Double.NegativeInfinity
+    )
+    pc.setOrderCounts(
+      Root,
+      RightFirst,
+      0D
+    )
+
+    //pc.clearInterpolationScores
+    val newGrammar = pc.toDMVGrammar
+    //newGrammar.clearInterpolationScores
+    println( "setting harmonic initialization:" )
+    setGrammar( newGrammar )
+  }
+
+  def setMismatchedHardlineStopHarmonicGrammar[O<:TimedObservedLabel](
+    corpus:List[List[O]],
+    cAttach:Double = 15.0,
+    cStop:Double = 3.0,
+    cNotStop:Double = 1.0,
+    stopUniformity:Double = 20.0
+  ) {
+    val pc = g.emptyPartialCounts
+    println( "Hardline Stop Harmonic Grammar" )
+
     val cAttachScore = math.log( cAttach )
     val cStopScore = math.log( cStop )
     val cNotStopScore = math.log( cNotStop )
@@ -113,8 +284,8 @@ class VanillaDMVEstimator extends AbstractDMVParser{
           cAttachScore
         )
         // order initialization
-        pc.setOrderCounts( s(i).w, RightFirst, rightFirstScore )
-        pc.setOrderCounts( s(i).w, LeftFirst, Math.subtractLogProb( 0D, rightFirstScore ) )
+        pc.setOrderCounts( s(i).w, RightFirst, 0D )
+        pc.setOrderCounts( s(i).w, LeftFirst, Double.NegativeInfinity )
       }
 
     }
@@ -189,18 +360,16 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     setGrammar( newGrammar )
   }
 
-  def setMultiplicativeHarmonicGrammar[O<:TimedObservedLabel](
+  def setGradedStopHarmonicGrammar[O<:TimedObservedLabel](
     corpus:List[List[O]],
-    rightFirst:Double = 0.75,
     cAttach:Double = 15.0,
     cStop:Double = 3.0,
     cNotStop:Double = 1.0,
     stopUniformity:Double = 20.0
   ) {
     val pc = g.emptyPartialCounts //new DMVPartialCounts
-    println( "Multiplicative Harmonic Grammar" )
+    println( "Graded Stop Harmonic Grammar" )
 
-    val rightFirstScore = math.log( rightFirst )
     val cAttachScore = math.log( cAttach )
     val cStopScore = math.log( cStop )
     val cNotStopScore = math.log( cNotStop )
@@ -213,7 +382,9 @@ class VanillaDMVEstimator extends AbstractDMVParser{
           pc.incrementChooseCounts(
             ChooseArgument( s(i).w, LeftAttachment ),
             s(leftK).w,
-            0D - math.log( i - leftK ) + cAttachScore
+            logSum(
+              0D - math.log( i - leftK ) , cAttachScore
+            )
           )
         }
 
@@ -221,62 +392,69 @@ class VanillaDMVEstimator extends AbstractDMVParser{
           pc.incrementChooseCounts(
             ChooseArgument( s(i).w, RightAttachment ),
             s(rightK).w,
-            0D - math.log( rightK - i ) + cAttachScore
+            logSum(
+              0D - math.log( rightK - i ) , cAttachScore
+            )
           )
         }
 
         // stop initialization
-        if( i == 0 )
-          pc.incrementStopCounts(
-            StopOrNot( s(i).w, LeftAttachment, true ),
-            Stop,
-            cStopScore
+        pc.incrementStopCounts(
+          StopOrNot( s(i).w, RightAttachment, true ),
+          Stop,
+          logSum(
+            0D - math.log( s.length - i ), cStopScore
           )
-        else
-          pc.incrementStopCounts(
-            StopOrNot( s(i).w, LeftAttachment, true ),
-            NotStop,
-            cNotStopScore
-          )
-
-        if( i == (s.length-2) )
-          pc.incrementStopCounts(
-            StopOrNot( s(i).w, RightAttachment, true ),
-            Stop,
-            cStopScore
-          )
-        else
-          pc.incrementStopCounts(
-            StopOrNot( s(i).w, RightAttachment, true ),
-            NotStop,
-            cNotStopScore
-          )
-
-        if( i == 1 )
-          pc.incrementStopCounts(
-            StopOrNot( s(i).w, LeftAttachment, false ),
-            Stop,
-            cStopScore
-          )
-        else
-          pc.incrementStopCounts(
-            StopOrNot( s(i).w, LeftAttachment, false ),
-            NotStop,
-            cNotStopScore
-          )
-
-        if( i == (s.length-3) )
+        )
+        pc.incrementStopCounts(
+          StopOrNot( s(i).w, RightAttachment, true ),
+          NotStop,
+          cNotStopScore
+        )
+        if( i < s.length-1 ) {
           pc.incrementStopCounts(
             StopOrNot( s(i).w, RightAttachment, false ),
             Stop,
-            cStopScore
+            logSum(
+              0D - math.log( s.length - i ), cStopScore
+            )
           )
-        else
           pc.incrementStopCounts(
             StopOrNot( s(i).w, RightAttachment, false ),
             NotStop,
             cNotStopScore
           )
+        }
+
+
+        pc.incrementStopCounts(
+          StopOrNot( s(i).w, LeftAttachment, true ),
+          Stop,
+          logSum(
+            0D - math.log( i+1 ), cStopScore
+          )
+        )
+        pc.incrementStopCounts(
+          StopOrNot( s(i).w, LeftAttachment, true ),
+          NotStop,
+          cNotStopScore
+        )
+        if( i > 0 ) {
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, false ),
+            Stop,
+            logSum(
+              0D - math.log( i+1 ), cStopScore
+            )
+          )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, false ),
+            NotStop,
+            cNotStopScore
+          )
+        }
+
+
 
         pc.incrementChooseCounts(
           ChooseArgument( Root, LeftAttachment ),
@@ -284,12 +462,11 @@ class VanillaDMVEstimator extends AbstractDMVParser{
           cAttachScore
         )
         // order initialization
-        pc.setOrderCounts( s(i).w, RightFirst, rightFirstScore )
-        pc.setOrderCounts( s(i).w, LeftFirst, Math.subtractLogProb( 0D, rightFirstScore ) )
+        pc.setOrderCounts( s(i).w, RightFirst, 0D )
+        pc.setOrderCounts( s(i).w, LeftFirst, Double.NegativeInfinity )
       }
 
     }
-
 
     // uniformness smoothing for stop
     pc.stopCounts.parents.foreach{ stopKey =>
@@ -359,6 +536,162 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     println( "setting harmonic initialization:" )
     setGrammar( newGrammar )
   }
+
+  def setUniformStopHarmonicGrammar[O<:TimedObservedLabel](
+    corpus:List[List[O]],
+    cAttach:Double = 15.0
+  ) {
+    val pc = g.emptyPartialCounts //new DMVPartialCounts
+    println( "Uniform Stop Harmonic Grammar" )
+
+    val cAttachScore = math.log( cAttach )
+
+    corpus/*.map{ s => s :+ FinalRoot( s.length )}*/.foreach{ s =>
+      (0 to (s.length-1)).foreach{ i =>
+        (0 to (i-1)).foreach{ leftK =>
+          // choose initialization
+          pc.incrementChooseCounts(
+            ChooseArgument( s(i).w, LeftAttachment ),
+            s(leftK).w,
+            logSum(
+              0D - math.log( i - leftK ) , cAttachScore
+            )
+          )
+        }
+
+        ((i+1) to (s.length-1)).foreach{ rightK =>
+          pc.incrementChooseCounts(
+            ChooseArgument( s(i).w, RightAttachment ),
+            s(rightK).w,
+            logSum(
+              0D - math.log( rightK - i ) , cAttachScore
+            )
+          )
+        }
+
+        // stop initialization
+        pc.setStopCounts(
+          StopOrNot( s(i).w, RightAttachment, true ),
+          Stop,
+          0D
+        )
+        pc.setStopCounts(
+          StopOrNot( s(i).w, RightAttachment, true ),
+          NotStop,
+          0D
+        )
+        pc.setStopCounts(
+          StopOrNot( s(i).w, RightAttachment, false ),
+          Stop,
+          0D
+        )
+        pc.setStopCounts(
+          StopOrNot( s(i).w, RightAttachment, false ),
+          NotStop,
+          0D
+        )
+
+
+        pc.setStopCounts(
+          StopOrNot( s(i).w, LeftAttachment, true ),
+          Stop,
+          0D
+        )
+        pc.setStopCounts(
+          StopOrNot( s(i).w, LeftAttachment, true ),
+          NotStop,
+          0D
+        )
+        pc.setStopCounts(
+          StopOrNot( s(i).w, LeftAttachment, false ),
+          Stop,
+          0D
+        )
+        pc.setStopCounts(
+          StopOrNot( s(i).w, LeftAttachment, false ),
+          NotStop,
+          0D
+        )
+
+
+
+        pc.incrementChooseCounts(
+          ChooseArgument( Root, LeftAttachment ),
+          s(i).w,
+          cAttachScore
+        )
+        // order initialization
+        pc.setOrderCounts( s(i).w, RightFirst, 0D )
+        pc.setOrderCounts( s(i).w, LeftFirst, Double.NegativeInfinity )
+      }
+
+    }
+
+
+    // root attachment
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, true ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, true ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, false ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+
+    pc.setOrderCounts(
+      Root,
+      LeftFirst,
+      Double.NegativeInfinity
+    )
+    pc.setOrderCounts(
+      Root,
+      RightFirst,
+      0D
+    )
+
+    //pc.clearInterpolationScores
+    val newGrammar = pc.toDMVGrammar
+    //newGrammar.clearInterpolationScores
+    println( "setting harmonic initialization:" )
+    setGrammar( newGrammar )
+  }
+
 
   class Chart( s:List[TimedObservedLabel] ) {
     protected val matrix = Array.fill( s.length+1, s.length+1 )(
