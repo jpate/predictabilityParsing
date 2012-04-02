@@ -1211,6 +1211,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
       // pc.divideStopCounts( treeScore )
       // pc.divideOrderCounts( treeScore )
 
+      assert( treeScore <= 0D )
       pc.setTotalScore( treeScore )
 
       // if( treeScore == Double.NegativeInfinity ) {

@@ -144,6 +144,9 @@ class DMVBayesianBackoffPartialCounts(
             val thisBackoffComponent =
               stopCounts( stopKey, dec ) + stopBackoffScore( stopKey, Backoff )
 
+            assert( thisNoBackoffComponent >= Double.NegativeInfinity )
+            assert( thisBackoffComponent >= Double.NegativeInfinity )
+
             // for interpolation parameters, sum out backoff set
             stopBackoffInterpolationSums.setValue(
               stopKey,
@@ -286,7 +289,7 @@ class DMVBayesianBackoffPartialCounts(
                   ChooseArgument( interpolationBackoffHead, attachDir )
 
                 val argPair = WordPair( a1, a2 )
-                // val backoffArg = Word(a2)
+                val backoffArg = Word(a2)
 
                 val thisNoBackoffHeadComponent =
                   chooseCounts( chooseKey, arg ) + headBackoffScore( chooseKey, NotBackoff )
@@ -314,19 +317,19 @@ class DMVBayesianBackoffPartialCounts(
                 // Also, count up for each backoff distribution (not the interpolation parameters).
                 noBackoffHeadCounts.setValue(
                   chooseKey,
-                  //backoffArg,
-                  arg,
+                  backoffArg,
+                  //arg,
                   logSum(
-                    noBackoffHeadCounts( chooseKey, arg /*backoffArg*/ ),
+                    noBackoffHeadCounts( chooseKey, /*arg*/ backoffArg ),
                     thisNoBackoffHeadComponent
                   )
                 )
                 backoffHeadCounts.setValue(
                   backoffHeadKey,
-                  //backoffArg,
-                  arg,
+                  backoffArg,
+                  //arg,
                   logSum(
-                    backoffHeadCounts( backoffHeadKey, arg /*backoffArg*/ ),
+                    backoffHeadCounts( backoffHeadKey, /*arg*/ backoffArg ),
                     thisBackoffHeadComponent
                   )
                 )
@@ -451,7 +454,7 @@ class DMVBayesianBackoffPartialCounts(
             arg match {
               case WordPair( a1, a2 ) => {
                 //val backoffWords = WordQuad( h1, h2, a1, a2 )
-                //val backoffArg = Word(a2)
+                val backoffArg = Word(a2)
 
                 //val backoffKey = ChooseArgument( backoffWords, chooseKey.dir )
                 // println( "\t\t incrementing " + (chooseKey, arg) + " by " +
@@ -469,9 +472,9 @@ class DMVBayesianBackoffPartialCounts(
                   logSum(
                     Seq(
                       chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
-                        noBackoffHeadCounts( chooseKey, arg /*backoffArg*/ ),
+                        noBackoffHeadCounts( chooseKey, /*arg*/ backoffArg ),
                       chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
-                        backoffHeadCounts( backoffHeadKey, arg /*backoffArg*/ )
+                        backoffHeadCounts( backoffHeadKey, /*arg*/ backoffArg )
                     )
                   )
                 )

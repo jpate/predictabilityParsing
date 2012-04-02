@@ -217,6 +217,15 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       }.toSeq:_*
     )
 
+    cpt.keySet.foreach{ parent =>
+      if( !( logSum( cpt( parent ).values.toSeq ) <= 0D ) ) {
+        println(
+          "} " + parent + ": " + logSum( cpt( parent ).values.toSeq ) +
+          cpt(parent).keySet.map{ child => child + ": " + cpt(parent)(child) }.mkString("\n\t","\n\t","\n\n" )
+        )
+      }
+    }
+
     assert(
       cpt.keySet.forall{ parent =>
         logSum( cpt( parent ).values.toSeq ) <= 0D
