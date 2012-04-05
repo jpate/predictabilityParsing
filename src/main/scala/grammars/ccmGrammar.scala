@@ -62,10 +62,20 @@ class CCMGrammar(
     p_context.randomize( seed, centeredOn )
 
     getSpans.foreach( span =>
-      p_span(Distituent)(span) = Math.subtractLogProb( 0D, p_span(Constituent)(span) )
+      //p_span(Distituent)(span) = Math.subtractLogProb( 0D, p_span(Constituent)(span) )
+      p_span.setValue(
+        Distituent,
+        span,
+        Math.subtractLogProb( 0D, p_span(Constituent)(span) )
+      )
     )
     getContexts.foreach( context =>
-      p_context(Distituent)(context) = Math.subtractLogProb( 0D, p_context(Constituent)(context) )
+      //p_context(Distituent)(context) = Math.subtractLogProb( 0D, p_context(Constituent)(context) )
+      p_context.setValue(
+        Distituent,
+        context,
+        Math.subtractLogProb( 0D, p_context(Constituent)(context) )
+      )
     )
 
     normalize

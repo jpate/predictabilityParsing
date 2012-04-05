@@ -37,7 +37,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       defaultChildMap
     ).getOrElse(
       child,
-      defaultParentMap( parent )
+      defaultParentMap.getOrElse( parent, super.getDefault )
     )
     // cpt( parent )( child )
     // cpt.getOrElse(
@@ -48,41 +48,42 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     //   defaultChildMap( child )
     // )
 
-  def getParentDefault( k:T ):Double = defaultParentMap( k )
-  def getChildDefault( k:U ):Double = defaultChildMap( k )
+  def getParentDefault( k:T ):Double = defaultParentMap.getOrElse( k, super.getDefault )
+  def getChildDefault( k:U ):Double = defaultChildMap.getOrElse( k, super.getDefault )
 
   def getDefaultParentMap = defaultParentMap
   def getDefaultChildMap = defaultChildMap
 
-  private val defaultParentMap = Map[T,Double]().withDefaultValue( super.getDefault )
-  private val defaultChildMap = Map[U,Double]().withDefaultValue( super.getDefault )
+  private var defaultParentMap = collection.immutable.Map[T,Double]().withDefaultValue( super.getDefault )
+  private var defaultChildMap = collection.immutable.Map[U,Double]().withDefaultValue( super.getDefault )
 
   def setDefaultParentMap( newDefaultParentMap:collection.mutable.Map[T,Double] ) {
-    defaultParentMap.clear
-    defaultParentMap ++= newDefaultParentMap
+    //defaultParentMap.clear
+    defaultParentMap = newDefaultParentMap.toMap
   }
   def setDefaultParentMap( newDefaultParentMap:collection.immutable.Map[T,Double] ) {
-    defaultParentMap.clear
-    defaultParentMap ++= newDefaultParentMap
+    //defaultParentMap.clear
+    defaultParentMap = newDefaultParentMap
   }
 
   def setDefaultChildMap( newDefaultChildMap:collection.mutable.Map[U,Double] ) {
-    defaultChildMap.clear
-    defaultChildMap ++= newDefaultChildMap
+    //defaultChildMap.clear
+    defaultChildMap = newDefaultChildMap.toMap
   }
   def setDefaultChildMap( newDefaultChildMap:collection.immutable.Map[U,Double] ) {
-    defaultChildMap.clear
-    defaultChildMap ++= newDefaultChildMap
+    //defaultChildMap.clear
+    defaultChildMap = newDefaultChildMap
   }
   def setDefaultChildMap( newDefaultChildMap:collection.Map[U,Double] ) {
-    defaultChildMap.clear
-    defaultChildMap ++= newDefaultChildMap
+    //defaultChildMap.clear
+    defaultChildMap = newDefaultChildMap.toMap
   }
 
   def setCPTMap( updatedCPT: Map[T,Map[U,Double]] ) {
     cpt = updatedCPT
   }
 
+  //def setCPT( updatedCPT: AbstractLog2dTable[T,U] ) {
   def setCPT( updatedCPT: AbstractLog2dTable[T,U] ) {
     cpt = updatedCPT.getCPT
     setDefault( updatedCPT.getDefault )
@@ -174,11 +175,11 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
           parent -> { expDigamma( logPseudoCount ) - maxes( parent ) }
         }.toSeq:_*
       ).withDefaultValue( 
-        expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size ) + logPseudoCount )
+        expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size +1) + logPseudoCount )
       )
     )
     setDefault(
-      expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size ) + logPseudoCount )
+      expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size +1 ) + logPseudoCount )
     )
   }
 

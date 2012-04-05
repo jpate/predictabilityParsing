@@ -132,6 +132,7 @@ class DMVBayesianBackoffPartialCounts(
 
     val tiedStopRuleCount = collection.mutable.Map[StopOrNot,Int]().withDefaultValue( 0 )
 
+
     stopCounts.parents.foreach{ stopKey =>
       stopKey.w match {
         case WordPair( h1, h2 ) => {
@@ -252,6 +253,19 @@ class DMVBayesianBackoffPartialCounts(
 
 
     stopBackoffInterpolationSums.expDigammaNormalize( backoffAlphaMap )
+
+    stopBackoffInterpolationSums.setDefaultChildMap(
+      Map[BackoffDecision,Double](
+        Backoff -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
+        },
+        NotBackoff -> {
+          Math.expDigamma( math.log( noBackoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
+        }
+      )
+    )
 
 
 
@@ -374,6 +388,18 @@ class DMVBayesianBackoffPartialCounts(
     }
 
     chooseBackoffHeadInterpolationSums.expDigammaNormalize( backoffAlphaMap )
+    chooseBackoffHeadInterpolationSums.setDefaultChildMap(
+      Map[BackoffDecision,Double](
+        Backoff -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
+        },
+        NotBackoff -> {
+          Math.expDigamma( math.log( noBackoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
+        }
+      )
+    )
 
     // Ok, now compute backed-off parameters
 
@@ -417,12 +443,12 @@ class DMVBayesianBackoffPartialCounts(
     rootChooseCounts.expDigammaNormalize()
 
     val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]().withDefaultValue(
-      expDigamma( 0 ) - expDigamma( math.log( chooseBackoffHeadCounts.parents.size ) )
+      expDigamma( 0 ) - expDigamma( math.log( chooseBackoffHeadCounts.parents.size + 1 ) )
+        // +1 for Root
     )
 
     val backedoffChoose = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
     chooseCounts.parents.foreach{ chooseKey =>
-
       chooseKey.h match {
       case WordPair( h1, h2 ) =>
         val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
@@ -438,12 +464,8 @@ class DMVBayesianBackoffPartialCounts(
             )
         case rootHead:AbstractRoot => {
           // Special handling to allow only one root.
-          if( chooseKey.dir == LeftAttachment )
-            chooseDefaults +=
-              chooseKey -> rootChooseCounts.getParentDefault( chooseKey )
-          else
-            chooseDefaults +=
-              chooseKey -> Double.NegativeInfinity
+          chooseDefaults +=
+            chooseKey -> rootChooseCounts.getParentDefault( chooseKey )
         }
       }
 
@@ -480,11 +502,12 @@ class DMVBayesianBackoffPartialCounts(
                 )
               }
               case rootArg:AbstractRoot => {
-                backedoffChoose.setValue(
-                  chooseKey,
-                  arg,
-                  Double.NegativeInfinity
-                )
+                /* Intentionally empty */
+                // backedoffChoose.setValue(
+                //   chooseKey,
+                //   arg,
+                //   Double.NegativeInfinity
+                // )
               }
             }
           }
@@ -503,6 +526,8 @@ class DMVBayesianBackoffPartialCounts(
       expDigamma( 0D ) - expDigamma( math.log( backedoffChoose.parents.size ) )
     )
     backedoffChoose.setDefaultParentMap( chooseDefaults )
+
+    //println( "backed off choose parent default:\n" + chooseDefaults )
 
     // println( "Testing choose default in partial counts (" + backedoffChoose.parents.size + "):  " +
     //   backedoffChoose( ChooseArgument( Word( "yugioh" ), RightAttachment ) , Word( "yohoho" ) ) +
@@ -552,6 +577,13 @@ class DMVBayesianBackoffPartialCounts(
     //   freeEnergyElementOne + " + " + freeEnergyElementTwo + " - " + freeEnergyElementThree + " + " +
     //   freeEnergyElementFour + " = " + freeEnergy )
 
+    // println( "Choose default: " +
+    //   math.exp( backedoffChoose( ChooseArgument( Word( "wheigjuefd"), RightAttachment ) , Word(
+    //   "3waf" ) ) )
+    // )
+    // println( "Stop default: " +
+    //   math.exp( backedoffStop( StopOrNot( Word( "wheigjuefd"), RightAttachment,true ) , Stop ) )
+    // )
 
     toReturn.setParams(
       DMVBayesianBackoffParameters(

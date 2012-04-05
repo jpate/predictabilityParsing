@@ -87,13 +87,28 @@ class TwoContextCCMGrammar(
     p_context_b.randomize( seed, centeredOn )
 
     p_span.values.head.keySet.foreach( span =>
-      p_span(Distituent)(span) = Math.subtractLogProb( 0D, p_span(Constituent)(span) )
+      //p_span(Distituent)(span) = Math.subtractLogProb( 0D, p_span(Constituent)(span) )
+      p_span.setValue(
+        Distituent,
+        span,
+        Math.subtractLogProb( 0D, p_span(Constituent)(span) )
+      )
     )
     p_context_a.values.head.keySet.foreach( context_a =>
-      p_context_a(Distituent)(context_a) = Math.subtractLogProb( 0D, p_context_a(Constituent)(context_a) )
+      //p_context_a(Distituent)(context_a) = Math.subtractLogProb( 0D, p_context_a(Constituent)(context_a) )
+      p_context_a.setValue(
+        Distituent,
+        context_a,
+        Math.subtractLogProb( 0D, p_context_a(Constituent)(context_a) )
+      )
     )
     p_context_b.values.head.keySet.foreach( context_b =>
-      p_context_b(Distituent)(context_b) = Math.subtractLogProb( 0D, p_context_b(Constituent)(context_b) )
+      //p_context_b(Distituent)(context_b) = Math.subtractLogProb( 0D, p_context_b(Constituent)(context_b) )
+      p_context_b.setValue(
+        Distituent,
+        context_b,
+        Math.subtractLogProb( 0D, p_context_b(Constituent)(context_b) )
+      )
     )
 
     normalize

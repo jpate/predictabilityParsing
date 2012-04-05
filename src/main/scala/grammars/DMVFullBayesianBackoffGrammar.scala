@@ -4,10 +4,10 @@ import collection.mutable.Map
 
 import predictabilityParsing.types.labels._
 import predictabilityParsing.types.tables._
-import predictabilityParsing.partialCounts.DMVBayesianBackoffPartialCounts
+import predictabilityParsing.partialCounts.DMVFullBayesianBackoffPartialCounts
 import predictabilityParsing.util.Math
 
-class DMVBayesianBackoffGrammar(
+class DMVFullBayesianBackoffGrammar(
         // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
         // decisions are drawn
         // noStopBackoff:Double = 35,
@@ -29,7 +29,7 @@ class DMVBayesianBackoffGrammar(
   backoffAlpha:Double = 70,
   // these are specific backoff parameters
   stopBackoffScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
-  headBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision]//,
+  chooseBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision]//,
   //argBackoffScore:AbstractLog2dTable[WordPair,BackoffDecision]
 ) extends DMVGrammar {
 
@@ -54,17 +54,25 @@ class DMVBayesianBackoffGrammar(
         }
       )
     ),
-    headBackoffScore = Log2dTable(
+    chooseBackoffScore = Log2dTable(
       Set[ChooseArgument](),
-      dmv.backoffDecision,
+      dmv.chooseBackoffDecision,
       Map[BackoffDecision,Double](
-        Backoff -> {
-          Math.expDigamma( math.log( backoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-        },
         NotBackoff -> {
           Math.expDigamma( math.log( backoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha * 3) )
+        },
+        BackoffHead -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha * 3) )
+        },
+        BackoffArg -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha * 3) )
+        },
+        BackoffBoth -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha * 3) )
         }
       )
     )//,
@@ -190,14 +198,14 @@ class DMVBayesianBackoffGrammar(
       otherP_stop,
       otherP_choose,
       otherStopBackoffScore,
-      otherBackoffHeadScore
+      otherChooseBackoffScore
     ) = parameters
 
     p_order.setCPT( otherP_order )
     p_stop.setCPT( otherP_stop )
     p_choose.setCPT( otherP_choose )
     stopBackoffScore.setCPT( otherStopBackoffScore )
-    headBackoffScore.setCPT( otherBackoffHeadScore )
+    chooseBackoffScore.setCPT( otherChooseBackoffScore )
 
     p_stop.setValue(
       StopOrNot( Root, RightAttachment, true ),
@@ -241,27 +249,27 @@ class DMVBayesianBackoffGrammar(
       Stop,
       0D
     )
+
 
   }
 
-  override def getParams = { //VanillaDMVParameters( p_order, p_stop, p_choose )
+  override def getParams = //VanillaDMVParameters( p_order, p_stop, p_choose )
     DMVBayesianBackoffParameters(
       //freeEnergy,
       p_order,
       p_stop,
       p_choose,
       stopBackoffScore,
-      headBackoffScore
+      chooseBackoffScore
     )
-  }
 
   override def emptyPartialCounts = {
     //println( "Forming new partial counts with noStopBackoffScore:\n" + noStopBackoffScore )
-    new DMVBayesianBackoffPartialCounts(
+    new DMVFullBayesianBackoffPartialCounts(
       noBackoffAlpha,
       backoffAlpha,
       stopBackoffScore,
-      headBackoffScore
+      chooseBackoffScore
     )
   }
 
@@ -269,8 +277,8 @@ class DMVBayesianBackoffGrammar(
     super.toString +
       "\nStopBackoffScore:\n" +
         stopBackoffScore +
-      "\nHeadBackoffScore:\n" +
-        headBackoffScore +
+      "\nChooseBackoffScore:\n" +
+        chooseBackoffScore +
       "Alphas:\n" +
       "\tnoBackoffAlpha: " + noBackoffAlpha + "\n" +
       "\tbackoffAlpha: " + backoffAlpha + "\n"

@@ -181,7 +181,9 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     )
 
     //pc.clearInterpolationScores
+    println( "VanillaDMVEstimator.setHardlineStopHarmonicGrammar: running toDMVGrammar" )
     val newGrammar = pc.toDMVGrammar
+    println( "VanillaDMVEstimator.setHardlineStopHarmonicGrammar: done running toDMVGrammar" )
     //newGrammar.clearInterpolationScores
     println( "setting harmonic initialization:" )
     setGrammar( newGrammar )
@@ -744,12 +746,23 @@ class VanillaDMVEstimator extends AbstractDMVParser{
         val h = headEntry.label
         assert( label == h )
         val a = argEntry.label
-        incrementIScore(
+        val inc = 
           g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) +
           g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) +
           argEntry.iScore +
           headEntry.iScore
-        )
+        if( !( inc <= 0D ) ) {
+          println( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) + " , " +
+            ChooseArgument( h.obs.w, h.attachmentDirection ) + " , " + a.obs.w )
+          println(
+            g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) + " + " +
+            g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) + " + " +
+            argEntry.iScore + " + " +
+            headEntry.iScore + " = " + inc
+          )
+        }
+
+        incrementIScore( inc )
         children += SpannedChildren( headEntry, Some(argEntry) )
       }
 
@@ -1211,6 +1224,11 @@ class VanillaDMVEstimator extends AbstractDMVParser{
       // pc.divideStopCounts( treeScore )
       // pc.divideOrderCounts( treeScore )
 
+      if( !( treeScore <= 0D ) ) {
+        println( s.mkString("[ ", " ", " ]" ) )
+        println( treeScore )
+        println( this )
+      }
       assert( treeScore <= 0D )
       pc.setTotalScore( treeScore )
 

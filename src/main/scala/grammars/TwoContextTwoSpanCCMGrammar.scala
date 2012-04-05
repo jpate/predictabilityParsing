@@ -105,16 +105,36 @@ class TwoContextTwoSpanCCMGrammar(
     p_context_b.randomize( seed, centeredOn )
 
     p_span_a.values.head.keySet /*children*/.foreach( span =>
-      p_span_a(Distituent)(span) = Math.subtractLogProb( 0D, p_span_a(Constituent)(span) )
+      //p_span_a(Distituent)(span) = Math.subtractLogProb( 0D, p_span_a(Constituent)(span) )
+      p_span_a.setValue(
+        Distituent,
+        span,
+        Math.subtractLogProb( 0D, p_span_a(Constituent)(span) )
+      )
     )
     p_span_b.values.head.keySet /*children*/.foreach( span =>
-      p_span_b(Distituent)(span) = Math.subtractLogProb( 0D, p_span_b(Constituent)(span) )
+      //p_span_b(Distituent)(span) = Math.subtractLogProb( 0D, p_span_b(Constituent)(span) )
+      p_span_b.setValue(
+        Distituent,
+        span,
+        Math.subtractLogProb( 0D, p_span_a(Constituent)(span) )
+      )
     )
     p_context_a.values.head.keySet /*children*/.foreach( context_a =>
-      p_context_a(Distituent)(context_a) = Math.subtractLogProb( 0D, p_context_a(Constituent)(context_a) )
+      //p_context_a(Distituent)(context_a) = Math.subtractLogProb( 0D, p_context_a(Constituent)(context_a) )
+      p_context_a.setValue(
+        Distituent,
+        context_a,
+        Math.subtractLogProb( 0D, p_context_a(Constituent)(context_a) )
+      )
     )
     p_context_b.values.head.keySet /*children*/.foreach( context_b =>
-      p_context_b(Distituent)(context_b) = Math.subtractLogProb( 0D, p_context_b(Constituent)(context_b) )
+      //p_context_b(Distituent)(context_b) = Math.subtractLogProb( 0D, p_context_b(Constituent)(context_b) )
+      p_context_b.setValue(
+        Distituent,
+        context_b,
+        Math.subtractLogProb( 0D, p_context_b(Constituent)(context_b) )
+      )
     )
 
     normalize
