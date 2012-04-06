@@ -59,7 +59,7 @@ class DMVFullBayesianBackoffGrammar(
       dmv.chooseBackoffDecision,
       Map[BackoffDecision,Double](
         NotBackoff -> {
-          Math.expDigamma( math.log( backoffAlpha ) ) -
+          Math.expDigamma( math.log( noBackoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha * 3) )
         },
         BackoffHead -> {
