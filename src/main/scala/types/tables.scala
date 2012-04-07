@@ -403,6 +403,86 @@ object Log2dTable {
   }
 }
 
+    // class TiedLog2dTable[T<:Label,U<:Label](
+    //   passedParents:Iterable[T],
+    //   passedChildren:Iterable[U],
+    //   tyingRelation:((T,U) => T)
+    // ) extends Log2dTable( passedParents, passedChildren ) {
+    // 
+    //   def getTiedElements( parent:T, child:U ) =
+    //     cpt.keySet.filter( tyingRelation( _, child ) == tyingRelation( parent, child ) )
+    // 
+    //   def getTiedValues( parent:T, child:U ) =
+    //     getTiedElements( parent, child ).map{ tiedParent => this( tiedParent, child ) }
+    // 
+    // 
+    //   // This assumes that tied rules have been been divided by the number of tied rules, i.e. that we
+    //   // ARE using tiedStopRuleCount in partialCounts.DMVFullBayesianBackoffPartialCounts
+    //   override def expDigammaNormalize( pseudoCountMap:scala.collection.Map[U,Double] ) {
+    // 
+    //     val logPseudoCountMap = pseudoCountMap.mapValues( log( _ ) )
+    // 
+    //     val maxes = Map(
+    //       cpt.keySet.map( parent =>
+    //         if( cpt( parent ).values.size > 0 )
+    //           parent -> expDigamma(
+    //             logSum( log(pseudoCountMap.values.reduce(_+_))::{
+    //                 cpt(parent).keySet.flatMap{ child => getTiedValues( parent, child ) }
+    //                 //cpt(parent)
+    //               }.toList //.values.toList
+    //             )
+    //           )
+    //         else
+    //           parent -> Double.NegativeInfinity
+    //           //parent -> 0D
+    //       ).toSeq:_*
+    //     )
+    // 
+    //     cpt = Map(
+    //       cpt.keySet.map{ parent =>
+    //         parent -> Map(
+    //           cpt(parent).keySet.map{ child =>
+    //             if( maxes( parent ) == Double.NegativeInfinity )
+    //               child -> Double.NegativeInfinity
+    //             else
+    //               child -> (
+    //                 expDigamma(
+    //                   logSum(
+    //                     //this(parent, child),
+    //                     logPseudoCountMap( child )::(getTiedValues( parent, child ).toList)
+    //                   )
+    //                 ) - maxes(parent)
+    //               )
+    //           }.toSeq:_*
+    //         )
+    //       }.toSeq:_*
+    //     )
+    // 
+    //     cpt.keySet.foreach{ parent =>
+    //       if( !( logSum( cpt( parent ).values.toSeq ) <= 0D ) ) {
+    //         println(
+    //           "} " + parent + ": " + logSum( cpt( parent ).values.toSeq ) +
+    //           cpt(parent).keySet.map{ child => child + ": " + cpt(parent)(child) }.mkString("\n\t","\n\t","\n\n" )
+    //         )
+    //       }
+    //     }
+    // 
+    //     assert(
+    //       cpt.keySet.forall{ parent =>
+    //         logSum( cpt( parent ).values.toSeq ) <= 0D
+    //       }
+    //     )
+    // 
+    //     val defaultDenom = logSum( logPseudoCountMap.values.toSeq )
+    //     setDefaultChildMap( logPseudoCountMap.mapValues{ alpha => alpha - defaultDenom } )
+    // 
+    //       // logPseudoCountMap.mapValues{ alpha =>
+    //       //   alpha - logSum( logPseudoCountMap.values.toSeq )
+    //       // }
+    //   }
+    // 
+    // }
+
 /*
  * Basic properties for a 1-dimensional table 
  */

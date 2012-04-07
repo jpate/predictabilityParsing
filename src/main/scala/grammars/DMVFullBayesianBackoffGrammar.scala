@@ -29,8 +29,8 @@ class DMVFullBayesianBackoffGrammar(
   backoffAlpha:Double = 70,
   // these are specific backoff parameters
   stopBackoffScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
-  chooseBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision]//,
-  //argBackoffScore:AbstractLog2dTable[WordPair,BackoffDecision]
+  headBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
+  argBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision]
 ) extends DMVGrammar {
 
   def this(
@@ -54,42 +54,34 @@ class DMVFullBayesianBackoffGrammar(
         }
       )
     ),
-    chooseBackoffScore = Log2dTable(
+    headBackoffScore = Log2dTable(
       Set[ChooseArgument](),
-      dmv.chooseBackoffDecision,
+      dmv.backoffDecision,
       Map[BackoffDecision,Double](
+        Backoff -> {
+          Math.expDigamma( math.log( noBackoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
+        },
         NotBackoff -> {
           Math.expDigamma( math.log( noBackoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha * 3) )
-        },
-        BackoffHead -> {
-          Math.expDigamma( math.log( backoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha * 3) )
-        },
-        BackoffArg -> {
-          Math.expDigamma( math.log( backoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha * 3) )
-        },
-        BackoffBoth -> {
-          Math.expDigamma( math.log( backoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha * 3) )
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
         }
       )
-    )//,
-    // argBackoffScore = Log2dTable(
-    //   Set[WordPair](),
-    //   dmv.backoffDecision,
-    //   Map[BackoffDecision,Double](
-    //     Backoff -> {
-    //       Math.expDigamma( math.log( backoffAlpha ) ) -
-    //         Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-    //     },
-    //     NotBackoff -> {
-    //       Math.expDigamma( math.log( backoffAlpha ) ) -
-    //         Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-    //     }
-    //   )
-    // )
+    ),
+    argBackoffScore = Log2dTable(
+      Set[ChooseArgument](),
+      dmv.backoffDecision,
+      Map[BackoffDecision,Double](
+        Backoff -> {
+          Math.expDigamma( math.log( noBackoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
+        },
+        NotBackoff -> {
+          Math.expDigamma( math.log( noBackoffAlpha ) ) -
+            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
+        }
+      )
+    )
   )
   def this() = this( 35, 70 ) // defaults inspired by Headden for use on wsj10
 
@@ -106,106 +98,23 @@ class DMVFullBayesianBackoffGrammar(
       case RightFirst => 0D
     }
 
-      // p_stop.setDefaultMap(
-      //   Map[StopOrNot,Double]().withDefaultValue(
-      //     Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size ) )
-      //   )
-      // )
-      // p_choose.setDefault(
-      //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_choose.parents.size ) )
-      // )
-      // p_stop.setDefault(
-      //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size ) )
-      // )
-      // p_choose.setDefaultMap(
-      //   Map[ChooseArgument,Double]().withDefaultValue(
-      //     Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_choose.parents.size ) )
-      //   )
-      // )
-
-      // def this(
-      //   noStopBackoff:Double,
-      //   stopBackoff:Double,
-      //   noChooseBackoff:Double,
-      //   backoffHead:Double,
-      //   backoffArg:Double,
-      //   backoffBoth:Double
-      // ) = this(
-      //   noStopBackoff,
-      //   stopBackoff,
-      //   noChooseBackoff,
-      //   backoffHead,
-      //   backoffArg,
-      //   backoffBoth,
-      //   // these are specific backoff parameters
-      //   noStopBackoffScore = Log1dTable(
-      //     Set[StopOrNot](),
-      //     math.log( noStopBackoff /(noStopBackoff + stopBackoff) )
-      //   ),
-      //   stopBackoffScore = Log1dTable(
-      //     Set[StopOrNot](),
-      //     math.log( stopBackoff /(noStopBackoff + stopBackoff) )
-      //   ),
-      //   noChooseBackoffScore = Log1dTable(
-      //     Set[ChooseArgument](),
-      //     math.log( noChooseBackoff/(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-      //   ),
-      //   backoffHeadScore = Log1dTable(
-      //     Set[ChooseArgument](),
-      //     math.log( backoffHead/(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-      //   ),
-      //   backoffArgScore = Log1dTable(
-      //     Set[ChooseArgument](),
-      //     math.log( backoffArg/(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-      //   ),
-      //   backoffBothScore = Log1dTable(
-      //     Set[ChooseArgument](),
-      //     math.log( backoffBoth/(noChooseBackoff + backoffHead + backoffArg + backoffBoth) )
-      //   )
-      // )
-      // def this() = this( 35, 70, 30, 60, 60, 120 )
-
-  /*
-  override def clearInterpolationScores {
-    println( "clearing interpolation scores in the grammar..." )
-    stopBackoffScore.setPT(
-      Log1dTable(
-        Set[StopOrNot](),
-        Math.expDigamma( math.log( backoffAlpha ) ) -
-          Math.expDigamma( math.log(noStopBackoff + stopBackoff) )
-      )//.getPT
-    )
-    headBackoffScore.setPT(
-      Log1dTable(
-        Set[ChooseArgument](),
-        Math.expDigamma( math.log( backoffHead ) ) -
-          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-      )//.getPT
-    )
-    argBackoffScore.setPT(
-      Log1dTable(
-        Set[ChooseArgument](),
-        Math.expDigamma( math.log( backoffArg ) ) -
-          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-      )//.getPT
-    )
-  }
-  */
 
   override def setParams[P<:DMVParameters]( parameters:P ) {
-    val DMVBayesianBackoffParameters(
+    val DMVFullBayesianBackoffParameters(
       otherP_order,
       otherP_stop,
       otherP_choose,
       otherStopBackoffScore,
-      otherChooseBackoffScore
+      otherHeadBackoffScore,
+      otherArgBackoffScore
     ) = parameters
 
     p_order.setCPT( otherP_order )
     p_stop.setCPT( otherP_stop )
     p_choose.setCPT( otherP_choose )
     stopBackoffScore.setCPT( otherStopBackoffScore )
-    chooseBackoffScore.setCPT( otherChooseBackoffScore )
+    headBackoffScore.setCPT( otherHeadBackoffScore )
+    argBackoffScore.setCPT( otherArgBackoffScore )
 
     p_stop.setValue(
       StopOrNot( Root, RightAttachment, true ),
@@ -254,13 +163,14 @@ class DMVFullBayesianBackoffGrammar(
   }
 
   override def getParams = //VanillaDMVParameters( p_order, p_stop, p_choose )
-    DMVBayesianBackoffParameters(
+    DMVFullBayesianBackoffParameters(
       //freeEnergy,
       p_order,
       p_stop,
       p_choose,
       stopBackoffScore,
-      chooseBackoffScore
+      headBackoffScore,
+      argBackoffScore
     )
 
   override def emptyPartialCounts = {
@@ -269,7 +179,8 @@ class DMVFullBayesianBackoffGrammar(
       noBackoffAlpha,
       backoffAlpha,
       stopBackoffScore,
-      chooseBackoffScore
+      headBackoffScore,
+      argBackoffScore
     )
   }
 
@@ -277,8 +188,10 @@ class DMVFullBayesianBackoffGrammar(
     super.toString +
       "\nStopBackoffScore:\n" +
         stopBackoffScore +
-      "\nChooseBackoffScore:\n" +
-        chooseBackoffScore +
+      "\nHeadBackoffScore:\n" +
+        headBackoffScore +
+      "\nArgBackoffScore:\n" +
+        argBackoffScore +
       "Alphas:\n" +
       "\tnoBackoffAlpha: " + noBackoffAlpha + "\n" +
       "\tbackoffAlpha: " + backoffAlpha + "\n"

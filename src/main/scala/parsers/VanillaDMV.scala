@@ -120,6 +120,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
     // uniformness smoothing for stop
     pc.stopCounts.parents.foreach{ stopKey =>
+    //dmv.rootlessStopOrNotKeys(corpus.flatMap{ _.map{ _.w }}.toSet ).foreach{ stopKey =>
       pc.incrementStopCounts( stopKey, Stop, stopUniformityScore )
       pc.incrementStopCounts( stopKey, NotStop, stopUniformityScore )
     }
