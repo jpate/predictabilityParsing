@@ -8,29 +8,15 @@ import predictabilityParsing.partialCounts.DMVBayesianBackoffPartialCounts
 import predictabilityParsing.util.Math
 
 class DMVBayesianBackoffGrammar(
-        // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
-        // decisions are drawn
-        // noStopBackoff:Double = 35,
-        // stopBackoff:Double = 70,
-        // noChooseBackoff:Double = 30,
-        // backoffHead:Double = 60,
-        // backoffArg:Double = 60,
-        // backoffBoth:Double = 120,
-        // // these are specific backoff parameters
-        // noStopBackoffScore:AbstractLog1dTable[StopOrNot],
-        // stopBackoffScore:AbstractLog1dTable[StopOrNot],
-        // noChooseBackoffScore:AbstractLog1dTable[ChooseArgument],
-        // backoffHeadScore:AbstractLog1dTable[ChooseArgument],
-        // backoffArgScore:AbstractLog1dTable[ChooseArgument],
-        // backoffBothScore:AbstractLog1dTable[ChooseArgument]
-  // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
-  // decisions are drawn
+    // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
+    // decisions are drawn
   noBackoffAlpha:Double = 35,
   backoffAlpha:Double = 70,
-  // these are specific backoff parameters
+    // these are specific backoff parameters. We don't actually use these, it's just convenient to
+    // keep them around so we can print them out for closer inspection. In the event of memory or time
+    // problems, cutting these out of the class definition is an easy first step.
   stopBackoffScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
-  headBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision]//,
-  //argBackoffScore:AbstractLog2dTable[WordPair,BackoffDecision]
+  headBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision]
 ) extends DMVGrammar {
 
   def this(
@@ -44,11 +30,11 @@ class DMVBayesianBackoffGrammar(
       Set[StopOrNot](),
       dmv.backoffDecision,
       Map[BackoffDecision,Double](
-        Backoff -> {
+        NotBackoff -> {
           Math.expDigamma( math.log( backoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
         },
-        NotBackoff -> {
+        Backoff -> {
           Math.expDigamma( math.log( backoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
         }
@@ -58,35 +44,19 @@ class DMVBayesianBackoffGrammar(
       Set[ChooseArgument](),
       dmv.backoffDecision,
       Map[BackoffDecision,Double](
-        Backoff -> {
+        NotBackoff -> {
           Math.expDigamma( math.log( backoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
         },
-        NotBackoff -> {
+        Backoff -> {
           Math.expDigamma( math.log( backoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
         }
       )
-    )//,
-    // argBackoffScore = Log2dTable(
-    //   Set[WordPair](),
-    //   dmv.backoffDecision,
-    //   Map[BackoffDecision,Double](
-    //     Backoff -> {
-    //       Math.expDigamma( math.log( backoffAlpha ) ) -
-    //         Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-    //     },
-    //     NotBackoff -> {
-    //       Math.expDigamma( math.log( backoffAlpha ) ) -
-    //         Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-    //     }
-    //   )
-    // )
+    )
   )
   def this() = this( 35, 70 ) // defaults inspired by Headden for use on wsj10
 
-
-  //println( "Forming new grammar with noStopBackoffScore of:\n" + noStopBackoffScore )
 
   p_stop.setDefault(
     Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size )  )
@@ -98,91 +68,6 @@ class DMVBayesianBackoffGrammar(
       case RightFirst => 0D
     }
 
-      // p_stop.setDefaultMap(
-      //   Map[StopOrNot,Double]().withDefaultValue(
-      //     Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size ) )
-      //   )
-      // )
-      // p_choose.setDefault(
-      //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_choose.parents.size ) )
-      // )
-      // p_stop.setDefault(
-      //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size ) )
-      // )
-      // p_choose.setDefaultMap(
-      //   Map[ChooseArgument,Double]().withDefaultValue(
-      //     Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_choose.parents.size ) )
-      //   )
-      // )
-
-      // def this(
-      //   noStopBackoff:Double,
-      //   stopBackoff:Double,
-      //   noChooseBackoff:Double,
-      //   backoffHead:Double,
-      //   backoffArg:Double,
-      //   backoffBoth:Double
-      // ) = this(
-      //   noStopBackoff,
-      //   stopBackoff,
-      //   noChooseBackoff,
-      //   backoffHead,
-      //   backoffArg,
-      //   backoffBoth,
-      //   // these are specific backoff parameters
-      //   noStopBackoffScore = Log1dTable(
-      //     Set[StopOrNot](),
-      //     math.log( noStopBackoff /(noStopBackoff + stopBackoff) )
-      //   ),
-      //   stopBackoffScore = Log1dTable(
-      //     Set[StopOrNot](),
-      //     math.log( stopBackoff /(noStopBackoff + stopBackoff) )
-      //   ),
-      //   noChooseBackoffScore = Log1dTable(
-      //     Set[ChooseArgument](),
-      //     math.log( noChooseBackoff/(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-      //   ),
-      //   backoffHeadScore = Log1dTable(
-      //     Set[ChooseArgument](),
-      //     math.log( backoffHead/(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-      //   ),
-      //   backoffArgScore = Log1dTable(
-      //     Set[ChooseArgument](),
-      //     math.log( backoffArg/(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-      //   ),
-      //   backoffBothScore = Log1dTable(
-      //     Set[ChooseArgument](),
-      //     math.log( backoffBoth/(noChooseBackoff + backoffHead + backoffArg + backoffBoth) )
-      //   )
-      // )
-      // def this() = this( 35, 70, 30, 60, 60, 120 )
-
-  /*
-  override def clearInterpolationScores {
-    println( "clearing interpolation scores in the grammar..." )
-    stopBackoffScore.setPT(
-      Log1dTable(
-        Set[StopOrNot](),
-        Math.expDigamma( math.log( backoffAlpha ) ) -
-          Math.expDigamma( math.log(noStopBackoff + stopBackoff) )
-      )//.getPT
-    )
-    headBackoffScore.setPT(
-      Log1dTable(
-        Set[ChooseArgument](),
-        Math.expDigamma( math.log( backoffHead ) ) -
-          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-      )//.getPT
-    )
-    argBackoffScore.setPT(
-      Log1dTable(
-        Set[ChooseArgument](),
-        Math.expDigamma( math.log( backoffArg ) ) -
-          Math.expDigamma( math.log(noChooseBackoff + backoffHead + backoffArg + backoffBoth ) )
-      )//.getPT
-    )
-  }
-  */
 
   override def setParams[P<:DMVParameters]( parameters:P ) {
     val DMVBayesianBackoffParameters(
@@ -244,9 +129,8 @@ class DMVBayesianBackoffGrammar(
 
   }
 
-  override def getParams = { //VanillaDMVParameters( p_order, p_stop, p_choose )
+  override def getParams = {
     DMVBayesianBackoffParameters(
-      //freeEnergy,
       p_order,
       p_stop,
       p_choose,
@@ -255,15 +139,12 @@ class DMVBayesianBackoffGrammar(
     )
   }
 
-  override def emptyPartialCounts = {
-    //println( "Forming new partial counts with noStopBackoffScore:\n" + noStopBackoffScore )
-    new DMVBayesianBackoffPartialCounts(
-      noBackoffAlpha,
-      backoffAlpha,
-      stopBackoffScore,
-      headBackoffScore
-    )
-  }
+  override def emptyPartialCounts = new DMVBayesianBackoffPartialCounts(
+    noBackoffAlpha,
+    backoffAlpha,
+    stopBackoffScore,
+    headBackoffScore
+  )
 
   override def toString =
     super.toString +

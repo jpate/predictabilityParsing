@@ -24,11 +24,13 @@ import predictabilityParsing.util.Math
  *
  */
 class DMVFullBayesianBackoffPartialCounts(
-  // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
-  // decisions are drawn
+    // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
+    // decisions are drawn
   noBackoffAlpha:Double = 35,
   backoffAlpha:Double = 70,
-  // these are specific backoff parameters
+    // these are specific backoff parameters. We don't actually use these, it's just convenient to
+    // keep them around so we can print out a DMVFullBayesianBackoffGrammar and take a closer look
+    // at what's actually going on.
   stopBackoffScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
   headBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
   argBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision]
@@ -59,12 +61,12 @@ class DMVFullBayesianBackoffPartialCounts(
       Set[ChooseArgument](),
       dmv.backoffDecision,
       Map[BackoffDecision,Double](
-        Backoff -> {
+        NotBackoff -> {
           Math.expDigamma( math.log( noBackoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
         },
-        NotBackoff -> {
-          Math.expDigamma( math.log( noBackoffAlpha ) ) -
+        Backoff -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
         }
       )
@@ -73,45 +75,18 @@ class DMVFullBayesianBackoffPartialCounts(
       Set[ChooseArgument](),
       dmv.backoffDecision,
       Map[BackoffDecision,Double](
-        Backoff -> {
+        NotBackoff -> {
           Math.expDigamma( math.log( noBackoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
         },
-        NotBackoff -> {
-          Math.expDigamma( math.log( noBackoffAlpha ) ) -
+        Backoff -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
         }
       )
     )
   )
   def this() = this( 35, 70 ) // defaults inspired by Headden for use on wsj10
-
-  // override def clearInterpolationScores {
-  //   println( "clearing interpolation scores..." )
-  //   val expDigammaDenom = Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-  //   val backoffDefault = Math.expDigamma( math.log( backoffAlpha ) ) - expDigammaDenom
-  //   val noBackoffDefault = Math.expDigamma( math.log( noBackoffAlpha ) ) - expDigammaDenom
-  //   stopBackoffScore.setCPT(
-  //     Log2dTable(
-  //       Set[StopOrNot](),
-  //       dmv.backoffDecision,
-  //       Map(
-  //         Backoff -> backoffDefault,
-  //         NotBackoff -> noBackoffAlpha
-  //       )
-  //     )
-  //   )
-  //   headBackoffScore.setCPT(
-  //     Log2dTable(
-  //       Set[ChooseArgument](),
-  //       dmv.backoffDecision,
-  //       Map(
-  //         Backoff -> backoffDefault,
-  //         NotBackoff -> noBackoffAlpha
-  //       )
-  //     )
-  //   )
-  // }
 
   override def associatedGrammar = new DMVFullBayesianBackoffGrammar(
     noBackoffAlpha,
@@ -126,8 +101,7 @@ class DMVFullBayesianBackoffPartialCounts(
     newHeadBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
     newArgBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision]
   ):AbstractDMVGrammar = new DMVFullBayesianBackoffGrammar(
-    noBackoffAlpha,
-    backoffAlpha,
+    noBackoffAlpha, backoffAlpha,
     newStopBackoffScore,
     newHeadBackoffScore,
     newArgBackoffScore
@@ -136,27 +110,17 @@ class DMVFullBayesianBackoffPartialCounts(
   override def toDMVGrammar = {
     print( "Computing DMVBayesianBackoffGrammar..." )
 
-    //val backoffAlphaMap = Map( Backoff -> backoffAlpha, NotBackoff -> noBackoffAlpha )
     val stopBackoffAlphaMap = Map( Backoff -> backoffAlpha, NotBackoff -> noBackoffAlpha )
     val headBackoffAlphaMap = Map( Backoff -> backoffAlpha, NotBackoff -> noBackoffAlpha )
     val argBackoffAlphaMap = Map( Backoff -> backoffAlpha, NotBackoff -> noBackoffAlpha )
-    // val chooseBackoffAlphaMap = Map(
-    //   BackoffArg -> backoffAlpha,
-    //   BackoffHead -> backoffAlpha,
-    //   BackoffBoth -> backoffAlpha,
-    //   NotBackoff -> noBackoffAlpha
-    // )
 
 
     // First, compute new interpolation parameters, starting with stop
     val stopBackoffInterpolationSums = new Log2dTable( Set[StopOrNot](), dmv.backoffDecision )
-    //val stopBackoffInterpolationTiedSums = new Log1dTable( Set[StopOrNot]() )
 
     // // We'll also be summing over the backoff terms to produce the tied backoff rules in this loop.
     val stopNoBackoffCounts = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
     val stopBackoffCounts = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
-
-    //val tiedStopRuleCount = collection.mutable.Map[StopOrNot,Int]().withDefaultValue( 0 )
 
     stopCounts.parents.foreach{ stopKey =>
       stopKey.w match {
@@ -165,17 +129,10 @@ class DMVFullBayesianBackoffPartialCounts(
             val backoffHead = Word(h2)
             val backoffStopKey = StopOrNot( backoffHead, stopKey.dir, stopKey.adj )
 
-            /*
-            val thisNoBackoffComponent =
-              stopCounts( stopKey, dec ) + stopBackoffScore( stopKey, NotBackoff )
-            val thisBackoffComponent =
-              stopCounts( stopKey, dec ) + stopBackoffScore( stopKey, Backoff )
-            */
 
-            // assert( thisNoBackoffComponent >= Double.NegativeInfinity )
-            // assert( thisBackoffComponent >= Double.NegativeInfinity )
-
-            // for interpolation parameters, sum out backoff set
+            // interpolaton parameters. We'll stop backing off to the extent that the observed trees
+            // are estimated to have high probability (i.e. we're adding the estimated spans to only
+            // the NotBackoff outcome of backoff dirichlets.)
             stopBackoffInterpolationSums.setValue(
               stopKey,
               NotBackoff,
@@ -184,25 +141,6 @@ class DMVFullBayesianBackoffPartialCounts(
                 stopCounts( stopKey, dec )
               )
             )
-            // stopBackoffInterpolationSums.setValue(
-            //   stopKey,
-            //   Backoff,
-            //   logSum(
-            //     stopBackoffInterpolationSums( stopKey, Backoff ),
-            //     thisBackoffComponent
-            //     //thisNoBackoffComponent
-            //   )
-            // )
-            // Use backoff head because our interpolation rules are tied
-            // stopBackoffInterpolationTiedSums.setValue(
-            //   backoffStopKey,
-            //   logSum(
-            //     stopBackoffInterpolationTiedSums( backoffStopKey ),
-            //     thisBackoffComponent
-            //   )
-            // )
-            // tiedStopRuleCount( backoffStopKey ) += 1
-
 
             // for backoff distribution, only sum over elements of the backoff set.
             stopNoBackoffCounts.setValue(
@@ -210,7 +148,6 @@ class DMVFullBayesianBackoffPartialCounts(
               dec,
               logSum(
                 stopNoBackoffCounts( stopKey, dec ),
-                //thisNoBackoffComponent
                 stopCounts( stopKey, dec )
               )
             )
@@ -219,7 +156,6 @@ class DMVFullBayesianBackoffPartialCounts(
               dec,
               logSum(
                 stopBackoffCounts( backoffStopKey, dec ),
-                //thisBackoffComponent
                 stopCounts( stopKey, dec )
               )
             )
@@ -298,8 +234,7 @@ class DMVFullBayesianBackoffPartialCounts(
     val headBackoffInterpolationSums = new Log2dTable( Set[ChooseArgument](), dmv.backoffDecision )
     val argBackoffInterpolationSums = new Log2dTable( Set[ChooseArgument](), dmv.backoffDecision )
 
-
-    // along with backoff terms
+    // along with backoff terms, both jointly estimated and with independence assumptions.
     val noChooseBackoffCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
     val backoffHeadCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
     val backoffArgBCounts = new Log2dTable( Set[ChooseArgument](), Set[Word]() )
@@ -524,6 +459,8 @@ class DMVFullBayesianBackoffPartialCounts(
                   chooseKey -> logSum(
                     Seq(
 
+                      chooseDefaults( chooseKey ),
+
                       headBackoffInterpolationSums( chooseKey, NotBackoff ) +
                         argBackoffInterpolationSums( argBackoffKey, NotBackoff ) +
                           noChooseBackoffCounts.getParentDefault( chooseKey ),
@@ -542,21 +479,6 @@ class DMVFullBayesianBackoffPartialCounts(
                           backoffBothArgACounts.getParentDefault( chooseKey ) +
                           backoffBothArgBCounts.getParentDefault( chooseKey )
 
-                                // chooseDefaults.getOrElse( chooseKey, Double.NegativeInfinity ),
-
-                                // chooseBackoffInterpolationSums( chooseKey, NotBackoff ) +
-                                //   noChooseBackoffCounts.getParentDefault( chooseKey ),
-
-                                // chooseBackoffInterpolationSums( chooseKey, BackoffHead ) +
-                                //   backoffHeadCounts.getParentDefault( backoffHeadKey ),
-
-                                // chooseBackoffInterpolationSums( chooseKey, BackoffArg ) +
-                                //   backoffArgACounts.getParentDefault( chooseKey ) +
-                                //   backoffArgBCounts.getParentDefault( chooseKey ),
-
-                                // chooseBackoffInterpolationSums( chooseKey, BackoffBoth ) +
-                                //   backoffBothArgACounts.getParentDefault( backoffHeadKey ) +
-                                //   backoffBothArgBCounts.getParentDefault( backoffHeadKey )
                     )
                   )
 
@@ -586,28 +508,12 @@ class DMVFullBayesianBackoffPartialCounts(
                           backoffBothArgACounts( chooseKey, argA ) +
                           backoffBothArgBCounts( chooseKey, argB )
 
-                                // chooseBackoffInterpolationSums( chooseKey, NotBackoff ) +
-                                //   noChooseBackoffCounts( chooseKey, argPair ),
-                                // chooseBackoffInterpolationSums( chooseKey, BackoffHead ) +
-                                //   backoffHeadCounts( backoffHeadKey, argPair ),
-                                // chooseBackoffInterpolationSums( chooseKey, BackoffArg ) +
-                                //   backoffArgACounts( chooseKey, argA ) +
-                                //   backoffArgBCounts( chooseKey, argB ),
-                                // chooseBackoffInterpolationSums( chooseKey, BackoffBoth ) +
-                                //   backoffBothArgACounts( backoffHeadKey, argA ) +
-                                //   backoffBothArgBCounts( backoffHeadKey, argB )
                     )
+
                   )
                 )
               }
-              case rootArg:AbstractRoot => {
-                /* intentionally empty */
-                // backedoffChoose.setValue(
-                //   chooseKey,
-                //   arg,
-                //   Double.NegativeInfinity
-                // )
-              }
+              case rootArg:AbstractRoot => { /* intentionally empty */ }
             }
           }
           case rootHead:AbstractRoot => {
@@ -626,58 +532,14 @@ class DMVFullBayesianBackoffPartialCounts(
     )
     backedoffChoose.setDefaultParentMap( chooseDefaults )
 
-    // println( "Testing choose default in partial counts (" + backedoffChoose.parents.size + "):  " +
-    //   backedoffChoose( ChooseArgument( Word( "yugioh" ), RightAttachment ) , Word( "yohoho" ) ) +
-    //   "\t" + backedoffChoose( ChooseArgument( WordPair( "CC", "6" ), RightAttachment ) , Word( "yohoho" ) ) +
-    //   "\t" + 
-    //     backedoffChoose( ChooseArgument( WordPair( "CC", "6" ), RightAttachment ) , WordPair( "IN", "2" ) )
-    // )
-
-    // assert(
-    //   backedoffStop.parents.forall( stopKey =>
-    //     logSum( backedoffStop(stopKey).values.toSeq ) <= 0D
-    //   )
-    // )
-    // assert(
-    //   backedoffChoose.parents.forall( chooseKey =>
-    //     logSum( backedoffChoose(chooseKey).values.toSeq ) <= 0D
-    //   )
-    // )
-
-    //println( "normalizing stop backoff distribution." )
-    //backedoffStop.expDigammaNormalize()
-    //println( "normalizing choose backoff distribution." )
-    //backedoffChoose.expDigammaNormalize()
 
     println( "Done!" )
 
-    // val toReturn = new DMVBayesianBackoffPartialCounts(
-    //   noChooseBackoff,
-    //   backoffArg,
-    //   backoffBoth,
-    //   noStopBackoff,
-    //   stopBackoff,
-    //   newNoChooseBackoffScore,
-    //   newChooseBackoffArgScore,
-    //   newChooseBackoffBothScore,
-    //   newNoStopBackoffScore,
-    //   newStopBackoffScore
-    // )
-
-    //println( "about to create new grammar with newNoStopBackoffScore:\n" + newNoStopBackoffScore )
     val toReturn = associatedGrammar
-
-    // val freeEnergy =
-    //   freeEnergyElementOne + freeEnergyElementTwo - freeEnergyElementThree + freeEnergyElementFour
-
-    // println( "Free energy is: " +
-    //   freeEnergyElementOne + " + " + freeEnergyElementTwo + " - " + freeEnergyElementThree + " + " +
-    //   freeEnergyElementFour + " = " + freeEnergy )
 
 
     toReturn.setParams(
       DMVFullBayesianBackoffParameters(
-        // freeEnergy,
         orderCounts.toLogCPT,
         backedoffStop.asLogCPT,
         backedoffChoose.asLogCPT,
@@ -693,6 +555,12 @@ class DMVFullBayesianBackoffPartialCounts(
 
   override def toString =
     super.toString +
+      "\nStopBackoffScore:\n" +
+        stopBackoffScore +
+      "\nHeadBackoffScore:\n" +
+        headBackoffScore +
+      "\nArgBackoffScore:\n" +
+        argBackoffScore +
       "Alphas:\n" +
       "\tnoBackoffAlpha: " + noBackoffAlpha + "\n" +
       "\tbackoffAlpha: " + backoffAlpha + "\n"

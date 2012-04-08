@@ -10,7 +10,6 @@ import predictabilityParsing.util.Math
 //class DMVGrammar( vocabulary:Set[ObservedLabel] ) {
 abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
 
-  def clearInterpolationScores = ()
 
   //protected val p_order = new LogCPT( vocabulary + Root, dmv.attachmentOrder )
   protected val p_order = new LogCPT( Set[ObservedLabel](), dmv.attachmentOrder )

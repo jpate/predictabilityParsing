@@ -8,26 +8,13 @@ import predictabilityParsing.partialCounts.DMVFullBayesianBackoffPartialCounts
 import predictabilityParsing.util.Math
 
 class DMVFullBayesianBackoffGrammar(
-        // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
-        // decisions are drawn
-        // noStopBackoff:Double = 35,
-        // stopBackoff:Double = 70,
-        // noChooseBackoff:Double = 30,
-        // backoffHead:Double = 60,
-        // backoffArg:Double = 60,
-        // backoffBoth:Double = 120,
-        // // these are specific backoff parameters
-        // noStopBackoffScore:AbstractLog1dTable[StopOrNot],
-        // stopBackoffScore:AbstractLog1dTable[StopOrNot],
-        // noChooseBackoffScore:AbstractLog1dTable[ChooseArgument],
-        // backoffHeadScore:AbstractLog1dTable[ChooseArgument],
-        // backoffArgScore:AbstractLog1dTable[ChooseArgument],
-        // backoffBothScore:AbstractLog1dTable[ChooseArgument]
-  // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
-  // decisions are drawn
+    // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
+    // decisions are drawn
   noBackoffAlpha:Double = 35,
   backoffAlpha:Double = 70,
-  // these are specific backoff parameters
+    // these are specific backoff parameters. We don't actually use these, it's just convenient to
+    // keep them around so we can print them out for closer inspection. In the event of memory or time
+    // problems, cutting these out of the class definition is an easy first step.
   stopBackoffScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
   headBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
   argBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision]
@@ -44,11 +31,11 @@ class DMVFullBayesianBackoffGrammar(
       Set[StopOrNot](),
       dmv.backoffDecision,
       Map[BackoffDecision,Double](
-        Backoff -> {
-          Math.expDigamma( math.log( backoffAlpha ) ) -
+        NotBackoff -> {
+          Math.expDigamma( math.log( noBackoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
         },
-        NotBackoff -> {
+        Backoff -> {
           Math.expDigamma( math.log( backoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
         }
@@ -58,12 +45,12 @@ class DMVFullBayesianBackoffGrammar(
       Set[ChooseArgument](),
       dmv.backoffDecision,
       Map[BackoffDecision,Double](
-        Backoff -> {
+        NotBackoff -> {
           Math.expDigamma( math.log( noBackoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
         },
-        NotBackoff -> {
-          Math.expDigamma( math.log( noBackoffAlpha ) ) -
+        Backoff -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
         }
       )
@@ -72,12 +59,12 @@ class DMVFullBayesianBackoffGrammar(
       Set[ChooseArgument](),
       dmv.backoffDecision,
       Map[BackoffDecision,Double](
-        Backoff -> {
+        NotBackoff -> {
           Math.expDigamma( math.log( noBackoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
         },
-        NotBackoff -> {
-          Math.expDigamma( math.log( noBackoffAlpha ) ) -
+        Backoff -> {
+          Math.expDigamma( math.log( backoffAlpha ) ) -
             Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
         }
       )
@@ -86,13 +73,11 @@ class DMVFullBayesianBackoffGrammar(
   def this() = this( 35, 70 ) // defaults inspired by Headden for use on wsj10
 
 
-  //println( "Forming new grammar with noStopBackoffScore of:\n" + noStopBackoffScore )
-
   p_stop.setDefault(
     Math.expDigamma( 0D ) - Math.expDigamma( math.log( p_stop.parents.size )  )
   )
 
-  override def orderScore( word:ObservedLabel, pref:AttachmentOrder ) =// p_order( word, pref )
+  override def orderScore( word:ObservedLabel, pref:AttachmentOrder ) =
     pref match {
       case LeftFirst => Double.NegativeInfinity
       case RightFirst => 0D
@@ -162,9 +147,8 @@ class DMVFullBayesianBackoffGrammar(
 
   }
 
-  override def getParams = //VanillaDMVParameters( p_order, p_stop, p_choose )
+  override def getParams =
     DMVFullBayesianBackoffParameters(
-      //freeEnergy,
       p_order,
       p_stop,
       p_choose,
@@ -174,7 +158,6 @@ class DMVFullBayesianBackoffGrammar(
     )
 
   override def emptyPartialCounts = {
-    //println( "Forming new partial counts with noStopBackoffScore:\n" + noStopBackoffScore )
     new DMVFullBayesianBackoffPartialCounts(
       noBackoffAlpha,
       backoffAlpha,
