@@ -754,12 +754,11 @@ class VanillaDMVEstimator extends AbstractDMVParser{
           headEntry.iScore
         if( !( inc <= 0D ) ) {
           println( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) + " , " +
-            ChooseArgument( h.obs.w, h.attachmentDirection ) + " , " + a.obs.w )
-          println(
+            ChooseArgument( h.obs.w, h.attachmentDirection ) + " , " + a.obs.w + "\n  " + 
             g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) + " + " +
             g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) + " + " +
             argEntry.iScore + " + " +
-            headEntry.iScore + " = " + inc
+            headEntry.iScore + " = " + inc + "\n\n"
           )
         }
 

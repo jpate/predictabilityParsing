@@ -3,7 +3,7 @@ package predictabilityParsing.partialCounts
 import scalala.library.Numerics.{lgamma,logSum}
 import predictabilityParsing.types.labels._
 import predictabilityParsing.types.tables._
-import predictabilityParsing.grammars.DMVFullBayesianBackoffGrammar
+import predictabilityParsing.grammars.DMVBothBayesianBackoffGrammar
 import predictabilityParsing.grammars.AbstractDMVGrammar
 import predictabilityParsing.util.Math
 
@@ -23,7 +23,7 @@ import predictabilityParsing.util.Math
  *  We will always use lexical identity for selecting sentence root.
  *
  */
-class DMVFullBayesianBackoffPartialCounts(
+class DMVBothBayesianBackoffPartialCounts(
     // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
     // decisions are drawn
   noBackoffAlpha:Double = 35,
@@ -88,7 +88,7 @@ class DMVFullBayesianBackoffPartialCounts(
       // )
       // def this() = this( 35, 70 ) // defaults inspired by Headden for use on wsj10
 
-  override def associatedGrammar = new DMVFullBayesianBackoffGrammar(
+  override def associatedGrammar = new DMVBothBayesianBackoffGrammar(
     noBackoffAlpha,
     backoffAlpha//,
     // stopBackoffScore,
@@ -250,8 +250,8 @@ class DMVFullBayesianBackoffPartialCounts(
     val noChooseBackoffCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
     val backoffHeadCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
     val backoffArgBCounts = new Log2dTable( Set[ChooseArgument](), Set[Word]() )
-    val backoffArgACounts = new Log2dTable( Set[ChooseArgument](), Set[Word]() )
-    val backoffBothArgACounts = new Log2dTable( Set[ChooseArgument](), Set[Word]() )
+    //val backoffArgACounts = new Log2dTable( Set[ChooseArgument](), Set[Word]() )
+    //val backoffBothArgACounts = new Log2dTable( Set[ChooseArgument](), Set[Word]() )
     val backoffBothArgBCounts = new Log2dTable( Set[ChooseArgument](), Set[Word]() )
 
     val rootChooseCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
@@ -316,14 +316,14 @@ class DMVFullBayesianBackoffPartialCounts(
                   )
                 )
 
-                backoffArgACounts.setValue(
-                  chooseKey,
-                  argA,
-                  logSum(
-                    backoffArgACounts( chooseKey, argA ),
-                    chooseCounts( chooseKey, arg )
-                  )
-                )
+                // backoffArgACounts.setValue(
+                //   chooseKey,
+                //   argA,
+                //   logSum(
+                //     backoffArgACounts( chooseKey, argA ),
+                //     chooseCounts( chooseKey, arg )
+                //   )
+                // )
                 backoffArgBCounts.setValue(
                   chooseKey,
                   argB,
@@ -333,14 +333,14 @@ class DMVFullBayesianBackoffPartialCounts(
                   )
                 )
 
-                backoffBothArgACounts.setValue(
-                  backoffHeadKey,
-                  argA,
-                  logSum(
-                    backoffBothArgACounts( backoffHeadKey, argA ),
-                    chooseCounts( chooseKey, arg )
-                  )
-                )
+                // backoffBothArgACounts.setValue(
+                //   backoffHeadKey,
+                //   argA,
+                //   logSum(
+                //     backoffBothArgACounts( backoffHeadKey, argA ),
+                //     chooseCounts( chooseKey, arg )
+                //   )
+                // )
                 backoffBothArgBCounts.setValue(
                   backoffHeadKey,
                   argB,
@@ -460,9 +460,9 @@ class DMVFullBayesianBackoffPartialCounts(
 
     noChooseBackoffCounts.expDigammaNormalize()
     backoffHeadCounts.expDigammaNormalize()
-    backoffArgACounts.expDigammaNormalize()
+    //backoffArgACounts.expDigammaNormalize()
     backoffArgBCounts.expDigammaNormalize()
-    backoffBothArgACounts.expDigammaNormalize()
+    //backoffBothArgACounts.expDigammaNormalize()
     backoffBothArgBCounts.expDigammaNormalize()
     rootChooseCounts.expDigammaNormalize()
 
@@ -503,7 +503,7 @@ class DMVFullBayesianBackoffPartialCounts(
 
                       headBackoffInterpolationSums( chooseKey, NotBackoff ) +
                         argBackoffInterpolationSums( argBackoffKey, Backoff ) +
-                          backoffArgACounts.getParentDefault( chooseKey ) +
+                          //backoffArgACounts.getParentDefault( chooseKey ) +
                           backoffArgBCounts.getParentDefault( chooseKey ),
 
                       headBackoffInterpolationSums( chooseKey, Backoff ) +
@@ -512,7 +512,7 @@ class DMVFullBayesianBackoffPartialCounts(
 
                       headBackoffInterpolationSums( chooseKey, Backoff ) +
                         argBackoffInterpolationSums( argBackoffKey, Backoff ) +
-                          backoffBothArgACounts.getParentDefault( chooseKey ) +
+                          //backoffBothArgACounts.getParentDefault( chooseKey ) +
                           backoffBothArgBCounts.getParentDefault( chooseKey )
 
                     )
@@ -534,7 +534,7 @@ class DMVFullBayesianBackoffPartialCounts(
 
                       headBackoffInterpolationSums( chooseKey, NotBackoff ) +
                         argBackoffInterpolationSums( argBackoffKey, Backoff ) +
-                          backoffArgACounts( chooseKey, argA ) +
+                          //backoffArgACounts( chooseKey, argA ) +
                           backoffArgBCounts( chooseKey, argB ),
 
                       headBackoffInterpolationSums( chooseKey, Backoff ) +
@@ -543,7 +543,7 @@ class DMVFullBayesianBackoffPartialCounts(
 
                       headBackoffInterpolationSums( chooseKey, Backoff ) +
                         argBackoffInterpolationSums( argBackoffKey, Backoff ) +
-                          backoffBothArgACounts( chooseKey, argA ) +
+                          //backoffBothArgACounts( chooseKey, argA ) +
                           backoffBothArgBCounts( chooseKey, argB )
 
                     )

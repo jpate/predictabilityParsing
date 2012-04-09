@@ -4,10 +4,10 @@ import collection.mutable.Map
 
 import predictabilityParsing.types.labels._
 import predictabilityParsing.types.tables._
-import predictabilityParsing.partialCounts.DMVFullBayesianBackoffPartialCounts
+import predictabilityParsing.partialCounts.DMVBothBayesianBackoffPartialCounts
 import predictabilityParsing.util.Math
 
-class DMVFullBayesianBackoffGrammar(
+class DMVBothBayesianBackoffGrammar(
     // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
     // decisions are drawn
   noBackoffAlpha:Double = 35,
@@ -85,7 +85,7 @@ class DMVFullBayesianBackoffGrammar(
 
 
   override def setParams[P<:DMVParameters]( parameters:P ) {
-    //val DMVFullBayesianBackoffParameters(
+    //val DMVBothBayesianBackoffParameters(
     val VanillaDMVParameters(
       otherP_order,
       otherP_stop,
@@ -160,7 +160,7 @@ class DMVFullBayesianBackoffGrammar(
     )
 
   override def emptyPartialCounts = {
-    new DMVFullBayesianBackoffPartialCounts(
+    new DMVBothBayesianBackoffPartialCounts(
       noBackoffAlpha,
       backoffAlpha//,
       // stopBackoffScore,
