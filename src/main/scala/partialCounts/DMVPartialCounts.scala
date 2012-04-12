@@ -126,11 +126,6 @@ class DMVPartialCounts {
 
   def getChooseCountsString = "chooseCounts:\n" + chooseCounts.toString
 
-  val stopBackoffCounts = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
-
-  val chooseBackoffHeadCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
-  val chooseBackoffArgCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
-  val chooseBackoffBothCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
 
 
   def destructivePlus( otherCounts:DMVPartialCounts ) {

@@ -712,7 +712,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
       var iScore:Double = label.mark match {
         case UnsealedLeftFirst =>
-          if( span.end - span.start == 1 )
+          if( span.start - span.end == 1 )
             g.orderScore( label.obs.w, LeftFirst )
           else
             Double.NegativeInfinity
@@ -752,15 +752,15 @@ class VanillaDMVEstimator extends AbstractDMVParser{
           g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) +
           argEntry.iScore +
           headEntry.iScore
-        if( !( inc <= 0D ) ) {
-          println( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) + " , " +
-            ChooseArgument( h.obs.w, h.attachmentDirection ) + " , " + a.obs.w + "\n  " + 
-            g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) + " + " +
-            g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) + " + " +
-            argEntry.iScore + " + " +
-            headEntry.iScore + " = " + inc + "\n\n"
-          )
-        }
+          // if( !( inc <= 0D ) ) {
+          //   println( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) + " , " +
+          //     ChooseArgument( h.obs.w, h.attachmentDirection ) + " , " + a.obs.w + "\n  " + 
+          //     g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) + " + " +
+          //     g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) + " + " +
+          //     argEntry.iScore + " + " +
+          //     headEntry.iScore + " = " + inc + "\n\n"
+          //   )
+          // }
 
         incrementIScore( inc )
         children += SpannedChildren( headEntry, Some(argEntry) )
@@ -991,9 +991,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
       import math.exp
       val n = s.length
 
-      //matrix( 0 )( n )( MarkedObservation( FinalRoot(n-1), Sealed ) ).setOScore( 0D )
       rootEntry.setOScore( 0D )
-      // 1 to (n) rather than 1 to (n-1) because we do have unary branches over the whole sentence
       ( 1 to n ).reverse.foreach( length =>
         ( 0 to ( n - length ) ).foreach{ i =>
           val j = i + length
@@ -1128,8 +1126,6 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
     def toPartialCounts = {
       import collection.mutable.HashMap
-      //println( "STARTING toPartialCounts for " + s.mkString("[ ", ", ", " ]" ) )
-      //val pc = new DMVPartialCounts
       val pc = g.emptyPartialCounts
 
       (0 to (s.length-1) ).foreach{ i =>
@@ -1219,11 +1215,6 @@ class VanillaDMVEstimator extends AbstractDMVParser{
         }
       }
 
-
-      // pc.divideChooseCounts( treeScore )
-      // pc.divideStopCounts( treeScore )
-      // pc.divideOrderCounts( treeScore )
-
       if( !( treeScore <= 0D ) ) {
         println( s.mkString("[ ", " ", " ]" ) )
         println( treeScore )
@@ -1232,14 +1223,6 @@ class VanillaDMVEstimator extends AbstractDMVParser{
       assert( treeScore <= 0D )
       pc.setTotalScore( treeScore )
 
-      // if( treeScore == Double.NegativeInfinity ) {
-      //   println( this )
-      // }
-      //println( s.mkString("[ ", ", ", " ]" ) + ": " + treeScore )
-
-      // println( "partial counts for " + s.mkString( "[ ", ", ", ", " ) + ":\n" + pc )
-      //println( "\n\n ---  DONE WITH toPartialCounts  ---\n\n" )
-      //println(">")
       pc
     }
 
@@ -1274,15 +1257,6 @@ class VanillaDMVEstimator extends AbstractDMVParser{
       else
         new Chart( s )
 
-    // println( "Testing choose default in estimator:  " +
-    //   g.chooseScore( ChooseArgument( WordPair( "CC", "6" ), RightAttachment ) , Word( "yohoho" ) ) +
-    //   "\t" + 
-    //     g.chooseScore( ChooseArgument( WordPair( "CC", "6" ), RightAttachment ) , WordPair( "IN", "2" ) )
-    // )
-    // println( "Testing stop default in estimator:  " +
-    //   g.stopScore( StopOrNot( Word( "yohoho" ), RightAttachment, true ) , NotStop ) +
-    //   "\t" + g.stopScore( StopOrNot( WordPair( "CC", "6" ), RightAttachment, true ) , NotStop )
-    // )
     (1 to ( chart.size )) foreach{ j =>
       chart.lexFill( j-1 )
       if( j > 1 )
@@ -1359,7 +1333,6 @@ class VanillaDMVParser( val randomSeed:Int = 10 ) extends AbstractDMVParser{
     // Ok, stupidly simple entry class
     abstract class Entry(
       val label:MarkedObservation,
-      //val headChild:Option[Entry],
       val span:Span
     ) {
       def constituencyParse:String

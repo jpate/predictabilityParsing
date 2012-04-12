@@ -3,7 +3,7 @@ package predictabilityParsing.partialCounts
 import scalala.library.Numerics.{lgamma,logSum}
 import predictabilityParsing.types.labels._
 import predictabilityParsing.types.tables._
-import predictabilityParsing.grammars.DMVBothBayesianBackoffGrammar
+import predictabilityParsing.grammars.DMVBayesianBackoffIndependentDepsGrammar
 import predictabilityParsing.grammars.AbstractDMVGrammar
 import predictabilityParsing.util.Math
 
@@ -23,7 +23,7 @@ import predictabilityParsing.util.Math
  *  We will always use lexical identity for selecting sentence root.
  *
  */
-class DMVBothBayesianBackoffPartialCounts(
+class DMVBayesianBackoffIndependentDepsPartialCounts(
     // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
     // decisions are drawn
   noBackoffAlpha:Double = 35,
@@ -31,17 +31,18 @@ class DMVBothBayesianBackoffPartialCounts(
 ) extends DMVPartialCounts {
 
 
-  override def associatedGrammar = new DMVBothBayesianBackoffGrammar(
+
+
+  override def associatedGrammar = new DMVBayesianBackoffIndependentDepsGrammar(
     noBackoffAlpha,
     backoffAlpha
   )
 
+
   override def toDMVGrammar = {
     print( "Computing DMVBayesianBackoffGrammar..." )
 
-    val stopBackoffAlphaMap = Map( Backoff -> backoffAlpha, NotBackoff -> noBackoffAlpha )
-    val headBackoffAlphaMap = Map( Backoff -> backoffAlpha, NotBackoff -> noBackoffAlpha )
-    val argBackoffAlphaMap = Map( Backoff -> backoffAlpha, NotBackoff -> noBackoffAlpha )
+    val backoffAlphaMap = Map( Backoff -> backoffAlpha, NotBackoff -> noBackoffAlpha )
 
 
     // First, compute new interpolation parameters, starting with stop
@@ -57,7 +58,6 @@ class DMVBothBayesianBackoffPartialCounts(
           dmv.stopDecision.foreach{ dec =>
             val backoffHead = Word(h2)
             val backoffStopKey = StopOrNot( backoffHead, stopKey.dir, stopKey.adj )
-
 
             // interpolaton parameters. We'll stop backing off to the extent that the observed trees
             // are estimated to have high probability (i.e. we're adding the estimated spans to only
@@ -96,10 +96,6 @@ class DMVBothBayesianBackoffPartialCounts(
     }
 
     stopBackoffInterpolationSums.parents.foreach{ stopKey =>
-      val WordPair( h1, h2 ) = stopKey.w
-      val backoffHead = Word(h2)
-      val backoffStopKey = StopOrNot( backoffHead, stopKey.dir, stopKey.adj )
-
       stopBackoffInterpolationSums.setValue(
         stopKey,
         Backoff,
@@ -154,7 +150,8 @@ class DMVBothBayesianBackoffPartialCounts(
     )
 
 
-    stopBackoffInterpolationSums.expDigammaNormalize( stopBackoffAlphaMap )
+    stopBackoffInterpolationSums.expDigammaNormalize( backoffAlphaMap )
+
     stopBackoffInterpolationSums.setDefaultChildMap(
       Map[BackoffDecision,Double](
         Backoff -> {
@@ -172,91 +169,76 @@ class DMVBothBayesianBackoffPartialCounts(
 
     // whew, now let's get interpolation parameters for chooseScore
 
-    val headBackoffInterpolationSums = new Log2dTable( Set[ChooseArgument](), dmv.backoffDecision )
-    val argBackoffInterpolationSums = new Log2dTable( Set[ChooseArgument](), dmv.backoffDecision )
+    val chooseBackoffHeadInterpolationSums =
+      new Log2dTable( Set[ChooseArgument](), dmv.backoffDecision )
 
-    // along with backoff terms, both jointly estimated and with independence assumptions.
-    val noChooseBackoffCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
-    val backoffHeadCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
-    val backoffArgBCounts = new Log2dTable( Set[ChooseArgument](), Set[Word]() )
-    val backoffBothArgBCounts = new Log2dTable( Set[ChooseArgument](), Set[Word]() )
+    // along with backoff terms
+    val noBackoffHeadCountsA = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+    val noBackoffHeadCountsB = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+    val backoffHeadCountsA = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+    val backoffHeadCountsB = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
 
-    val rootChooseCounts = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+    val rootChooseCounts =
+      new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
 
     chooseCounts.parents.foreach{ chooseKey =>
       chooseKey.h match {
         case WordPair( h1, h2 ) => {
-
-          val attachDir = chooseKey.dir
-          val backoffHead = Word( h2 )
-          val backoffHeadKey = ChooseArgument( backoffHead, attachDir )
+          val backoffHeadKey = ChooseArgument( Word( h2 ), chooseKey.dir )
 
           chooseCounts(chooseKey).keySet.foreach{ arg =>
             arg match {
               case WordPair( a1, a2 ) => {
 
+                val attachDir = chooseKey.dir
 
-                val argPair = WordPair( a1, a2 )
+
+                chooseBackoffHeadInterpolationSums.setValue(
+                  chooseKey,
+                  NotBackoff,
+                  logSum(
+                    chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ),
+                    chooseCounts( chooseKey, arg )
+                  )
+                )
+
+                // Also, count up for each backoff distribution (not the interpolation parameters).
                 val argA = Word(a1)
                 val argB = Word(a2)
 
-                val backoffArg = WordQuad( h1, h2, a1, a2 )
-                val backoffArgKey = ChooseArgument( backoffArg, attachDir )
-
-
-                headBackoffInterpolationSums.setValue(
+                noBackoffHeadCountsA.setValue(
                   chooseKey,
-                  NotBackoff,
+                  argA,
+                  //backoffArg,
                   logSum(
-                    headBackoffInterpolationSums( chooseKey, NotBackoff ),
+                    noBackoffHeadCountsA( chooseKey, argA /*backoffArg*/ ),
                     chooseCounts( chooseKey, arg )
                   )
                 )
-
-                argBackoffInterpolationSums.setValue(
-                  backoffArgKey,
-                  NotBackoff,
-                  logSum(
-                    argBackoffInterpolationSums( backoffArgKey, NotBackoff ),
-                    chooseCounts( chooseKey, arg )
-                  )
-                )
-
-
-
-                // Also, count up for each backoff distribution (not the interpolation parameters).
-                noChooseBackoffCounts.setValue(
-                  chooseKey,
-                  argPair,
-                  logSum(
-                    noChooseBackoffCounts( chooseKey, argPair ),
-                    chooseCounts( chooseKey, arg )
-                  )
-                )
-
-                backoffHeadCounts.setValue(
-                  backoffHeadKey,
-                  argPair,
-                  logSum(
-                    backoffHeadCounts( backoffHeadKey, argPair ),
-                    chooseCounts( chooseKey, arg )
-                  )
-                )
-
-                backoffArgBCounts.setValue(
+                noBackoffHeadCountsB.setValue(
                   chooseKey,
                   argB,
+                  //backoffArg,
                   logSum(
-                    backoffArgBCounts( chooseKey, argB ),
+                    noBackoffHeadCountsB( chooseKey, argB /*backoffArg*/ ),
                     chooseCounts( chooseKey, arg )
                   )
                 )
-
-                backoffBothArgBCounts.setValue(
+                backoffHeadCountsA.setValue(
+                  backoffHeadKey,
+                  argA,
+                  //backoffArg,
+                  logSum(
+                    backoffHeadCountsA( backoffHeadKey, argA /*backoffArg*/ ),
+                    chooseCounts( chooseKey, arg )
+                  )
+                )
+                backoffHeadCountsB.setValue(
                   backoffHeadKey,
                   argB,
+                  //backoffArg,
                   logSum(
-                    backoffBothArgBCounts( backoffHeadKey, argB ),
+                    backoffHeadCountsB( backoffHeadKey, argB /*backoffArg*/ ),
                     chooseCounts( chooseKey, arg )
                   )
                 )
@@ -283,26 +265,16 @@ class DMVBothBayesianBackoffPartialCounts(
       }
     }
 
-
-
-    headBackoffInterpolationSums.parents.foreach{ headBackoffKey =>
-      headBackoffInterpolationSums.setValue(
-        headBackoffKey,
+    chooseBackoffHeadInterpolationSums.parents.foreach{ chooseKey =>
+      chooseBackoffHeadInterpolationSums.setValue(
+        chooseKey,
         Backoff,
         Double.NegativeInfinity
       )
     }
 
-    argBackoffInterpolationSums.parents.foreach{ argBackoffKey =>
-      argBackoffInterpolationSums.setValue(
-        argBackoffKey,
-        Backoff,
-        Double.NegativeInfinity
-      )
-    }
-
-    headBackoffInterpolationSums.expDigammaNormalize( headBackoffAlphaMap )
-    headBackoffInterpolationSums.setDefaultChildMap(
+    chooseBackoffHeadInterpolationSums.expDigammaNormalize( backoffAlphaMap )
+    chooseBackoffHeadInterpolationSums.setDefaultChildMap(
       Map[BackoffDecision,Double](
         Backoff -> {
           Math.expDigamma( math.log( backoffAlpha ) ) -
@@ -314,23 +286,6 @@ class DMVBothBayesianBackoffPartialCounts(
         }
       )
     )
-
-    argBackoffInterpolationSums.expDigammaNormalize( argBackoffAlphaMap )
-    argBackoffInterpolationSums.setDefaultChildMap(
-      Map[BackoffDecision,Double](
-        Backoff -> {
-          Math.expDigamma( math.log( backoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-        },
-        NotBackoff -> {
-          Math.expDigamma( math.log( noBackoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-        }
-      )
-    )
-
-
-
 
     // Ok, now compute backed-off parameters
 
@@ -369,94 +324,66 @@ class DMVBothBayesianBackoffPartialCounts(
     )
 
 
-    noChooseBackoffCounts.expDigammaNormalize()
-    backoffHeadCounts.expDigammaNormalize()
-    backoffArgBCounts.expDigammaNormalize()
-    backoffBothArgBCounts.expDigammaNormalize()
+    backoffHeadCountsA.expDigammaNormalize()
+    backoffHeadCountsB.expDigammaNormalize()
+    //backoffHeadCounts.expDigammaNormalize()
+    noBackoffHeadCountsA.expDigammaNormalize()
+    noBackoffHeadCountsB.expDigammaNormalize()
+    //noBackoffHeadCounts.expDigammaNormalize()
     rootChooseCounts.expDigammaNormalize()
 
-
-    val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]().withDefaultValue( Double.NegativeInfinity )
+    val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]()
 
     val backedoffChoose = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
     chooseCounts.parents.foreach{ chooseKey =>
-      val attachDir = chooseKey.dir
+      chooseKey.h match {
+      case WordPair( h1, h2 ) =>
+        val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
+        chooseDefaults +=
+          chooseKey -> 
+            logSum(
+              Seq(
+                chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
+                  noBackoffHeadCountsA.getParentDefault( chooseKey ) +
+                  noBackoffHeadCountsB.getParentDefault( chooseKey ),
+                chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
+                  backoffHeadCountsA.getParentDefault( backoffHeadKey ) +
+                  backoffHeadCountsB.getParentDefault( backoffHeadKey )
+              )
+            )
+        case rootHead:AbstractRoot => {
+          // Special handling to allow only one root.
+          chooseDefaults +=
+            chooseKey -> rootChooseCounts.getParentDefault( chooseKey )
+        }
+      }
 
       chooseCounts(chooseKey).keySet.foreach{ arg =>
         chooseKey.h match {
           case WordPair( h1, h2 ) => {
-          val attachDir = chooseKey.dir
-          val backoffHead = Word( h2 )
-          val backoffHeadKey = ChooseArgument( backoffHead, attachDir )
-
+            val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
             arg match {
               case WordPair( a1, a2 ) => {
 
-                val argPair = WordPair( a1, a2 )
                 val argA = Word(a1)
                 val argB = Word(a2)
-
-                val argBackoff = WordQuad( h1, h2, a1, a2 )
-                val argBackoffKey =
-                  ChooseArgument( argBackoff, attachDir )
-
-                chooseDefaults +=
-                  chooseKey -> logSum(
-                    Seq(
-
-                      chooseDefaults( chooseKey ),
-
-                      headBackoffInterpolationSums( chooseKey, NotBackoff ) +
-                        argBackoffInterpolationSums( argBackoffKey, NotBackoff ) +
-                          noChooseBackoffCounts.getParentDefault( chooseKey ),
-
-                      headBackoffInterpolationSums( chooseKey, NotBackoff ) +
-                        argBackoffInterpolationSums( argBackoffKey, Backoff ) +
-                          backoffArgBCounts.getParentDefault( chooseKey ),
-
-                      headBackoffInterpolationSums( chooseKey, Backoff ) +
-                        argBackoffInterpolationSums( argBackoffKey, NotBackoff ) +
-                          backoffHeadCounts.getParentDefault( backoffHeadKey ),
-
-                      headBackoffInterpolationSums( chooseKey, Backoff ) +
-                        argBackoffInterpolationSums( argBackoffKey, Backoff ) +
-                          backoffBothArgBCounts.getParentDefault( chooseKey )
-
-                    )
-                  )
-
-
-
-
 
                 backedoffChoose.setValue(
                   chooseKey,
                   arg,
                   logSum(
                     Seq(
-
-                      headBackoffInterpolationSums( chooseKey, NotBackoff ) +
-                        argBackoffInterpolationSums( argBackoffKey, NotBackoff ) +
-                          noChooseBackoffCounts( chooseKey, argPair ),
-
-                      headBackoffInterpolationSums( chooseKey, NotBackoff ) +
-                        argBackoffInterpolationSums( argBackoffKey, Backoff ) +
-                          backoffArgBCounts( chooseKey, argB ),
-
-                      headBackoffInterpolationSums( chooseKey, Backoff ) +
-                        argBackoffInterpolationSums( argBackoffKey, NotBackoff ) +
-                          backoffHeadCounts( backoffHeadKey, argPair ),
-
-                      headBackoffInterpolationSums( chooseKey, Backoff ) +
-                        argBackoffInterpolationSums( argBackoffKey, Backoff ) +
-                          backoffBothArgBCounts( chooseKey, argB )
-
+                      chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
+                        noBackoffHeadCountsA( chooseKey, argA ) +
+                        noBackoffHeadCountsB( chooseKey, argB ),
+                      chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
+                        backoffHeadCountsA( backoffHeadKey, argA ) +
+                        backoffHeadCountsB( backoffHeadKey, argB )
                     )
-
                   )
                 )
               }
-              case rootArg:AbstractRoot => { /* intentionally empty */ }
+              case rootArg:AbstractRoot => { /* Intentionally empty */ }
             }
           }
           case rootHead:AbstractRoot => {

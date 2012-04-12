@@ -64,6 +64,8 @@ object NotStop extends StopDecision( "--NotStop--" )
 
 abstract class BackoffDecision( s:String ) extends HiddenLabel( s )
 object Backoff extends BackoffDecision( "--Backoff--" )
+object BackoffOne extends BackoffDecision( "--BackoffOne--" )
+object BackoffTwo extends BackoffDecision( "--BackoffTwo--" )
 object BackoffArg extends BackoffDecision( "--BackoffArg--" )
 object BackoffHead extends BackoffDecision( "--BackoffHead--" )
 object BackoffBoth extends BackoffDecision( "--BackoffBoth--" )
@@ -111,6 +113,7 @@ package object dmv {
   val attachmentDirection:Set[AttachmentDirection] = Set( LeftAttachment, RightAttachment )
   val stopDecision:Set[StopDecision] = Set( Stop, NotStop )
   val backoffDecision:Set[BackoffDecision] = Set( Backoff, NotBackoff )
+  val threeStreamBackoffDecision:Set[BackoffDecision] = Set( NotBackoff, BackoffOne, BackoffTwo )
 
   val chooseBackoffDecision:Set[BackoffDecision] = Set(
     NotBackoff,

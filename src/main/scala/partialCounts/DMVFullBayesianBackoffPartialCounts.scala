@@ -27,85 +27,15 @@ class DMVFullBayesianBackoffPartialCounts(
     // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
     // decisions are drawn
   noBackoffAlpha:Double = 35,
-  backoffAlpha:Double = 70//,
-    // these are specific backoff parameters. We don't actually use these, it's just convenient to
-    // keep them around so we can print out a DMVFullBayesianBackoffGrammar and take a closer look
-    // at what's actually going on.
-  // stopBackoffScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
-  // headBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
-  // argBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision]
+  backoffAlpha:Double = 70
 ) extends DMVPartialCounts {
 
-      // def this(
-      //   noBackoffAlpha:Double,
-      //   backoffAlpha:Double
-      // ) = this(
-      //   noBackoffAlpha,
-      //   backoffAlpha,
-      //   // these are specific backoff parameters
-      //   stopBackoffScore = Log2dTable(
-      //     Set[StopOrNot](),
-      //     dmv.backoffDecision,
-      //     Map[BackoffDecision,Double](
-      //       NotBackoff -> {
-      //         Math.expDigamma( math.log( noBackoffAlpha ) ) -
-      //           Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-      //       },
-      //       Backoff -> {
-      //         Math.expDigamma( math.log( backoffAlpha ) ) -
-      //           Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-      //       }
-      //     )
-      //   ),
-      //   headBackoffScore = Log2dTable(
-      //     Set[ChooseArgument](),
-      //     dmv.backoffDecision,
-      //     Map[BackoffDecision,Double](
-      //       NotBackoff -> {
-      //         Math.expDigamma( math.log( noBackoffAlpha ) ) -
-      //           Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
-      //       },
-      //       Backoff -> {
-      //         Math.expDigamma( math.log( backoffAlpha ) ) -
-      //           Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
-      //       }
-      //     )
-      //   ),
-      //   argBackoffScore = Log2dTable(
-      //     Set[ChooseArgument](),
-      //     dmv.backoffDecision,
-      //     Map[BackoffDecision,Double](
-      //       NotBackoff -> {
-      //         Math.expDigamma( math.log( noBackoffAlpha ) ) -
-      //           Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
-      //       },
-      //       Backoff -> {
-      //         Math.expDigamma( math.log( backoffAlpha ) ) -
-      //           Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha ) )
-      //       }
-      //     )
-      //   )
-      // )
-      // def this() = this( 35, 70 ) // defaults inspired by Headden for use on wsj10
 
   override def associatedGrammar = new DMVFullBayesianBackoffGrammar(
     noBackoffAlpha,
-    backoffAlpha//,
-    // stopBackoffScore,
-    // headBackoffScore,
-    // argBackoffScore
+    backoffAlpha
   )
 
-  // def associatedGrammar(
-  //   newStopBackoffScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
-  //   newHeadBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
-  //   newArgBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision]
-  // ):AbstractDMVGrammar = new DMVFullBayesianBackoffGrammar(
-  //   noBackoffAlpha, backoffAlpha,
-  //   newStopBackoffScore,
-  //   newHeadBackoffScore,
-  //   newArgBackoffScore
-  // )
 
   override def toDMVGrammar = {
     print( "Computing DMVBayesianBackoffGrammar..." )
@@ -577,14 +507,10 @@ class DMVFullBayesianBackoffPartialCounts(
 
 
     toReturn.setParams(
-      //DMVFullBayesianBackoffParameters(
       VanillaDMVParameters(
         orderCounts.toLogCPT,
         backedoffStop.asLogCPT,
         backedoffChoose.asLogCPT
-        //stopBackoffInterpolationSums,
-        //headBackoffInterpolationSums,
-        //argBackoffInterpolationSums
       )
     )
 
@@ -594,12 +520,6 @@ class DMVFullBayesianBackoffPartialCounts(
 
   override def toString =
     super.toString +
-      // "\nStopBackoffScore:\n" +
-      //   stopBackoffScore +
-      // "\nHeadBackoffScore:\n" +
-      //   headBackoffScore +
-      // "\nArgBackoffScore:\n" +
-      //   argBackoffScore +
       "Alphas:\n" +
       "\tnoBackoffAlpha: " + noBackoffAlpha + "\n" +
       "\tbackoffAlpha: " + backoffAlpha + "\n"
