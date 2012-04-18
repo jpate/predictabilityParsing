@@ -169,18 +169,18 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       }
     )
 
-    setDefaultParentMap(
-      Map(
-        cpt.keySet.map{ parent =>
-          parent -> { expDigamma( logPseudoCount ) - maxes( parent ) }
-        }.toSeq:_*
-      ).withDefaultValue( 
-        expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size +1) + logPseudoCount )
-      )
-    )
-    setDefault(
-      expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size +1 ) + logPseudoCount )
-    )
+    // setDefaultParentMap(
+    //   Map(
+    //     cpt.keySet.map{ parent =>
+    //       parent -> { expDigamma( logPseudoCount ) - maxes( parent ) }
+    //     }.toSeq:_*
+    //   ).withDefaultValue( 
+    //     expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size +1) + logPseudoCount )
+    //   )
+    // )
+    // setDefault(
+    //   expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size +1 ) + logPseudoCount )
+    // )
   }
 
   def expDigammaNormalize( pseudoCountMap:scala.collection.Map[U,Double] ) {
@@ -233,8 +233,8 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       }
     )
 
-    val defaultDenom = logSum( logPseudoCountMap.values.toSeq )
-    setDefaultChildMap( logPseudoCountMap.mapValues{ alpha => alpha - defaultDenom } )
+    //val defaultDenom = logSum( logPseudoCountMap.values.toSeq )
+    //setDefaultChildMap( logPseudoCountMap.mapValues{ alpha => alpha - defaultDenom } )
 
       // logPseudoCountMap.mapValues{ alpha =>
       //   alpha - logSum( logPseudoCountMap.values.toSeq )
@@ -284,7 +284,12 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
 
   def parents = cpt.keySet
 
-  override def toString = parents.toList.sortWith( (a,b) => a < b ).map{ parent =>
+  override def toString =
+  "\tdefaultChildMap:" + defaultChildMap.keySet.map{ child =>
+      child + ": " + math.exp( defaultChildMap( child ) ) + "\n"
+    }.mkString("\n\t\t","\n\t\t","\n") +
+    parents.toList.sortWith( (a,b) => a < b ).map{ parent =>
+    "\n\t" + parent + " default: " + math.exp( getParentDefault( parent ) ) + 
     this(parent).keySet.toList.sortWith( (a,b) => a < b ).map{ ch =>
       //parent + " --> " +ch + ":\t" + ( "%1.4f".format( exp( cpt(parent)(ch) ) ) )
       parent + " --> " +ch + ":\t" + math.exp( cpt(parent)(ch) )

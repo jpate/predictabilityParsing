@@ -80,9 +80,11 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
 
   def orderScore( word:ObservedLabel, pref:AttachmentOrder ) = p_order( word, pref )
   def stopScore( stopKey:StopOrNot, stopDecision:StopDecision ) = p_stop( stopKey, stopDecision )
-  def chooseScore( chooseKey:ChooseArgument, arg:ObservedLabel ) = arg match{
-    case root:AbstractRoot => Double.NegativeInfinity
-    case _ => p_choose( chooseKey, arg )
+  def chooseScore( chooseKey:ChooseArgument, arg:ObservedLabel ) = {
+    arg match{
+      case root:AbstractRoot => Double.NegativeInfinity
+      case _ => p_choose( chooseKey, arg )
+    }
   }
 
   def normalize {

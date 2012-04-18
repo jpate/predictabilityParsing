@@ -419,6 +419,8 @@ class DMVBayesianBackoffThreeStreamPartialCounts(
 
     val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]()
 
+    val argVocab = chooseCounts.values.flatMap{ _.keySet }.toSet
+
     val backedoffChoose = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
     chooseCounts.parents.foreach{ chooseKey =>
       chooseKey.h match {
@@ -454,7 +456,8 @@ class DMVBayesianBackoffThreeStreamPartialCounts(
         }
       }
 
-      chooseCounts(chooseKey).keySet.foreach{ arg =>
+      //chooseCounts(chooseKey).keySet.foreach{ arg =>
+      argVocab.foreach{ arg =>
         chooseKey.h match {
           case WordTriple( h1, h2, h3 ) => {
 

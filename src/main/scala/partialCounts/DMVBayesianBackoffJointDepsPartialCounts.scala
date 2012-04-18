@@ -181,7 +181,7 @@ class DMVBayesianBackoffJointDepsPartialCounts(
 
     chooseCounts.parents.foreach{ chooseKey =>
       chooseKey.h match {
-        case WordPair( h1, h2 ) => {
+        case WordPair( _, h2 ) => {
           val backoffHeadKey = ChooseArgument( Word( h2 ), chooseKey.dir )
 
           chooseCounts(chooseKey).keySet.foreach{ arg =>
@@ -271,106 +271,108 @@ class DMVBayesianBackoffJointDepsPartialCounts(
     stopNoBackoffCounts.expDigammaNormalize()
     stopBackoffCounts.expDigammaNormalize()
 
-    val backedoffStop = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
-    stopCounts.parents.foreach{ stopKey =>
-      dmv.stopDecision.foreach{ stopDecision =>
-        stopKey.w match {
-          case WordPair( h1, h2 ) => {
-            val backoffHeadKey = StopOrNot( Word(h2), stopKey.dir, stopKey.adj )
-            backedoffStop.setValue(
-              stopKey,
-              stopDecision,
-              logSum(
-                stopBackoffInterpolationSums( stopKey, NotBackoff ) + stopNoBackoffCounts( stopKey, stopDecision ),
-                stopBackoffInterpolationSums( stopKey, Backoff ) + stopBackoffCounts( backoffHeadKey, stopDecision )
-              )
-            )
+        // val backedoffStop = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
+        // stopCounts.parents.foreach{ stopKey =>
+        //   dmv.stopDecision.foreach{ stopDecision =>
+        //     stopKey.w match {
+        //       case WordPair( h1, h2 ) => {
+        //         val backoffHeadKey = StopOrNot( Word(h2), stopKey.dir, stopKey.adj )
+        //         backedoffStop.setValue(
+        //           stopKey,
+        //           stopDecision,
+        //           logSum(
+        //             stopBackoffInterpolationSums( stopKey, NotBackoff ) + stopNoBackoffCounts( stopKey, stopDecision ),
+        //             stopBackoffInterpolationSums( stopKey, Backoff ) + stopBackoffCounts( backoffHeadKey, stopDecision )
+        //           )
+        //         )
 
-          }
-          case rootHead:AbstractRoot => {
-            backedoffStop.setValue(
-              stopKey,
-              stopDecision,
-              rootStopCounts( stopKey, stopDecision )
-            )
-          }
-        }
-      }
-    }
+        //       }
+        //       case rootHead:AbstractRoot => {
+        //         backedoffStop.setValue(
+        //           stopKey,
+        //           stopDecision,
+        //           rootStopCounts( stopKey, stopDecision )
+        //         )
+        //       }
+        //     }
+        //   }
+        // }
 
-    backedoffStop.setDefault(
-      expDigamma( 0D ) - expDigamma( math.log( backedoffStop.parents.size ) )
-    )
+        // backedoffStop.setDefault(
+        //   expDigamma( 0D ) - expDigamma( math.log( backedoffStop.parents.size ) )
+        // )
 
 
-    backoffHeadCounts.expDigammaNormalize()
     noBackoffHeadCounts.expDigammaNormalize()
+    backoffHeadCounts.expDigammaNormalize()
     rootChooseCounts.expDigammaNormalize()
 
-    val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]()
+        // val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]()
 
-    val backedoffChoose = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
-    chooseCounts.parents.foreach{ chooseKey =>
-      chooseKey.h match {
-      case WordPair( h1, h2 ) =>
-        val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
-        chooseDefaults +=
-          chooseKey -> 
-            logSum(
-              Seq(
-                chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
-                  noBackoffHeadCounts.getParentDefault( chooseKey ),
-                chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
-                  backoffHeadCounts.getParentDefault( backoffHeadKey )
-              )
-            )
-        case rootHead:AbstractRoot => {
-          // Special handling to allow only one root.
-          chooseDefaults +=
-            chooseKey -> rootChooseCounts.getParentDefault( chooseKey )
-        }
-      }
+        // val argVocab = chooseCounts.values.flatMap{ _.keySet }.toSet
 
-      chooseCounts(chooseKey).keySet.foreach{ arg =>
-        chooseKey.h match {
-          case WordPair( h1, h2 ) => {
-            val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
-            arg match {
-              case WordPair( a1, a2 ) => {
+        // val backedoffChoose = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+        // chooseCounts.parents.foreach{ chooseKey =>
+        //   chooseKey.h match {
+        //   case WordPair( h1, h2 ) =>
+        //     val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
+        //     chooseDefaults +=
+        //       chooseKey -> 
+        //         logSum(
+        //           Seq(
+        //             chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
+        //               noBackoffHeadCounts.getParentDefault( chooseKey ),
+        //             chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
+        //               backoffHeadCounts.getParentDefault( backoffHeadKey )
+        //           )
+        //         )
+        //     case rootHead:AbstractRoot => {
+        //       // Special handling to allow only one root.
+        //       chooseDefaults +=
+        //         chooseKey -> rootChooseCounts.getParentDefault( chooseKey )
+        //     }
+        //   }
 
-                //val backoffArg = Word(a2)
+        //   argVocab.foreach{ arg =>
+        //     chooseKey.h match {
+        //       case WordPair( h1, h2 ) => {
+        //         val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
+        //         arg match {
+        //           case WordPair( a1, a2 ) => {
 
-                backedoffChoose.setValue(
-                  chooseKey,
-                  arg,
-                  logSum(
-                    Seq(
-                      chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
-                        noBackoffHeadCounts( chooseKey, arg /*backoffArg*/ ),
-                      chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
-                        backoffHeadCounts( backoffHeadKey, arg /*backoffArg*/ )
-                    )
-                  )
-                )
-              }
-              case rootArg:AbstractRoot => { /* Intentionally empty */ }
-            }
-          }
-          case rootHead:AbstractRoot => {
-            backedoffChoose.setValue(
-              chooseKey,
-              arg,
-              rootChooseCounts( chooseKey, arg )
-            )
-          }
-        }
-      }
-    }
+        //             //val backoffArg = Word(a2)
 
-    backedoffChoose.setDefault(
-      expDigamma( 0D ) - expDigamma( math.log( backedoffChoose.parents.size ) )
-    )
-    backedoffChoose.setDefaultParentMap( chooseDefaults )
+        //             backedoffChoose.setValue(
+        //               chooseKey,
+        //               arg,
+        //               logSum(
+        //                 Seq(
+        //                   chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
+        //                     noBackoffHeadCounts( chooseKey, arg ),
+        //                   chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
+        //                     backoffHeadCounts( backoffHeadKey, arg )
+        //                 )
+        //               )
+        //             )
+        //           }
+        //           case rootArg:AbstractRoot => { /* Intentionally empty */ }
+        //         }
+        //       }
+        //       case rootHead:AbstractRoot => {
+        //         backedoffChoose.setValue(
+        //           chooseKey,
+        //           arg,
+        //           rootChooseCounts( chooseKey, arg )
+        //         )
+        //       }
+        //     }
+        //   }
+        // }
+
+        // backedoffChoose.setDefault(
+        //   expDigamma( 0D ) - expDigamma( math.log( backedoffChoose.parents.size ) )
+        // )
+        // backedoffChoose.setDefaultParentMap( chooseDefaults )
 
 
     println( "Done!" )
@@ -379,10 +381,19 @@ class DMVBayesianBackoffJointDepsPartialCounts(
 
 
     toReturn.setParams(
-      VanillaDMVParameters(
-        orderCounts.toLogCPT,
-        backedoffStop.asLogCPT,
-        backedoffChoose.asLogCPT
+        // VanillaDMVParameters(
+        //   orderCounts.toLogCPT,
+        //   backedoffStop.asLogCPT,
+        //   backedoffChoose.asLogCPT
+        // )
+      DMVBayesianBackoffParameters(
+        stopBackoffInterpolationSums,
+        stopNoBackoffCounts,
+        stopBackoffCounts,
+        chooseBackoffHeadInterpolationSums,
+        noBackoffHeadCounts,
+        backoffHeadCounts,
+        rootChooseCounts
       )
     )
 

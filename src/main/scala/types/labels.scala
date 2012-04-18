@@ -319,13 +319,37 @@ case class VanillaDMVParameters(
   otherP_choose:LogCPT[ChooseArgument,ObservedLabel]
 ) extends DMVParameters
 
+    // case class DMVBayesianBackoffParameters(
+    //   //freeEnergy:Double,
+    //   otherP_order:LogCPT[ObservedLabel,AttachmentOrder],
+    //   otherP_stop:LogCPT[StopOrNot,StopDecision],
+    //   otherP_choose:LogCPT[ChooseArgument,ObservedLabel],
+    //   stopBackoffScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
+    //   chooseBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision]
+    // ) extends DMVParameters
+
 case class DMVBayesianBackoffParameters(
   //freeEnergy:Double,
-  otherP_order:LogCPT[ObservedLabel,AttachmentOrder],
-  otherP_stop:LogCPT[StopOrNot,StopDecision],
-  otherP_choose:LogCPT[ChooseArgument,ObservedLabel],
-  stopBackoffScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
-  chooseBackoffScore:AbstractLog2dTable[ChooseArgument,BackoffDecision]
+  stopBackoffInterpolationScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
+  stopNoBackoffScore:AbstractLog2dTable[StopOrNot,StopDecision],
+  stopBackoffScore:AbstractLog2dTable[StopOrNot,StopDecision],
+  chooseBackoffHeadInterpolationScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
+  noBackoffHeadScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
+  backoffHeadScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
+  rootChooseCounts:AbstractLog2dTable[ChooseArgument,ObservedLabel]
+) extends DMVParameters
+
+case class DMVBayesianBackoffIndependentDepsParameters(
+  //freeEnergy:Double,
+  stopBackoffInterpolationScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
+  stopNoBackoffScore:AbstractLog2dTable[StopOrNot,StopDecision],
+  stopBackoffScore:AbstractLog2dTable[StopOrNot,StopDecision],
+  chooseBackoffHeadInterpolationScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
+  noBackoffHeadAScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
+  noBackoffHeadBScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
+  backoffHeadAScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
+  backoffHeadBScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
+  rootChooseCounts:AbstractLog2dTable[ChooseArgument,ObservedLabel]
 ) extends DMVParameters
 
 case class DMVFullBayesianBackoffParameters(

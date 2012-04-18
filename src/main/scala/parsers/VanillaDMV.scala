@@ -1315,11 +1315,12 @@ class VanillaDMVParser( val randomSeed:Int = 10 ) extends AbstractDMVParser{
 
   val g:AbstractDMVGrammar = new DMVGrammar//( vocabulary = Set[ObservedLabel]() )
 
-  def setGrammar( givenGrammar:DMVGrammar ) {
-    println( "VanillaDMVParser.setGrammar" )
-    g.setParams( givenGrammar.getVanillaParams )
-    //println( "viterbi grammar is:\n" + g )
-  }
+  // def setGrammar( givenGrammar:AbstractDMVGrammar ) {
+  //   println( "VanillaDMVParser.setGrammar" )
+  //   //g.setParams( givenGrammar.getVanillaParams )
+  //   g.setParams( givenGrammar.getParams )
+  //   println( "viterbi grammar is:\n" + g )
+  // }
 
 
   class ViterbiChart( s:List[TimedObservedLabel] ) {
