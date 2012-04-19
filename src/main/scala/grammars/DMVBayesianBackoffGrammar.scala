@@ -15,9 +15,6 @@ class DMVBayesianBackoffGrammar(
   backoffAlpha:Double = 70
 ) extends DMVGrammar {
 
-
-
-
   val stopBackoffInterpolationScore = new Log2dTable( Set[StopOrNot](), dmv.backoffDecision )
 
   val stopNoBackoffScore = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
@@ -38,54 +35,73 @@ class DMVBayesianBackoffGrammar(
       case RightFirst => 0D
     }
 
-  override def stopScore( stopKey:StopOrNot, stopDecision:StopDecision ) = {// p_stop( stopKey, stopDecision )
-    stopKey.w match {
-      case rootHead:AbstractRoot => {
-        if( stopKey.dir == RightAttachment )
-          if( stopDecision == Stop ) 0 else Double.NegativeInfinity
-        else if( stopKey.adj && ( stopDecision == Stop ) ) // Should be able to xor this...
-          Double.NegativeInfinity
-        else if( stopKey.adj && ( stopDecision == NotStop ) )
-          0D
-        else if( !(stopKey.adj) && ( stopDecision == Stop ) )
-          0D
-        else
-          Double.NegativeInfinity
-      }
-      case WordPair( _, h2 ) => {
-        logSum(
-          Seq(
-            stopBackoffInterpolationScore( stopKey, NotBackoff ) + stopNoBackoffScore( stopKey, stopDecision ),
-            stopBackoffInterpolationScore( stopKey, Backoff ) +
-              stopBackoffScore( StopOrNot( Word( h2 ), stopKey.dir, stopKey.adj ), stopDecision )
-          )
-        )
-      }
-    }
-  }
-  override def chooseScore( chooseKey:ChooseArgument, arg:ObservedLabel ) = {// p_stop( stopKey, stopDecision )
-    chooseKey.h match {
-      case rootHead:AbstractRoot => {
-        rootChooseScore( chooseKey, arg )
-      }
-      case WordPair( _, h2 ) => {
-        arg match {
-          case rootArg:AbstractRoot => Double.NegativeInfinity
-          case WordPair( d1, d2 ) => {
-            val backoffArg = Word( d2 )
-            logSum(
-              Seq(
-                chooseBackoffHeadInterpolationScore( chooseKey, NotBackoff ) +
-                  noBackoffHeadScore( chooseKey, backoffArg ),
-                chooseBackoffHeadInterpolationScore( chooseKey, Backoff ) +
-                  backoffHeadScore( ChooseArgument( Word(h2), chooseKey.dir ), backoffArg )
-              )
+  protected def stop_aux( stopKey:StopOrNot, stopDecision:StopDecision ) = {
+    val thisScore = 
+      stopKey.w match {
+        case rootHead:AbstractRoot => {
+          if( stopKey.dir == RightAttachment )
+            if( stopDecision == Stop ) 0 else Double.NegativeInfinity
+          else if( stopKey.adj && ( stopDecision == Stop ) ) // Should be able to xor this...
+            Double.NegativeInfinity
+          else if( stopKey.adj && ( stopDecision == NotStop ) )
+            0D
+          else if( !(stopKey.adj) && ( stopDecision == Stop ) )
+            0D
+          else
+            Double.NegativeInfinity
+        }
+        case WordPair( _, h2 ) => {
+          logSum(
+            Seq(
+              stopBackoffInterpolationScore( stopKey, NotBackoff ) + stopNoBackoffScore( stopKey, stopDecision ),
+              stopBackoffInterpolationScore( stopKey, Backoff ) +
+                stopBackoffScore( StopOrNot( Word( h2 ), stopKey.dir, stopKey.adj ), stopDecision )
             )
+          )
+        }
+      }
+    //p_stop.setValue( stopKey, stopDecision, thisScore )
+    thisScore
+  }
+
+  override def stopScore( stopKey:StopOrNot, stopDecision:StopDecision ) =
+    if( p_stop.definedAt( stopKey, stopDecision ) )
+      p_stop( stopKey, stopDecision )
+    else
+      stop_aux( stopKey, stopDecision )
+
+  protected def choose_aux( chooseKey:ChooseArgument, arg:ObservedLabel ) = {
+    val thisScore =
+      chooseKey.h match {
+        case rootHead:AbstractRoot => {
+          rootChooseScore( chooseKey, arg )
+        }
+        case WordPair( _, h2 ) => {
+          arg match {
+            case rootArg:AbstractRoot => Double.NegativeInfinity
+            case WordPair( d1, d2 ) => {
+              val backoffArg = Word( d2 )
+              logSum(
+                Seq(
+                  chooseBackoffHeadInterpolationScore( chooseKey, NotBackoff ) +
+                    noBackoffHeadScore( chooseKey, backoffArg ),
+                  chooseBackoffHeadInterpolationScore( chooseKey, Backoff ) +
+                    backoffHeadScore( ChooseArgument( Word(h2), chooseKey.dir ), backoffArg )
+                )
+              )
+            }
           }
         }
       }
-    }
+    //p_choose.setValue( chooseKey, arg, thisScore )
+    thisScore
   }
+
+  override def chooseScore( chooseKey:ChooseArgument, arg:ObservedLabel ) =
+    if( p_choose.definedAt( chooseKey, arg ) )
+      p_choose( chooseKey, arg )
+    else
+      choose_aux( chooseKey, arg )
 
 
   override def setParams[P<:DMVParameters]( parameters:P ) {
@@ -99,6 +115,9 @@ class DMVBayesianBackoffGrammar(
       newRootChooseScore
     ) = parameters
 
+    p_stop.clear
+    p_choose.clear
+
     stopBackoffInterpolationScore.setCPT( newStopBackoffInterpolationScore )
     stopNoBackoffScore.setCPT( newStopNoBackoffScore )
     stopBackoffScore.setCPT( newStopBackoffScore )
@@ -108,6 +127,19 @@ class DMVBayesianBackoffGrammar(
     backoffHeadScore.setCPT( newBackoffHeadScore )
 
     rootChooseScore.setCPT( newRootChooseScore )
+
+    stopNoBackoffScore.parents.foreach{ stopKey =>
+      dmv.stopDecision.foreach{ stopDecision =>
+        p_stop.setValue( stopKey, stopDecision, stop_aux( stopKey, stopDecision ) )
+      }
+    }
+
+    val argVocab = rootChooseScore.values.flatMap{ _.keySet }.toSet
+    noBackoffHeadScore.parents.foreach{ chooseKey =>
+      argVocab.foreach{ arg =>
+        p_choose.setValue( chooseKey, arg, choose_aux( chooseKey, arg ) )
+      }
+    }
 
     // p_order.setCPT( otherP_order )
     // p_stop.setCPT( otherP_stop )

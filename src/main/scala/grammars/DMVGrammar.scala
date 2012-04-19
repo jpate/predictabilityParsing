@@ -65,7 +65,7 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
   //protected val p_choose = new LogCPT( p_choose_keys, vocabulary+Root )
   protected val p_choose = new LogCPT( Set[ChooseArgument](), Set[ObservedLabel]() )//vocabulary+Root )
 
-  def emptyPartialCounts = new DMVPartialCounts
+  def emptyPartialCounts:DMVPartialCounts = new DMVPartialCounts
 
   // this probably shouldn't be here.... maybe I can have a "bayesianGrammar" trait with this?
   var freeEnergy = Double.NegativeInfinity
