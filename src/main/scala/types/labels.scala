@@ -330,6 +330,8 @@ case class VanillaDMVParameters(
 
 case class DMVBayesianBackoffParameters(
   //freeEnergy:Double,
+  backedoffStop:LogCPT[StopOrNot,StopDecision],
+  backedoffChoose:LogCPT[ChooseArgument,ObservedLabel],
   stopBackoffInterpolationScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
   stopNoBackoffScore:AbstractLog2dTable[StopOrNot,StopDecision],
   stopBackoffScore:AbstractLog2dTable[StopOrNot,StopDecision],

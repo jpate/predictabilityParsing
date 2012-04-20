@@ -271,108 +271,108 @@ class DMVBayesianBackoffJointDepsPartialCounts(
     stopNoBackoffCounts.expDigammaNormalize()
     stopBackoffCounts.expDigammaNormalize()
 
-        // val backedoffStop = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
-        // stopCounts.parents.foreach{ stopKey =>
-        //   dmv.stopDecision.foreach{ stopDecision =>
-        //     stopKey.w match {
-        //       case WordPair( h1, h2 ) => {
-        //         val backoffHeadKey = StopOrNot( Word(h2), stopKey.dir, stopKey.adj )
-        //         backedoffStop.setValue(
-        //           stopKey,
-        //           stopDecision,
-        //           logSum(
-        //             stopBackoffInterpolationSums( stopKey, NotBackoff ) + stopNoBackoffCounts( stopKey, stopDecision ),
-        //             stopBackoffInterpolationSums( stopKey, Backoff ) + stopBackoffCounts( backoffHeadKey, stopDecision )
-        //           )
-        //         )
+    val backedoffStop = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
+    stopCounts.parents.foreach{ stopKey =>
+      dmv.stopDecision.foreach{ stopDecision =>
+        stopKey.w match {
+          case WordPair( h1, h2 ) => {
+            val backoffHeadKey = StopOrNot( Word(h2), stopKey.dir, stopKey.adj )
+            backedoffStop.setValue(
+              stopKey,
+              stopDecision,
+              logSum(
+                stopBackoffInterpolationSums( stopKey, NotBackoff ) + stopNoBackoffCounts( stopKey, stopDecision ),
+                stopBackoffInterpolationSums( stopKey, Backoff ) + stopBackoffCounts( backoffHeadKey, stopDecision )
+              )
+            )
 
-        //       }
-        //       case rootHead:AbstractRoot => {
-        //         backedoffStop.setValue(
-        //           stopKey,
-        //           stopDecision,
-        //           rootStopCounts( stopKey, stopDecision )
-        //         )
-        //       }
-        //     }
-        //   }
-        // }
+          }
+          case rootHead:AbstractRoot => {
+            backedoffStop.setValue(
+              stopKey,
+              stopDecision,
+              rootStopCounts( stopKey, stopDecision )
+            )
+          }
+        }
+      }
+    }
 
-        // backedoffStop.setDefault(
-        //   expDigamma( 0D ) - expDigamma( math.log( backedoffStop.parents.size ) )
-        // )
+    backedoffStop.setDefault(
+      expDigamma( 0D ) - expDigamma( math.log( backedoffStop.parents.size ) )
+    )
 
 
     noBackoffHeadCounts.expDigammaNormalize()
     backoffHeadCounts.expDigammaNormalize()
     rootChooseCounts.expDigammaNormalize()
 
-        // val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]()
+    val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]()
 
-        // val argVocab = chooseCounts.values.flatMap{ _.keySet }.toSet
+    val argVocab = chooseCounts.values.flatMap{ _.keySet }.toSet
 
-        // val backedoffChoose = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
-        // chooseCounts.parents.foreach{ chooseKey =>
-        //   chooseKey.h match {
-        //   case WordPair( h1, h2 ) =>
-        //     val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
-        //     chooseDefaults +=
-        //       chooseKey -> 
-        //         logSum(
-        //           Seq(
-        //             chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
-        //               noBackoffHeadCounts.getParentDefault( chooseKey ),
-        //             chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
-        //               backoffHeadCounts.getParentDefault( backoffHeadKey )
-        //           )
-        //         )
-        //     case rootHead:AbstractRoot => {
-        //       // Special handling to allow only one root.
-        //       chooseDefaults +=
-        //         chooseKey -> rootChooseCounts.getParentDefault( chooseKey )
-        //     }
-        //   }
+    val backedoffChoose = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+    chooseCounts.parents.foreach{ chooseKey =>
+      chooseKey.h match {
+      case WordPair( h1, h2 ) =>
+        val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
+        chooseDefaults +=
+          chooseKey -> 
+            logSum(
+              Seq(
+                chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
+                  noBackoffHeadCounts.getParentDefault( chooseKey ),
+                chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
+                  backoffHeadCounts.getParentDefault( backoffHeadKey )
+              )
+            )
+        case rootHead:AbstractRoot => {
+          // Special handling to allow only one root.
+          chooseDefaults +=
+            chooseKey -> rootChooseCounts.getParentDefault( chooseKey )
+        }
+      }
 
-        //   argVocab.foreach{ arg =>
-        //     chooseKey.h match {
-        //       case WordPair( h1, h2 ) => {
-        //         val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
-        //         arg match {
-        //           case WordPair( a1, a2 ) => {
+      argVocab.foreach{ arg =>
+        chooseKey.h match {
+          case WordPair( h1, h2 ) => {
+            val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
+            arg match {
+              case WordPair( a1, a2 ) => {
 
-        //             //val backoffArg = Word(a2)
+                //val backoffArg = Word(a2)
 
-        //             backedoffChoose.setValue(
-        //               chooseKey,
-        //               arg,
-        //               logSum(
-        //                 Seq(
-        //                   chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
-        //                     noBackoffHeadCounts( chooseKey, arg ),
-        //                   chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
-        //                     backoffHeadCounts( backoffHeadKey, arg )
-        //                 )
-        //               )
-        //             )
-        //           }
-        //           case rootArg:AbstractRoot => { /* Intentionally empty */ }
-        //         }
-        //       }
-        //       case rootHead:AbstractRoot => {
-        //         backedoffChoose.setValue(
-        //           chooseKey,
-        //           arg,
-        //           rootChooseCounts( chooseKey, arg )
-        //         )
-        //       }
-        //     }
-        //   }
-        // }
+                backedoffChoose.setValue(
+                  chooseKey,
+                  arg,
+                  logSum(
+                    Seq(
+                      chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
+                        noBackoffHeadCounts( chooseKey, arg ),
+                      chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
+                        backoffHeadCounts( backoffHeadKey, arg )
+                    )
+                  )
+                )
+              }
+              case rootArg:AbstractRoot => { /* Intentionally empty */ }
+            }
+          }
+          case rootHead:AbstractRoot => {
+            backedoffChoose.setValue(
+              chooseKey,
+              arg,
+              rootChooseCounts( chooseKey, arg )
+            )
+          }
+        }
+      }
+    }
 
-        // backedoffChoose.setDefault(
-        //   expDigamma( 0D ) - expDigamma( math.log( backedoffChoose.parents.size ) )
-        // )
-        // backedoffChoose.setDefaultParentMap( chooseDefaults )
+    backedoffChoose.setDefault(
+      expDigamma( 0D ) - expDigamma( math.log( backedoffChoose.parents.size ) )
+    )
+    backedoffChoose.setDefaultParentMap( chooseDefaults )
 
 
     println( "Done!" )
@@ -387,6 +387,8 @@ class DMVBayesianBackoffJointDepsPartialCounts(
         //   backedoffChoose.asLogCPT
         // )
       DMVBayesianBackoffParameters(
+        backedoffStop.asLogCPT,
+        backedoffChoose.asLogCPT,
         stopBackoffInterpolationSums,
         stopNoBackoffCounts,
         stopBackoffCounts,

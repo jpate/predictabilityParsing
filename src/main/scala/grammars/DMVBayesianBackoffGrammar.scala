@@ -106,6 +106,8 @@ class DMVBayesianBackoffGrammar(
 
   override def setParams[P<:DMVParameters]( parameters:P ) {
     val DMVBayesianBackoffParameters(
+      newBackedoffStop,
+      newBackedoffChoose,
       newStopBackoffInterpolationScore,
       newStopNoBackoffScore,
       newStopBackoffScore,
@@ -115,8 +117,11 @@ class DMVBayesianBackoffGrammar(
       newRootChooseScore
     ) = parameters
 
-    p_stop.clear
-    p_choose.clear
+    // p_stop.clear
+    // p_choose.clear
+
+    p_stop.setCPT( newBackedoffStop )
+    p_choose.setCPT( newBackedoffChoose )
 
     stopBackoffInterpolationScore.setCPT( newStopBackoffInterpolationScore )
     stopNoBackoffScore.setCPT( newStopNoBackoffScore )
@@ -128,72 +133,61 @@ class DMVBayesianBackoffGrammar(
 
     rootChooseScore.setCPT( newRootChooseScore )
 
-    stopNoBackoffScore.parents.foreach{ stopKey =>
-      dmv.stopDecision.foreach{ stopDecision =>
-        p_stop.setValue( stopKey, stopDecision, stop_aux( stopKey, stopDecision ) )
-      }
-    }
-
-    val argVocab = rootChooseScore.values.flatMap{ _.keySet }.toSet
-    noBackoffHeadScore.parents.foreach{ chooseKey =>
-      argVocab.foreach{ arg =>
-        p_choose.setValue( chooseKey, arg, choose_aux( chooseKey, arg ) )
-      }
-    }
-
     // p_order.setCPT( otherP_order )
     // p_stop.setCPT( otherP_stop )
     // p_choose.setCPT( otherP_choose )
     // stopBackoffScore.setCPT( otherStopBackoffScore )
     // headBackoffScore.setCPT( otherBackoffHeadScore )
 
-    // p_stop.setValue(
-    //   StopOrNot( Root, RightAttachment, true ),
-    //   Stop,
-    //   0D
-    // )
-    // p_stop.setValue(
-    //   StopOrNot( Root, RightAttachment, true ),
-    //   NotStop,
-    //   Double.NegativeInfinity
-    // )
-    // p_stop.setValue(
-    //   StopOrNot( Root, RightAttachment, false ),
-    //   Stop,
-    //   0D
-    // )
-    // p_stop.setValue(
-    //   StopOrNot( Root, RightAttachment, false ),
-    //   NotStop,
-    //   Double.NegativeInfinity
-    // )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      Stop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      Stop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
 
-    // p_stop.setValue(
-    //   StopOrNot( Root, LeftAttachment, true ),
-    //   NotStop,
-    //   0D
-    // )
-    // p_stop.setValue(
-    //   StopOrNot( Root, LeftAttachment, true ),
-    //   Stop,
-    //   Double.NegativeInfinity
-    // )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
 
-    // p_stop.setValue(
-    //   StopOrNot( Root, LeftAttachment, false ),
-    //   NotStop,
-    //   Double.NegativeInfinity
-    // )
-    // p_stop.setValue(
-    //   StopOrNot( Root, LeftAttachment, false ),
-    //   Stop,
-    //   0D
-    // )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
 
   }
 
   override def getParams = {
     DMVBayesianBackoffParameters(
+      p_stop,
+      p_choose,
       stopBackoffInterpolationScore,
       stopNoBackoffScore,
       stopBackoffScore,
