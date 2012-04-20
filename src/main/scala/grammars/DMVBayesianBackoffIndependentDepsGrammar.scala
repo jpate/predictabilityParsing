@@ -147,7 +147,7 @@ class DMVBayesianBackoffIndependentDepsGrammar(
               logSum(
                 Seq(
                   chooseBackoffHeadInterpolationScore( chooseKey, NotBackoff ) +
-                    noBackoffHeadAScore( chooseKey, argA ),
+                    noBackoffHeadAScore( chooseKey, argA ) +
                     noBackoffHeadBScore( chooseKey, argB ),
                   chooseBackoffHeadInterpolationScore( chooseKey, Backoff ) +
                     backoffHeadAScore( backoffHeadKey, argA ) +
@@ -175,6 +175,8 @@ class DMVBayesianBackoffIndependentDepsGrammar(
 
   override def setParams[P<:DMVParameters]( parameters:P ) {
     val DMVBayesianBackoffIndependentDepsParameters(
+      newBackedoffStop,
+      newBackedoffChoose,
       newStopBackoffInterpolationScore,
       newStopNoBackoffScore,
       newStopBackoffScore,
@@ -185,6 +187,9 @@ class DMVBayesianBackoffIndependentDepsGrammar(
       newBackoffHeadBScore,
       newRootChooseScore
     ) = parameters
+
+    p_stop.setCPT( newBackedoffStop )
+    p_choose.setCPT( newBackedoffChoose )
 
     stopBackoffInterpolationScore.setCPT( newStopBackoffInterpolationScore )
     stopNoBackoffScore.setCPT( newStopNoBackoffScore )
@@ -201,19 +206,6 @@ class DMVBayesianBackoffIndependentDepsGrammar(
 
     rootChooseScore.setCPT( newRootChooseScore )
 
-    stopNoBackoffScore.parents.foreach{ stopKey =>
-      dmv.stopDecision.foreach{ stopDecision =>
-        p_stop.setValue( stopKey, stopDecision, stop_aux( stopKey, stopDecision ) )
-      }
-    }
-
-    val argVocab = rootChooseScore.values.flatMap{ _.keySet }.toSet
-    noBackoffHeadAScore.parents.foreach{ chooseKey =>
-      argVocab.foreach{ arg =>
-        p_choose.setValue( chooseKey, arg, choose_aux( chooseKey, arg ) )
-      }
-    }
-
 
     // p_order.setCPT( otherP_order )
     // p_stop.setCPT( otherP_stop )
@@ -221,48 +213,48 @@ class DMVBayesianBackoffIndependentDepsGrammar(
     // stopBackoffScore.setCPT( otherStopBackoffScore )
     // headBackoffScore.setCPT( otherBackoffHeadScore )
 
-    // p_stop.setValue(
-    //   StopOrNot( Root, RightAttachment, true ),
-    //   Stop,
-    //   0D
-    // )
-    // p_stop.setValue(
-    //   StopOrNot( Root, RightAttachment, true ),
-    //   NotStop,
-    //   Double.NegativeInfinity
-    // )
-    // p_stop.setValue(
-    //   StopOrNot( Root, RightAttachment, false ),
-    //   Stop,
-    //   0D
-    // )
-    // p_stop.setValue(
-    //   StopOrNot( Root, RightAttachment, false ),
-    //   NotStop,
-    //   Double.NegativeInfinity
-    // )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      Stop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      Stop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
 
-    // p_stop.setValue(
-    //   StopOrNot( Root, LeftAttachment, true ),
-    //   NotStop,
-    //   0D
-    // )
-    // p_stop.setValue(
-    //   StopOrNot( Root, LeftAttachment, true ),
-    //   Stop,
-    //   Double.NegativeInfinity
-    // )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
 
-    // p_stop.setValue(
-    //   StopOrNot( Root, LeftAttachment, false ),
-    //   NotStop,
-    //   Double.NegativeInfinity
-    // )
-    // p_stop.setValue(
-    //   StopOrNot( Root, LeftAttachment, false ),
-    //   Stop,
-    //   0D
-    // )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    p_stop.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
 
   }
 
@@ -331,6 +323,8 @@ class DMVBayesianBackoffIndependentDepsGrammar(
       // }
   override def getParams = {
     DMVBayesianBackoffIndependentDepsParameters(
+      p_stop,
+      p_choose,
       stopBackoffInterpolationScore,
       stopNoBackoffScore,
       stopBackoffScore,
@@ -356,7 +350,7 @@ class DMVBayesianBackoffIndependentDepsGrammar(
     "\tnoBackoffAlpha: " + noBackoffAlpha + "\n" +
     "\tbackoffAlpha: " + backoffAlpha + "\n" +
     "stopBackoffInterpolationScore:\n" + stopBackoffInterpolationScore + "\n" +
-    "stopNoBackoffScore:\n" + stopNoBackoffScore + "\n " +
+    "stopNoBackoffScore:\n" + stopNoBackoffScore + "\n" +
     "stopBackoffScore:\n" + stopBackoffScore + "\n" +
     "chooseBackoffHeadInterpolationScore:\n" + chooseBackoffHeadInterpolationScore + "\n" +
     "noBackoffHeadAScore:\n" + noBackoffHeadAScore + "\n" +

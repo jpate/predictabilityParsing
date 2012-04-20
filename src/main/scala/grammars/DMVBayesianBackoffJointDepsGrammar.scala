@@ -13,7 +13,6 @@ class DMVBayesianBackoffJointDepsGrammar(
     // decisions are drawn
   noBackoffAlpha:Double = 35,
   backoffAlpha:Double = 70
-//) extends DMVGrammar {
 ) extends DMVGrammar {
 
   val stopBackoffInterpolationScore = new Log2dTable( Set[StopOrNot](), dmv.backoffDecision )

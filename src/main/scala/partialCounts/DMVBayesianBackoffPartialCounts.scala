@@ -181,7 +181,7 @@ class DMVBayesianBackoffPartialCounts(
 
     chooseCounts.parents.foreach{ chooseKey =>
       chooseKey.h match {
-        case WordPair( h1, h2 ) => {
+        case WordPair( _, h2 ) => {
           val backoffHeadKey = ChooseArgument( Word( h2 ), chooseKey.dir )
 
           chooseCounts(chooseKey).keySet.foreach{ arg =>
@@ -229,14 +229,20 @@ class DMVBayesianBackoffPartialCounts(
         }
         case rootHead:AbstractRoot => {
           chooseCounts(chooseKey).keySet.foreach{ arg =>
-            rootChooseCounts.setValue(
-              chooseKey,
-              arg,
-              logSum(
-                rootChooseCounts( chooseKey, arg ),
-                chooseCounts( chooseKey, arg )
-              )
-            )
+            arg match {
+
+              case WordPair( _, d2 ) => {
+                rootChooseCounts.setValue(
+                  chooseKey,
+                  Word( d2 ),
+                  logSum(
+                    rootChooseCounts( chooseKey, Word( d2 ) ),
+                    chooseCounts( chooseKey, arg )
+                  )
+                )
+              }
+
+            }
           }
         }
       }
@@ -317,7 +323,7 @@ class DMVBayesianBackoffPartialCounts(
     noBackoffHeadCounts.expDigammaNormalize()
     rootChooseCounts.expDigammaNormalize()
 
-    val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]()
+    //val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]()
 
 
     val argVocab = chooseCounts.values.flatMap{ _.keySet }.toSet
@@ -325,25 +331,24 @@ class DMVBayesianBackoffPartialCounts(
 
     val backedoffChoose = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
     chooseCounts.parents.foreach{ chooseKey =>
-      chooseKey.h match {
-      case WordPair( h1, h2 ) =>
-        val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
-        chooseDefaults +=
-          chooseKey -> 
-            logSum(
-              Seq(
-                chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
-                  noBackoffHeadCounts.getParentDefault( chooseKey ),
-                chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
-                  backoffHeadCounts.getParentDefault( backoffHeadKey )
-              )
-            )
-        case rootHead:AbstractRoot => {
-          // Special handling to allow only one root.
-          chooseDefaults +=
-            chooseKey -> rootChooseCounts.getParentDefault( chooseKey )
-        }
-      }
+      // chooseKey.h match {
+      // case WordPair( h1, h2 ) =>
+      //   val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
+      //   chooseDefaults +=
+      //     chooseKey -> 
+      //       logSum(
+      //         Seq(
+      //           chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
+      //             noBackoffHeadCounts.getParentDefault( chooseKey ),
+      //           chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
+      //             backoffHeadCounts.getParentDefault( backoffHeadKey )
+      //         )
+      //       )
+      //   case rootHead:AbstractRoot => {
+      //     chooseDefaults +=
+      //       chooseKey -> rootChooseCounts.getParentDefault( chooseKey )
+      //   }
+      // }
 
       //chooseCounts(chooseKey).keySet.foreach{ arg =>
       argVocab.foreach{ arg =>
@@ -372,11 +377,20 @@ class DMVBayesianBackoffPartialCounts(
             }
           }
           case rootHead:AbstractRoot => {
-            backedoffChoose.setValue(
-              chooseKey,
-              arg,
-              rootChooseCounts( chooseKey, arg )
-            )
+            arg match {
+              case WordPair( _, d2 ) =>
+                backedoffChoose.setValue(
+                  chooseKey,
+                  arg,
+                  rootChooseCounts( chooseKey, Word( d2 ) )
+                )
+              case rootArg:AbstractRoot =>
+            }
+            // backedoffChoose.setValue(
+            //   chooseKey,
+            //   arg,
+            //   rootChooseCounts( chooseKey, arg )
+            // )
           }
         }
       }
@@ -385,7 +399,7 @@ class DMVBayesianBackoffPartialCounts(
         // backedoffChoose.setDefault(
         //   expDigamma( 0D ) - expDigamma( math.log( backedoffChoose.parents.size ) )
         // )
-        // backedoffChoose.setDefaultParentMap( chooseDefaults )
+    //backedoffChoose.setDefaultParentMap( chooseDefaults )
 
 
     println( "Done!" )
