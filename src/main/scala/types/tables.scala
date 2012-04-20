@@ -55,12 +55,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     cpt = Map[T,Map[U,Double]]()
   }
 
-  def definedAt( parent:T, child:U ) =
-    //if( cpt.get( parent ) == None )
-    if( !cpt.isDefinedAt( parent ) )
-      false
-    else
-      cpt(parent).isDefinedAt( child )
+  def definedAt( parent:T, child:U ) = cpt.isDefinedAt(parent) && cpt(parent).isDefinedAt(child)
 
   def getParentDefault( k:T ):Double = defaultParentMap.getOrElse( k, super.getDefault )
   def getChildDefault( k:U ):Double = defaultChildMap.getOrElse( k, super.getDefault )

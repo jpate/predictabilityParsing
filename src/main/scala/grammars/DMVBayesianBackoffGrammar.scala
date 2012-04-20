@@ -79,7 +79,7 @@ class DMVBayesianBackoffGrammar(
         case WordPair( _, h2 ) => {
           arg match {
             case rootArg:AbstractRoot => Double.NegativeInfinity
-            case WordPair( d1, d2 ) => {
+            case WordPair( _, d2 ) => {
               val backoffArg = Word( d2 )
               logSum(
                 Seq(
@@ -211,7 +211,7 @@ class DMVBayesianBackoffGrammar(
     "\tnoBackoffAlpha: " + noBackoffAlpha + "\n" +
     "\tbackoffAlpha: " + backoffAlpha + "\n" +
     "stopBackoffInterpolationScore:\n" + stopBackoffInterpolationScore + "\n" +
-    "stopNoBackoffScore:\n" + stopNoBackoffScore + "\n " +
+    "stopNoBackoffScore:\n" + stopNoBackoffScore + "\n" +
     "stopBackoffScore:\n" + stopBackoffScore + "\n" +
     "chooseBackoffHeadInterpolationScore:\n" + chooseBackoffHeadInterpolationScore + "\n" +
     "noBackoffHeadScore:\n" + noBackoffHeadScore + "\n" +
