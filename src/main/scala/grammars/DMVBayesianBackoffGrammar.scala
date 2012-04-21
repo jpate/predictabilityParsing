@@ -53,7 +53,8 @@ class DMVBayesianBackoffGrammar(
         case WordPair( _, h2 ) => {
           logSum(
             Seq(
-              stopBackoffInterpolationScore( stopKey, NotBackoff ) + stopNoBackoffScore( stopKey, stopDecision ),
+              stopBackoffInterpolationScore( stopKey, NotBackoff ) +
+                stopNoBackoffScore( stopKey, stopDecision ),
               stopBackoffInterpolationScore( stopKey, Backoff ) +
                 stopBackoffScore( StopOrNot( Word( h2 ), stopKey.dir, stopKey.adj ), stopDecision )
             )

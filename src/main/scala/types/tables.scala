@@ -178,15 +178,15 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       }
     )
 
-    // setDefaultParentMap(
-    //   Map(
-    //     cpt.keySet.map{ parent =>
-    //       parent -> { expDigamma( logPseudoCount ) - maxes( parent ) }
-    //     }.toSeq:_*
-    //   ).withDefaultValue( 
-    //     expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size +1) + logPseudoCount )
-    //   )
-    // )
+    setDefaultParentMap(
+      Map(
+        cpt.keySet.map{ parent =>
+          parent -> { expDigamma( logPseudoCount ) - maxes( parent ) }
+        }.toSeq:_*
+      ).withDefaultValue( 
+        expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size) + logPseudoCount )
+      )
+    )
     // setDefault(
     //   expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size +1 ) + logPseudoCount )
     // )

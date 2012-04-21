@@ -308,12 +308,10 @@ class DMVBayesianBackoffJointDepsPartialCounts(
     backedoffStop.setDefaultChildMap(
       Map[StopDecision,Double](
         NotStop -> {
-          Math.expDigamma( 0 ) -
-            Math.expDigamma( math.log( 2 ) )
+          Math.expDigamma( 0 ) - Math.expDigamma( math.log( 2 ) )
         },
         Stop -> {
-          Math.expDigamma( 0 ) -
-            Math.expDigamma( math.log( 2 ) )
+          Math.expDigamma( 0 ) - Math.expDigamma( math.log( 2 ) )
         }
       )
     )
@@ -350,7 +348,8 @@ class DMVBayesianBackoffJointDepsPartialCounts(
       //   }
       // }
 
-      argVocab.foreach{ arg =>
+      chooseCounts(chooseKey).keySet.foreach{ arg =>
+      //argVocab.foreach{ arg =>
         chooseKey.h match {
           case WordPair( h1, h2 ) => {
             val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
@@ -412,11 +411,14 @@ class DMVBayesianBackoffJointDepsPartialCounts(
         backedoffChoose.asLogCPT,
         stopBackoffInterpolationSums,
         stopNoBackoffCounts,
+        //stopNoBackoffCounts.getDefaultParentMap,
         stopBackoffCounts,
         chooseBackoffHeadInterpolationSums,
         noBackoffHeadCounts,
+        //noBackoffHeadCounts.getDefaultParentMap,
         backoffHeadCounts,
         rootChooseCounts
+        //expDigamma( 0 ) - expDigamma( math.log( argVocab.size ) )
       )
     )
 

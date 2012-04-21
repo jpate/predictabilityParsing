@@ -330,12 +330,10 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
     backedoffStop.setDefaultChildMap(
       Map[StopDecision,Double](
         NotStop -> {
-          Math.expDigamma( 0 ) -
-            Math.expDigamma( math.log( 2 ) )
+          Math.expDigamma( 0 ) - Math.expDigamma( math.log( 2 ) )
         },
         Stop -> {
-          Math.expDigamma( 0 ) -
-            Math.expDigamma( math.log( 2 ) )
+          Math.expDigamma( 0 ) - Math.expDigamma( math.log( 2 ) )
         }
       )
     )

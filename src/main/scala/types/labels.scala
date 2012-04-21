@@ -334,11 +334,14 @@ case class DMVBayesianBackoffParameters(
   backedoffChoose:LogCPT[ChooseArgument,ObservedLabel],
   stopBackoffInterpolationScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
   stopNoBackoffScore:AbstractLog2dTable[StopOrNot,StopDecision],
+  //noBackoffStopDefaults:Map[StopOrNot,Double],
   stopBackoffScore:AbstractLog2dTable[StopOrNot,StopDecision],
   chooseBackoffHeadInterpolationScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
   noBackoffHeadScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
+  //noBackoffChooseDefaults:Map[ChooseArgument,Double],
   backoffHeadScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
   rootChooseCounts:AbstractLog2dTable[ChooseArgument,ObservedLabel]
+  //rootChooseDefault:Double
 ) extends DMVParameters
 
 case class DMVBayesianBackoffIndependentDepsParameters(
