@@ -299,14 +299,21 @@ class DMVBayesianBackoffThreeStreamPartialCounts(
         }
         case rootHead:AbstractRoot => {
           chooseCounts(chooseKey).keySet.foreach{ arg =>
-            rootChooseCounts.setValue(
-              chooseKey,
-              arg,
-              logSum(
-                rootChooseCounts( chooseKey, arg ),
-                chooseCounts( chooseKey, arg )
-              )
-            )
+            arg match {
+
+              case WordTriple( _, _, d3 ) => {
+                val argC = Word( d3 )
+                rootChooseCounts.setValue(
+                  chooseKey,
+                  argC,
+                  logSum(
+                    rootChooseCounts( chooseKey, argC ),
+                    chooseCounts( chooseKey, arg )
+                  )
+                )
+              }
+
+            }
           }
         }
       }
@@ -368,7 +375,7 @@ class DMVBayesianBackoffThreeStreamPartialCounts(
     stopCounts.parents.foreach{ stopKey =>
       dmv.stopDecision.foreach{ stopDecision =>
         stopKey.w match {
-          case WordTriple( h1, h2, h3 ) => {
+          case WordTriple( _, h2, h3 ) => {
             val backoffHeadOnce = WordPair(h2, h3)
             val backoffStopOnceKey = StopOrNot( backoffHeadOnce, stopKey.dir, stopKey.adj )
 
@@ -390,7 +397,7 @@ class DMVBayesianBackoffThreeStreamPartialCounts(
 
                 stopBackoffFirstInterpolationSums( stopKey, Backoff ) +
                   stopBackoffSecondInterpolationSums( backoffStopOnceKey, Backoff ) +
-                    stopBackoffOnceCounts( backoffStopTwiceKey, stopDecision )
+                    stopBackoffTwiceCounts( backoffStopTwiceKey, stopDecision )
 
               )
             )
@@ -411,55 +418,31 @@ class DMVBayesianBackoffThreeStreamPartialCounts(
       expDigamma( 0D ) - expDigamma( math.log( backedoffStop.parents.size ) )
     )
 
+    backedoffStop.setDefaultChildMap(
+      Map[StopDecision,Double](
+        NotStop -> {
+          Math.expDigamma( 0 ) - Math.expDigamma( math.log( 2 ) )
+        },
+        Stop -> {
+          Math.expDigamma( 0 ) - Math.expDigamma( math.log( 2 ) )
+        }
+      )
+    )
 
+
+    noBackoffHeadCounts.expDigammaNormalize()
     backoffOnceHeadCounts.expDigammaNormalize()
     backoffTwiceHeadCounts.expDigammaNormalize()
-    noBackoffHeadCounts.expDigammaNormalize()
     rootChooseCounts.expDigammaNormalize()
 
-    val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]()
 
-    val argVocab = chooseCounts.values.flatMap{ _.keySet }.toSet
 
     val backedoffChoose = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
     chooseCounts.parents.foreach{ chooseKey =>
-      chooseKey.h match {
-      case WordTriple( h1, h2, h3 ) =>
 
-        val backoffHeadOnce = WordPair(h2, h3)
-        val backoffHeadOnceKey = ChooseArgument( backoffHeadOnce, chooseKey.dir )
-
-        val backoffHeadTwice = Word(h3)
-        val backoffHeadTwiceKey = ChooseArgument( backoffHeadTwice, chooseKey.dir )
-
-        chooseDefaults +=
-          chooseKey -> 
-            logSum(
-              Seq(
-                chooseBackoffHeadFirstInterpolationSums( chooseKey, NotBackoff ) +
-                  noBackoffHeadCounts.getParentDefault( chooseKey ),
-
-                chooseBackoffHeadFirstInterpolationSums( chooseKey, Backoff ) +
-                  chooseBackoffHeadSecondInterpolationSums( backoffHeadOnceKey, NotBackoff ) +
-                    backoffOnceHeadCounts.getParentDefault( backoffHeadOnceKey ),
-
-                chooseBackoffHeadFirstInterpolationSums( chooseKey, Backoff ) +
-                  chooseBackoffHeadSecondInterpolationSums( backoffHeadTwiceKey, Backoff ) +
-                    backoffTwiceHeadCounts.getParentDefault( backoffHeadTwiceKey )
-
-              )
-            )
-        case rootHead:AbstractRoot => {
-          // Special handling to allow only one root.
-          chooseDefaults +=
-            chooseKey -> rootChooseCounts.getParentDefault( chooseKey )
-        }
-      }
-
-      //chooseCounts(chooseKey).keySet.foreach{ arg =>
-      argVocab.foreach{ arg =>
+      chooseCounts(chooseKey).keySet.foreach{ arg =>
         chooseKey.h match {
-          case WordTriple( h1, h2, h3 ) => {
+          case WordTriple( _, h2, h3 ) => {
 
             val backoffHeadOnce = WordPair(h2, h3)
             val backoffHeadOnceKey = ChooseArgument( backoffHeadOnce, chooseKey.dir )
@@ -468,7 +451,7 @@ class DMVBayesianBackoffThreeStreamPartialCounts(
             val backoffHeadTwiceKey = ChooseArgument( backoffHeadTwice, chooseKey.dir )
 
             arg match {
-              case WordTriple( a1, a2, a3 ) => {
+              case WordTriple( _, _, a3 ) => {
 
                 val backoffArg = Word(a3)
 
@@ -485,7 +468,7 @@ class DMVBayesianBackoffThreeStreamPartialCounts(
                           backoffOnceHeadCounts( backoffHeadOnceKey, backoffArg ),
 
                       chooseBackoffHeadFirstInterpolationSums( chooseKey, Backoff ) +
-                        chooseBackoffHeadSecondInterpolationSums( backoffHeadTwiceKey, Backoff ) +
+                        chooseBackoffHeadSecondInterpolationSums( backoffHeadOnceKey, Backoff ) +
                           backoffTwiceHeadCounts( backoffHeadTwiceKey, backoffArg )
                     )
                   )
@@ -495,20 +478,22 @@ class DMVBayesianBackoffThreeStreamPartialCounts(
             }
           }
           case rootHead:AbstractRoot => {
-            backedoffChoose.setValue(
-              chooseKey,
-              arg,
-              rootChooseCounts( chooseKey, arg )
-            )
+            arg match {
+              case WordTriple( _, _, d3 ) => {
+                val argC = Word( d3 )
+                backedoffChoose.setValue(
+                  chooseKey,
+                  arg,
+                  rootChooseCounts( chooseKey, argC )
+                )
+              }
+              case rootArg:AbstractRoot =>
+            }
+
           }
         }
       }
     }
-
-    backedoffChoose.setDefault(
-      expDigamma( 0D ) - expDigamma( math.log( backedoffChoose.parents.size ) )
-    )
-    backedoffChoose.setDefaultParentMap( chooseDefaults )
 
 
     println( "Done!" )
@@ -517,10 +502,20 @@ class DMVBayesianBackoffThreeStreamPartialCounts(
 
 
     toReturn.setParams(
-      VanillaDMVParameters(
-        orderCounts.toLogCPT,
+      DMVBayesianBackoffThreeStreamParameters(
         backedoffStop.asLogCPT,
-        backedoffChoose.asLogCPT
+        backedoffChoose.asLogCPT,
+        stopBackoffFirstInterpolationSums,
+        stopBackoffSecondInterpolationSums,
+        stopNoBackoffCounts,
+        stopBackoffOnceCounts,
+        stopBackoffTwiceCounts,
+        chooseBackoffHeadFirstInterpolationSums,
+        chooseBackoffHeadSecondInterpolationSums,
+        noBackoffHeadCounts,
+        backoffOnceHeadCounts,
+        backoffTwiceHeadCounts,
+        rootChooseCounts
       )
     )
 

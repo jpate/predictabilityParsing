@@ -343,12 +343,28 @@ class DMVBayesianBackoffIndependentDepsGrammar(
     backoffAlpha
   )
 
+  // override def toString =
+  //   //super.toString +
+  //   "DMVBayesianBackoffIndependentDepsGrammar\n" +
+  //   "Alphas:\n" +
+  //   "\tnoBackoffAlpha: " + noBackoffAlpha + "\n" +
+  //   "\tbackoffAlpha: " + backoffAlpha + "\n" +
+  //   "stopBackoffInterpolationScore:\n" + stopBackoffInterpolationScore + "\n" +
+  //   "stopNoBackoffScore:\n" + stopNoBackoffScore + "\n" +
+  //   "stopBackoffScore:\n" + stopBackoffScore + "\n" +
+  //   "chooseBackoffHeadInterpolationScore:\n" + chooseBackoffHeadInterpolationScore + "\n" +
+  //   "noBackoffHeadAScore:\n" + noBackoffHeadAScore + "\n" +
+  //   "noBackoffHeadBScore:\n" + noBackoffHeadBScore + "\n" +
+  //   "backoffHeadAScore:\n" + backoffHeadAScore + "\n" +
+  //   "backoffHeadBScore:\n" + backoffHeadBScore + "\n"
+
   override def toString =
-    //super.toString +
-    "DMVBayesianBackoffIndependentDepsGrammar\n" +
+    "DMVBayesianBackoffGrammar\n" + 
     "Alphas:\n" +
     "\tnoBackoffAlpha: " + noBackoffAlpha + "\n" +
     "\tbackoffAlpha: " + backoffAlpha + "\n" +
+    "P_Stop (" + math.exp( p_stop.getDefault ) + "):\n" + p_stop +
+    "P_Choose (" + math.exp( p_choose.getDefault ) + "):\n" + p_choose +
     "stopBackoffInterpolationScore:\n" + stopBackoffInterpolationScore + "\n" +
     "stopNoBackoffScore:\n" + stopNoBackoffScore + "\n" +
     "stopBackoffScore:\n" + stopBackoffScore + "\n" +

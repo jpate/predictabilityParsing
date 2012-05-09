@@ -329,24 +329,6 @@ class DMVBayesianBackoffPartialCounts(
 
     val backedoffChoose = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
     chooseCounts.parents.foreach{ chooseKey =>
-      // chooseKey.h match {
-      //   case WordPair( h1, h2 ) =>
-      //     val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
-      //     chooseDefaults +=
-      //       chooseKey -> 
-      //         logSum(
-      //           Seq(
-      //             chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
-      //               noBackoffHeadCounts.getParentDefault( chooseKey ),
-      //             chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
-      //               backoffHeadCounts.getParentDefault( backoffHeadKey )
-      //           )
-      //         )
-      //   case rootHead:AbstractRoot => {
-      //     chooseDefaults +=
-      //       chooseKey -> rootChooseCounts.getParentDefault( chooseKey )
-      //   }
-      // }
 
       chooseCounts(chooseKey).keySet.foreach{ arg =>
       //argVocab.foreach{ arg =>
@@ -354,7 +336,7 @@ class DMVBayesianBackoffPartialCounts(
           case WordPair( h1, h2 ) => {
             val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
             arg match {
-              case WordPair( a1, a2 ) => {
+              case WordPair( _, a2 ) => {
 
                 val backoffArg = Word(a2)
 
@@ -384,20 +366,11 @@ class DMVBayesianBackoffPartialCounts(
                 )
               case rootArg:AbstractRoot =>
             }
-            // backedoffChoose.setValue(
-            //   chooseKey,
-            //   arg,
-            //   rootChooseCounts( chooseKey, arg )
-            // )
           }
         }
       }
     }
 
-        // backedoffChoose.setDefault(
-        //   expDigamma( 0D ) - expDigamma( math.log( backedoffChoose.parents.size ) )
-        // )
-    //backedoffChoose.setDefaultParentMap( chooseDefaults )
 
 
     println( "Done!" )
@@ -411,14 +384,11 @@ class DMVBayesianBackoffPartialCounts(
         backedoffChoose.asLogCPT,
         stopBackoffInterpolationSums,
         stopNoBackoffCounts,
-        //stopNoBackoffCounts.getDefaultParentMap,
         stopBackoffCounts,
         chooseBackoffHeadInterpolationSums,
         noBackoffHeadCounts,
-        //noBackoffHeadCounts.getDefaultParentMap,
         backoffHeadCounts,
         rootChooseCounts
-        //expDigamma( 0 ) - expDigamma( math.log( argVocab.size ) )
       )
     )
 
