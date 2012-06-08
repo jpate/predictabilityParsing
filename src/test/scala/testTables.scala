@@ -40,7 +40,7 @@ class TableTestSuite extends AssertionsForJUnit with Suite {
     assertTrue( testCPT( car, bike ) - log(0.1 ) <= epsilon )
     assertTrue( testCPT( shoes, bike ) - log(0.1 ) <= epsilon )
 
-    testCPT.setDefaultMap( collection.immutable.Map( car -> log( 0.3 ), shoes -> log( 0.5 ) ) )
+    testCPT.setDefaultParentMap( collection.immutable.Map( car -> log( 0.3 ), shoes -> log( 0.5 ) ) )
 
     // see if new default map works
     assertTrue( testCPT( car, bike ) - log(0.3 ) <= epsilon )
@@ -48,7 +48,7 @@ class TableTestSuite extends AssertionsForJUnit with Suite {
 
 
     // try again with a mutable.Map
-    testCPT.setDefaultMap( collection.mutable.Map( car -> log( 0.8 ), shoes -> log( 0.6 ) ) )
+    testCPT.setDefaultParentMap( collection.mutable.Map( car -> log( 0.8 ), shoes -> log( 0.6 ) ) )
 
     // see if new default map works
     assertTrue( testCPT( car, bike ) - log(0.8) <= epsilon )

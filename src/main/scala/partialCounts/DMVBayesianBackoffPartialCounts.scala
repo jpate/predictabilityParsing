@@ -27,7 +27,8 @@ class DMVBayesianBackoffPartialCounts(
     // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
     // decisions are drawn
   noBackoffAlpha:Double = 35,
-  backoffAlpha:Double = 70
+  backoffAlpha:Double = 70,
+  dmvRulesAlpha:Double = 1
 ) extends DMVPartialCounts {
 
 
@@ -35,12 +36,16 @@ class DMVBayesianBackoffPartialCounts(
 
   override def associatedGrammar = new DMVBayesianBackoffGrammar(
     noBackoffAlpha,
-    backoffAlpha
+    backoffAlpha,
+    dmvRulesAlpha
   )
 
 
   override def toDMVGrammar = {
     print( "Computing DMVBayesianBackoffGrammar..." )
+
+    // println( "stopCounts:\n" + stopCounts + "\n\n" )
+    // println( "chooseCounts:\n" + chooseCounts + "\n\n" )
 
     val backoffAlphaMap = Map( Backoff -> backoffAlpha, NotBackoff -> noBackoffAlpha )
 
@@ -272,8 +277,8 @@ class DMVBayesianBackoffPartialCounts(
 
     // Ok, now compute backed-off parameters
 
-    stopNoBackoffCounts.expDigammaNormalize()
-    stopBackoffCounts.expDigammaNormalize()
+    stopNoBackoffCounts.expDigammaNormalize( dmvRulesAlpha )
+    stopBackoffCounts.expDigammaNormalize( dmvRulesAlpha )
 
     val backedoffStop = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
     stopCounts.parents.foreach{ stopKey =>
@@ -317,21 +322,20 @@ class DMVBayesianBackoffPartialCounts(
       )
     )
 
-    backoffHeadCounts.expDigammaNormalize()
-    noBackoffHeadCounts.expDigammaNormalize()
-    rootChooseCounts.expDigammaNormalize()
+    backoffHeadCounts.expDigammaNormalize( dmvRulesAlpha )
+    noBackoffHeadCounts.expDigammaNormalize( dmvRulesAlpha )
+    rootChooseCounts.expDigammaNormalize( dmvRulesAlpha )
 
-    //val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]()
-
+    rootChooseCounts.setDefault(
+      expDigamma( 0 ) - expDigamma( math.log( rootChooseCounts.parents.size ) )
+    )
 
     val argVocab = chooseCounts.values.flatMap{ _.keySet }.toSet
-
 
     val backedoffChoose = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
     chooseCounts.parents.foreach{ chooseKey =>
 
       chooseCounts(chooseKey).keySet.foreach{ arg =>
-      //argVocab.foreach{ arg =>
         chooseKey.h match {
           case WordPair( h1, h2 ) => {
             val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
@@ -371,6 +375,8 @@ class DMVBayesianBackoffPartialCounts(
       }
     }
 
+
+    backedoffChoose.setDefault( expDigamma( 0 ) - expDigamma( math.log( argVocab.size ) ) )
 
 
     println( "Done!" )

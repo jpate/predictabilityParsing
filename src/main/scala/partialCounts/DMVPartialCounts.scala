@@ -145,11 +145,15 @@ class DMVPartialCounts {
 
     otherCounts.chooseCounts.parents.foreach{ chooseKey =>
       otherCounts.chooseCounts(chooseKey).keySet.foreach{ w =>
-        incrementChooseCounts(
-          chooseKey,
-          w,
-          otherCounts.chooseCounts( chooseKey , w )
-        )
+        w match {
+          case rootArg:AbstractRoot => { /* Intentionally empty */ }
+          case _ =>
+            incrementChooseCounts(
+              chooseKey,
+              w,
+              otherCounts.chooseCounts( chooseKey , w )
+            )
+        }
       }
     }
 
@@ -241,7 +245,23 @@ class DMVPartialCounts {
     //orderCounts.expDigammaNormalize(partialCounts)
     orderCounts.normalize
     stopCounts.expDigammaNormalize(partialCounts)
+    stopCounts.setDefault(
+      expDigamma( 0D ) - expDigamma( math.log( stopCounts.parents.size ) )
+    )
+    stopCounts.setDefaultChildMap(
+      Map[StopDecision,Double](
+        NotStop -> {
+          Math.expDigamma( 0 ) - Math.expDigamma( math.log( 2 ) )
+        },
+        Stop -> {
+          Math.expDigamma( 0 ) - Math.expDigamma( math.log( 2 ) )
+        }
+      )
+    )
+
+
     chooseCounts.expDigammaNormalize(partialCounts)
+
     toReturn.setParams(
       VanillaDMVParameters(
         orderCounts.asLogCPT,
@@ -256,8 +276,8 @@ class DMVPartialCounts {
 
   override def toString =
     "orderCounts:\n" + orderCounts +
-    "chooseCounts:\n" + stopCounts +
-    "stopCounts:\n" + chooseCounts
+    "chooseCounts:\n" + chooseCounts +
+    "stopCounts:\n" + stopCounts
 
   // override def toString =
   //   "Span Counts:\n" +

@@ -120,7 +120,6 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
     // uniformness smoothing for stop
     pc.stopCounts.parents.foreach{ stopKey =>
-    //dmv.rootlessStopOrNotKeys(corpus.flatMap{ _.map{ _.w }}.toSet ).foreach{ stopKey =>
       pc.incrementStopCounts( stopKey, Stop, stopUniformityScore )
       pc.incrementStopCounts( stopKey, NotStop, stopUniformityScore )
     }
@@ -185,9 +184,189 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     println( "VanillaDMVEstimator.setHardlineStopHarmonicGrammar: running toDMVGrammar" )
     val newGrammar = pc.toDMVGrammar
     println( "VanillaDMVEstimator.setHardlineStopHarmonicGrammar: done running toDMVGrammar" )
+
     //newGrammar.clearInterpolationScores
     println( "setting harmonic initialization:" )
     setGrammar( newGrammar )
+  }
+
+
+  def getHardlineStopHarmonicPartialCounts[O<:TimedObservedLabel](
+    corpus:List[List[O]],
+    cAttach:Double = 15.0,
+    cStop:Double = 3.0,
+    cNotStop:Double = 1.0,
+    stopUniformity:Double = 20.0
+  ) = {
+    val pc = g.emptyPartialCounts
+    println( "Hardline Stop Harmonic Grammar" )
+
+    val cAttachScore = math.log( cAttach )
+    val cStopScore = math.log( cStop )
+    val cNotStopScore = math.log( cNotStop )
+    val stopUniformityScore = math.log( stopUniformity )
+
+    corpus/*.map{ s => s :+ FinalRoot( s.length )}*/.foreach{ s =>
+      (0 to (s.length-1)).foreach{ i =>
+        (0 to (i-1)).foreach{ leftK =>
+          // choose initialization
+          pc.incrementChooseCounts(
+            ChooseArgument( s(i).w, LeftAttachment ),
+            s(leftK).w,
+            logSum(
+              0D - math.log( i - leftK ) , cAttachScore
+            )
+          )
+        }
+
+        ((i+1) to (s.length-1)).foreach{ rightK =>
+          pc.incrementChooseCounts(
+            ChooseArgument( s(i).w, RightAttachment ),
+            s(rightK).w,
+            logSum(
+              0D - math.log( rightK - i ) , cAttachScore
+            )
+          )
+        }
+
+        // stop initialization
+        if( i == 0 )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, true ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, true ),
+            NotStop,
+            cNotStopScore
+          )
+
+        if( i == (s.length-1) )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, true ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, true ),
+            NotStop,
+            cNotStopScore
+          )
+
+        if( i == 1 )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, false ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, LeftAttachment, false ),
+            NotStop,
+            cNotStopScore
+          )
+
+        if( i == (s.length-2) )
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, false ),
+            Stop,
+            cStopScore
+          )
+        else
+          pc.incrementStopCounts(
+            StopOrNot( s(i).w, RightAttachment, false ),
+            NotStop,
+            cNotStopScore
+          )
+
+        pc.incrementChooseCounts(
+          ChooseArgument( Root, LeftAttachment ),
+          s(i).w,
+          cAttachScore
+        )
+        // order initialization
+        pc.setOrderCounts( s(i).w, RightFirst, 0D )
+        pc.setOrderCounts( s(i).w, LeftFirst, Double.NegativeInfinity )
+      }
+
+    }
+
+
+    // uniformness smoothing for stop
+    pc.stopCounts.parents.foreach{ stopKey =>
+      pc.incrementStopCounts( stopKey, Stop, stopUniformityScore )
+      pc.incrementStopCounts( stopKey, NotStop, stopUniformityScore )
+    }
+
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, true ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, true ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, false ),
+      Stop,
+      0D
+    )
+    pc.setStopCounts(
+      StopOrNot( Root, RightAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+
+
+    pc.setOrderCounts(
+      Root,
+      LeftFirst,
+      Double.NegativeInfinity
+    )
+    pc.setOrderCounts(
+      Root,
+      RightFirst,
+      0D
+    )
+
+    pc
+
+    //pc.clearInterpolationScores
+    // println( "VanillaDMVEstimator.setHardlineStopHarmonicGrammar: running toDMVGrammar" )
+    // val newGrammar = pc.toDMVGrammar
+    // println( "VanillaDMVEstimator.setHardlineStopHarmonicGrammar: done running toDMVGrammar" )
+
+    // //newGrammar.clearInterpolationScores
+    // println( "setting harmonic initialization:" )
+    // setGrammar( newGrammar )
   }
 
   def setMismatchedHardlineStopHarmonicGrammar[O<:TimedObservedLabel](
@@ -724,10 +903,19 @@ class VanillaDMVEstimator extends AbstractDMVParser{
         case SealedRight | SealedLeft | Sealed =>
           (label.peel.toSet & matrix(span.start)(span.end).keySet).foldLeft(
           Double.NegativeInfinity) { (x, peeledH ) =>
-            Math.sumLogProb(
-              x,
+            val base = 
               g.stopScore( StopOrNot( label.obs.w, peeledH.attachmentDirection, adj( peeledH, span ) ), Stop ) +
                 matrix(span.start)(span.end)( peeledH ).iScore
+            // if( !( base <= 0D ) ) {
+            //   println(
+            //     g.stopScore( StopOrNot( label.obs.w, peeledH.attachmentDirection, adj( peeledH, span
+            //     ) ), Stop )  + " + " +
+            //       matrix(span.start)(span.end)( peeledH ).iScore + " = " + base
+            //   )
+            // }
+            Math.sumLogProb(
+              x,
+              base
             )
           }
       }
@@ -752,17 +940,19 @@ class VanillaDMVEstimator extends AbstractDMVParser{
           g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) +
           argEntry.iScore +
           headEntry.iScore
-          // if( !( inc <= 0D ) ) {
-          //   println( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) + " , " +
-          //     ChooseArgument( h.obs.w, h.attachmentDirection ) + " , " + a.obs.w + "\n  " + 
-          //     g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) + " + " +
-          //     g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) + " + " +
-          //     argEntry.iScore + " + " +
-          //     headEntry.iScore + " = " + inc + "\n\n"
-          //   )
-          // }
+
 
         incrementIScore( inc )
+
+        // if( !( iScore <= 0D ) || ( h.obs.w != Root && iScore == Double.NegativeInfinity ) ) {
+        //   println( h + " --> " + a +", " + span + ", " + StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) + " , " +
+        //     ChooseArgument( h.obs.w, h.attachmentDirection ) + " , " + a.obs.w + "\n  " + 
+        //     g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) + " + " +
+        //     g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) + " + " +
+        //     argEntry.iScore + " + " +
+        //     headEntry.iScore + " = " + inc + "\n\n"
+        //   )
+        // }
         children += SpannedChildren( headEntry, Some(argEntry) )
       }
 
@@ -1172,6 +1362,19 @@ class VanillaDMVEstimator extends AbstractDMVParser{
                       matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore -
                         treeScore
                 )
+                // if(!(pc.chooseCounts(ChooseArgument( h.obs.w, RightAttachment ), a.obs.w) <= 0D)) {
+                //   println( "> " + 
+                //     ChooseArgument( h.obs.w, RightAttachment ) + ", " +
+                //     a.obs.w + ", " +
+                //       g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop) + " + "  +
+                //       g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) + " + " +
+                //       matrix(i)(k)(h).iScore + " + " +
+                //       matrix(k)(j)(a).iScore + " + " +
+                //       matrix(i)(j)(h).oScore + " - " +
+                //       treeScore + " = " +
+                //     pc.chooseCounts(ChooseArgument( h.obs.w, RightAttachment ), a.obs.w)
+                //   )
+                // }
 
                 pc.incrementStopCounts(
                   StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ),

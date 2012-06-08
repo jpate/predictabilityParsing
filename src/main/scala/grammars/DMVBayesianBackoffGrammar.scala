@@ -12,7 +12,8 @@ class DMVBayesianBackoffGrammar(
     // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
     // decisions are drawn
   noBackoffAlpha:Double = 35,
-  backoffAlpha:Double = 70
+  backoffAlpha:Double = 70,
+  dmvRulesAlpha:Double = 1
 ) extends DMVGrammar {
 
   val stopBackoffInterpolationScore = new Log2dTable( Set[StopOrNot](), dmv.backoffDecision )
@@ -201,7 +202,8 @@ class DMVBayesianBackoffGrammar(
 
   override def emptyPartialCounts = new DMVBayesianBackoffPartialCounts(
     noBackoffAlpha,
-    backoffAlpha//,
+    backoffAlpha,
+    dmvRulesAlpha//,
     // stopBackoffScore,
     // headBackoffScore
   )
@@ -211,6 +213,7 @@ class DMVBayesianBackoffGrammar(
     "Alphas:\n" +
     "\tnoBackoffAlpha: " + noBackoffAlpha + "\n" +
     "\tbackoffAlpha: " + backoffAlpha + "\n" +
+    "\tdmvRulesAlpha: " + dmvRulesAlpha + "\n" +
     "P_Stop (" + math.exp( p_stop.getDefault ) + "):\n" + p_stop +
     "P_Choose (" + math.exp( p_choose.getDefault ) + "):\n" + p_choose +
     "stopBackoffInterpolationScore:\n" + stopBackoffInterpolationScore + "\n" +

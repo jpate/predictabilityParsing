@@ -143,7 +143,8 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       cpt.keySet.map( parent =>
         if( cpt( parent ).values.size > 0 )
           parent -> expDigamma(
-            logSum(log( pseudoCount * cpt(parent).values.size )::cpt(parent).values.toList)
+            // child count plus one to allow for unseen children
+            logSum(log( pseudoCount * ( cpt(parent).values.size + 1 ) )::cpt(parent).values.toList)
           )
         else
           parent -> Double.NegativeInfinity
@@ -183,13 +184,70 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
         cpt.keySet.map{ parent =>
           parent -> { expDigamma( logPseudoCount ) - maxes( parent ) }
         }.toSeq:_*
-      ).withDefaultValue( 
+      )/*.withDefaultValue( 
         expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size) + logPseudoCount )
-      )
+      )*/
     )
     // setDefault(
     //   expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size +1 ) + logPseudoCount )
     // )
+  }
+
+  // right now assumes symmetric prior
+  def nonRaggedExpDigammaNormalize( pseudoCount:Double = 1D ) {
+    val logPseudoCount = log( pseudoCount )
+
+    val allChildren = cpt.values.flatMap{ _.keySet }
+    val childCount = allChildren.size
+
+    val maxes = Map(
+      cpt.keySet.map( parent =>
+        if( cpt( parent ).values.size > 0 )
+          parent -> expDigamma(
+            //logSum(log( pseudoCount * cpt(parent).values.size )::cpt(parent).values.toList)
+            logSum(log( pseudoCount * childCount )::cpt(parent).values.toList)
+          )
+        else
+          parent -> Double.NegativeInfinity
+          //parent -> 0D
+      ).toSeq:_*
+    )
+
+    cpt = Map(
+      cpt.keySet.map{ parent =>
+        parent -> Map(
+          cpt(parent).keySet.map{ child =>
+            if( maxes( parent ) == Double.NegativeInfinity )
+              child -> Double.NegativeInfinity
+            else
+              child -> (
+                expDigamma(
+                  logSum(
+                    this(parent, child),
+                    logPseudoCount
+                  )
+                ) - maxes(parent)
+              )
+          }.toSeq:_*
+        )
+      }.toSeq:_*
+    )
+
+    assert(
+      cpt.keySet.forall{ parent =>
+        logSum( cpt( parent ).values.toSeq ) <= 0D
+      }
+    )
+
+    setDefaultParentMap(
+      Map(
+        cpt.keySet.map{ parent =>
+          parent -> { expDigamma( logPseudoCount ) - maxes( parent ) }
+        }.toSeq:_*
+      ).withDefaultValue( 
+        expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size) + logPseudoCount )
+      )
+    )
   }
 
   def expDigammaNormalize( pseudoCountMap:scala.collection.Map[U,Double] ) {
@@ -242,13 +300,76 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       }
     )
 
-    //val defaultDenom = logSum( logPseudoCountMap.values.toSeq )
-    //setDefaultChildMap( logPseudoCountMap.mapValues{ alpha => alpha - defaultDenom } )
+    val defaultDenom = logSum( logPseudoCountMap.values.toSeq )
+    setDefaultChildMap( logPseudoCountMap.mapValues{ alpha => alpha - defaultDenom } )
 
       // logPseudoCountMap.mapValues{ alpha =>
       //   alpha - logSum( logPseudoCountMap.values.toSeq )
       // }
   }
+
+
+      // def expDigammaNormalize( pseudoCountMap:scala.collection.Map[U,Double] ) {
+      //   //val logPseudoCount = log( pseudoCount )
+      //   val logPseudoCountMap = pseudoCountMap.mapValues( log( _ ) )
+
+      //   val allChildren = cpt.values.flatMap{ _.keySet }
+      //   val childCount = allChildren.size
+
+      //   val maxes = Map(
+      //     cpt.keySet.map( parent =>
+      //       if( cpt( parent ).values.size > 0 )
+      //         parent -> expDigamma(
+      //           logSum( log(pseudoCountMap.values.reduce(_+_))::cpt(parent).values.toList )
+      //         )
+      //       else
+      //         parent -> Double.NegativeInfinity
+      //         //parent -> 0D
+      //     ).toSeq:_*
+      //   )
+
+      //   cpt = Map(
+      //     cpt.keySet.map{ parent =>
+      //       parent -> Map(
+      //         cpt(parent).keySet.map{ child =>
+      //           if( maxes( parent ) == Double.NegativeInfinity )
+      //             child -> Double.NegativeInfinity
+      //           else
+      //             child -> (
+      //               expDigamma(
+      //                 logSum(
+      //                   this(parent, child),
+      //                   logPseudoCountMap( child )
+      //                 )
+      //               ) - maxes(parent)
+      //             )
+      //         }.toSeq:_*
+      //       )
+      //     }.toSeq:_*
+      //   )
+
+      //   cpt.keySet.foreach{ parent =>
+      //     if( !( logSum( cpt( parent ).values.toSeq ) <= 0D ) ) {
+      //       println(
+      //         "} " + parent + ": " + logSum( cpt( parent ).values.toSeq ) +
+      //         cpt(parent).keySet.map{ child => child + ": " + cpt(parent)(child) }.mkString("\n\t","\n\t","\n\n" )
+      //       )
+      //     }
+      //   }
+
+      //   assert(
+      //     cpt.keySet.forall{ parent =>
+      //       logSum( cpt( parent ).values.toSeq ) <= 0D
+      //     }
+      //   )
+
+      //   //val defaultDenom = logSum( logPseudoCountMap.values.toSeq )
+      //   //setDefaultChildMap( logPseudoCountMap.mapValues{ alpha => alpha - defaultDenom } )
+
+      //     // logPseudoCountMap.mapValues{ alpha =>
+      //     //   alpha - logSum( logPseudoCountMap.values.toSeq )
+      //     // }
+      // }
 
   def randomize( seed:Int, centeredOn:Int ) {
     import scala.util.Random

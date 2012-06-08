@@ -273,13 +273,14 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
     p_order.setValue(
       Root,
       LeftFirst,
-      0D
+      Double.NegativeInfinity
     )
     p_order.setValue(
       Root,
       RightFirst,
-      Double.NegativeInfinity
+      0D
     )
+
     p_stop.setCPTMap(
       Map(
         (

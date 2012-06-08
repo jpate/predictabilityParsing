@@ -55,6 +55,10 @@ object Math {
       1
     else
       catalan( n-1 ) * 2 * ((2*n)-1) / (n+1)
+
+
+  def approxEquals( x1:Double, x2:Double, epsilon:Double = 0.00001 ) =
+    math.abs( x1 - x2 ) < epsilon
 }
 
 

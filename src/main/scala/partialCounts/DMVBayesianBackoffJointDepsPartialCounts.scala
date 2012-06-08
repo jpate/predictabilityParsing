@@ -27,7 +27,8 @@ class DMVBayesianBackoffJointDepsPartialCounts(
     // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff
     // decisions are drawn
   noBackoffAlpha:Double = 35,
-  backoffAlpha:Double = 70
+  backoffAlpha:Double = 70,
+  dmvRulesAlpha:Double = 1
 ) extends DMVPartialCounts {
 
 
@@ -35,7 +36,8 @@ class DMVBayesianBackoffJointDepsPartialCounts(
 
   override def associatedGrammar = new DMVBayesianBackoffJointDepsGrammar(
     noBackoffAlpha,
-    backoffAlpha
+    backoffAlpha,
+    dmvRulesAlpha
   )
 
 
@@ -271,8 +273,8 @@ class DMVBayesianBackoffJointDepsPartialCounts(
 
     // Ok, now compute backed-off parameters
 
-    stopNoBackoffCounts.expDigammaNormalize()
-    stopBackoffCounts.expDigammaNormalize()
+    stopNoBackoffCounts.expDigammaNormalize( dmvRulesAlpha )
+    stopBackoffCounts.expDigammaNormalize( dmvRulesAlpha )
 
     val backedoffStop = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
     stopCounts.parents.foreach{ stopKey =>
@@ -318,9 +320,9 @@ class DMVBayesianBackoffJointDepsPartialCounts(
 
 
 
-    noBackoffHeadCounts.expDigammaNormalize()
-    backoffHeadCounts.expDigammaNormalize()
-    rootChooseCounts.expDigammaNormalize()
+    noBackoffHeadCounts.expDigammaNormalize( dmvRulesAlpha )
+    backoffHeadCounts.expDigammaNormalize( dmvRulesAlpha )
+    rootChooseCounts.expDigammaNormalize( dmvRulesAlpha )
 
     //val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]()
 

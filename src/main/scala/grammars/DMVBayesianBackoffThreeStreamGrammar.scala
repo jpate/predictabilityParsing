@@ -111,7 +111,6 @@ class DMVBayesianBackoffThreeStreamGrammar(
                     noBackoffHeadScore( chooseKey, backoffArg ),
 
                   chooseBackoffHeadFirstInterpolationScore( chooseKey, Backoff ) +
-                    //chooseBackoffHeadSecondInterpolationScore( chooseKey, NotBackoff ) +
                     chooseBackoffHeadSecondInterpolationScore( backoffHeadOnceKey, NotBackoff ) +
                       backoffHeadOnceScore( backoffHeadOnceKey, backoffArg ),
 
