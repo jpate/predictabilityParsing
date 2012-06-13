@@ -1045,6 +1045,54 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
       }
 
+      def annotatedMaxMarginalConstituencyParse:String = {
+        val SpannedChildren( bestHead, bestArg ) = (
+            if( label.sealCount > 0 )
+              ( children ++
+                ( label.peel.toSet & matrix(span.start)(span.end).keySet ) .map{ peeledLabel =>
+                  SpannedChildren( matrix( span.start )( span.end )( peeledLabel ), None )
+                }.toSet
+              )
+            else
+              children
+          ).reduce{ (currentBest,considering) =>
+            val SpannedChildren( bestHead, bestArg ) = currentBest
+            val SpannedChildren( newHead, newArg ) = considering
+            if(
+              {
+                if( bestArg.isEmpty )
+                  bestHead.score
+                else
+                  Math.sumLogProb( bestHead.score, bestArg.get.score )
+              } > {
+                if( newArg.isEmpty )
+                  newHead.score
+                else
+                  Math.sumLogProb( newHead.score, newArg.get.score )
+              }
+            )
+              currentBest
+            else
+              considering
+          }
+
+        if( bestArg.isEmpty )
+          "(" + label + ":" + ( "%1.21f" format score ) + " " + bestHead.annotatedMaxMarginalConstituencyParse + " )"
+        else
+          if( bestHead.span.start < bestArg.get.span.start )
+            "(" + label + ":" + ( "%1.21f" format score ) + " " +
+              bestHead.annotatedMaxMarginalConstituencyParse + " " +
+              bestArg.get.annotatedMaxMarginalConstituencyParse +
+            " ) "
+          else
+            "(" + label + ":" + ( "%1.21f" format score ) + " " +
+              bestArg.get.annotatedMaxMarginalConstituencyParse +
+              bestHead.annotatedMaxMarginalConstituencyParse + " " +
+            " ) "
+
+      }
+
+
       override def toString = 
         span + ": " + label +
           "\n  iScore: " + math.exp( iScore ) +
@@ -1057,6 +1105,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     ) {
       override def maxMarginalDependencyParse = Set[DirectedArc]()
       override def maxMarginalConstituencyParse = "(" + h + "  " + h.obs + ") "
+      override def annotatedMaxMarginalConstituencyParse = "(" + h + ":" + ( "%1.21f" format score ) + "  " + h.obs + ") "
     }
 
 
@@ -1068,6 +1117,8 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     def toMaxMarginalDependencyParse =
       rootEntry.maxMarginalDependencyParse.toList.sortWith{ _.arg.t < _.arg.t }.map{_.head.t}.mkString( "[ ", ", ", " ] " )
     def toMaxMarginalConstituencyParse = rootEntry.maxMarginalConstituencyParse
+
+    def toAnnotatedMaxMarginalConstituencyParse = rootEntry.annotatedMaxMarginalConstituencyParse
 
 
     // Re-wrote lexFill so we don't explicitly touch iScore at all, only add entries.
@@ -1489,6 +1540,18 @@ class VanillaDMVEstimator extends AbstractDMVParser{
           val chart = populateChart( s )
           prefix + ":dependency:" + id + " " + chart.toMaxMarginalDependencyParse + "\n" +
           prefix + ":constituency:" + id + " " + chart.toMaxMarginalConstituencyParse
+        }
+      }
+    }
+  def annotatedMaxMarginalParse( corpus:List[AbstractTimedSentence], prefix:String ) =
+    corpus.par.map{ _ match {
+        case TimedSentence( id, s ) => {
+          val chart = populateChart( s )
+          prefix + ":constituency:" + id + " " + chart.toAnnotatedMaxMarginalConstituencyParse
+        }
+        case TimedTwoStreamSentence( id, s ) => {
+          val chart = populateChart( s )
+          prefix + ":constituency:" + id + " " + chart.toAnnotatedMaxMarginalConstituencyParse
         }
       }
     }
