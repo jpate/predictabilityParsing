@@ -8,17 +8,11 @@ import predictabilityParsing.grammars.AbstractDMVGrammar
 import predictabilityParsing.util.Math
 
 /*
- *  This is a class for a DMV which backs off to acoustics for both head and argument. It is
- *  inspired by Will Headden's lexicalized EVG, in which the probabilities for each rule are drawn
- *  from a mixture of dirichlet priors, one which learns from the lexicalized distribution (which is
- *  sparse but informative) and one which learns from the unlexicalized distribution (which is less
- *  sparse but also less informative).
- *
- *  However, the details of Headden et al are probably inappropriate (since we're using acoustics
- *  instead of POS tags). Instead, we will draw our rules from a mixture of three distributions: one
- *  which conditions on both head and argument words, one which conditions on only head word, and
- *  one which conditions on no words. We should also look into backing off onto conditioning on only
- *  the argument word.
+ *  This is a class for a DMV which backs off to stream B for heads, with stream A and stream B
+ *  emitted conditionally independent on the head. It is inspired by Will Headden's lexicalized EVG,
+ *  in which the probabilities for each rule are drawn from a mixture of dirichlet priors, one which
+ *  learns from the lexicalized distribution (which is sparse but informative) and one which learns
+ *  from the unlexicalized distribution (which is less sparse but also less informative).
  *
  *  We will always use lexical identity for selecting sentence root.
  *
