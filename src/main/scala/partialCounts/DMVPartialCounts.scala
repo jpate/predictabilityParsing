@@ -279,6 +279,21 @@ class DMVPartialCounts {
     "chooseCounts:\n" + chooseCounts +
     "stopCounts:\n" + stopCounts
 
+  def chooseCSV =
+    chooseCounts.parents.flatMap{ head =>
+      chooseCounts( head ).keySet.map{ dep =>
+        head.h + "," + head.dir + "," + dep + "," + chooseCounts(head,dep)
+      }
+    }
+
+  def stopCSV =
+    stopCounts.parents.flatMap{ head =>
+      Array(
+        head.w + "," + head.dir + "," + head.adj + "," + Stop + "," + stopCounts(head,Stop) ,
+        head.w + "," + head.dir + "," + head.adj + "," + NotStop + "," + stopCounts(head,NotStop)
+      )
+    }
+
   // override def toString =
   //   "Span Counts:\n" +
   //   "Constituents:" +

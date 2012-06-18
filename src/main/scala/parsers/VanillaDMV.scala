@@ -1076,19 +1076,52 @@ class VanillaDMVEstimator extends AbstractDMVParser{
               considering
           }
 
-        if( bestArg.isEmpty )
-          "(" + label + ":" + ( "%1.21f" format score ) + " " + bestHead.annotatedMaxMarginalConstituencyParse + " )"
-        else
-          if( bestHead.span.start < bestArg.get.span.start )
-            "(" + label + ":" + ( "%1.21f" format score ) + " " +
-              bestHead.annotatedMaxMarginalConstituencyParse + " " +
-              bestArg.get.annotatedMaxMarginalConstituencyParse +
-            " ) "
-          else
-            "(" + label + ":" + ( "%1.21f" format score ) + " " +
-              bestArg.get.annotatedMaxMarginalConstituencyParse +
-              bestHead.annotatedMaxMarginalConstituencyParse + " " +
-            " ) "
+        if( bestArg.isEmpty ) { // unary stop rule.
+          val myScore =
+            oScore +
+            g.stopScore(
+              StopOrNot( label.obs.w, bestHead.label.attachmentDirection, adj( bestHead.label, span ) ), Stop
+            )+ bestHead.iScore
+          "(" + label + ":" + myScore + " " + bestHead.annotatedMaxMarginalConstituencyParse + " )"
+        } else { // binary attachment rule.
+          if( bestHead.span.start < bestArg.get.span.start ) { // rightward attachment
+
+            assert( bestHead.label.attachmentDirection == RightAttachment )
+            val myScore =
+              oScore +
+              g.stopScore(
+                StopOrNot( label.obs.w, RightAttachment, adj( bestHead.label, bestHead.span ) ), NotStop
+              ) +
+              g.chooseScore(
+                ChooseArgument( label.obs.w, RightAttachment ), bestArg.get.label.obs.w
+              ) +
+              bestHead.iScore + bestArg.get.iScore
+
+              "(" + label + ":" + myScore + " " +
+                bestHead.annotatedMaxMarginalConstituencyParse + " " +
+                bestArg.get.annotatedMaxMarginalConstituencyParse +
+              " ) "
+
+          } else { // leftward attachment
+
+            assert( bestHead.label.attachmentDirection == LeftAttachment )
+            val myScore =
+              oScore +
+              g.stopScore(
+                StopOrNot( label.obs.w, LeftAttachment, adj( bestHead.label, bestHead.span ) ), NotStop
+              ) +
+              g.chooseScore(
+                ChooseArgument( label.obs.w, LeftAttachment ), bestArg.get.label.obs.w
+              ) +
+              bestHead.iScore + bestArg.get.iScore
+
+
+              "(" + label + ":" + myScore + " " +
+                bestArg.get.annotatedMaxMarginalConstituencyParse +
+                bestHead.annotatedMaxMarginalConstituencyParse + " " +
+              " ) "
+            }
+        }
 
       }
 
@@ -1105,7 +1138,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     ) {
       override def maxMarginalDependencyParse = Set[DirectedArc]()
       override def maxMarginalConstituencyParse = "(" + h + "  " + h.obs + ") "
-      override def annotatedMaxMarginalConstituencyParse = "(" + h + ":" + ( "%1.21f" format score ) + "  " + h.obs + ") "
+      override def annotatedMaxMarginalConstituencyParse = "(" + h + ":" + score + "  " + h.obs + ") "
     }
 
 
@@ -1562,6 +1595,22 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     //   a.destructivePlus(b);
     //   a
     // }
+
+  def partialCountsCSV( corpus:List[AbstractTimedSentence] ) =
+    corpus.par.map{ _ match {
+        case TimedSentence( id, s ) => {
+          val pc = populateChart( s ).toPartialCounts
+          pc.chooseCSV.map{ csv => "chooseCounts," + id + "," + csv }.mkString("","\n","\n") +
+          pc.stopCSV.map{ csv => "stopCounts," + id + "," + csv }.mkString("","\n","")
+        }
+        case TimedTwoStreamSentence( id, s ) => {
+          val pc = populateChart( s ).toPartialCounts
+          pc.chooseCSV.map{ csv =>"chooseCounts," + id + "," + csv }.mkString("","\n","\n") +
+          pc.stopCSV.map{ csv => "stopCounts," + id + "," + csv }.mkString("","\n","")
+          //prefix + ":constituency:" + id + " " + chart.toAnnotatedMaxMarginalConstituencyParse
+        }
+      }
+    }
 
   def computePartialCounts( corpus:Iterable[List[TimedObservedLabel]] ) =
     corpus.par.map{ s =>
