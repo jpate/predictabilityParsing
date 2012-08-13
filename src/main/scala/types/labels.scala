@@ -56,7 +56,29 @@ object LeftAttachment extends SomeAttachment( "--LeftAttachment--" )
 object RightAttachment extends SomeAttachment( "--RightAttachment--" )
 
 case class DirectedArc( head:TimedObservedLabel, arg:TimedObservedLabel )
-  extends HiddenLabel( head + " --> " + arg )
+  extends HiddenLabel( head + " --> " + arg ) {
+  def <( a2:DirectedArc) =
+    if( head.t < a2.head.t )
+      true
+    else if( head.t > a2.head.t )
+      false
+    else
+      if( arg.t < a2.arg.t )
+        true
+      else
+        false
+
+  def >( a2:DirectedArc) =
+    if( head.t > a2.head.t )
+      true
+    else if( head.t < a2.head.t )
+      false
+    else
+      if( arg.t > a2.arg.t )
+        true
+      else
+        false
+}
 
 abstract class StopDecision( s:String ) extends HiddenLabel( s )
 object Stop extends StopDecision( "--Stop--" )

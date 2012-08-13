@@ -1513,6 +1513,55 @@ class VanillaDMVEstimator extends AbstractDMVParser{
       pc
     }
 
+    def arcProbabilities = {
+      // This is like toPartialCounts except we distinguish different tokens of the same word, and
+      // also keep track of arc probabilities in a local array of arrays.
+
+      val allArcs = collection.mutable.Map[DirectedArc,Double]().withDefaultValue( Double.NegativeInfinity )
+      (0 to (s.length-2) ).foreach{ i =>
+        ( (i+1) to ( s.length -1) ).foreach{ j =>
+          ( (i+1) to (j-1) ).foreach{ k =>
+
+            val rightArguments = matrix(k)(j).keySet.filter{ _.mark == Sealed }
+            matrix(i)(k).keySet.filter{ _.attachmentDirection == RightAttachment }.foreach{ h =>
+              rightArguments.foreach{ a =>
+                val thisArc = DirectedArc( h.obs, a.obs )
+
+                allArcs( thisArc ) = logSum(
+                  allArcs( thisArc ),
+                  g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
+                    g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
+                      matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore -
+                        treeScore
+                )
+              }
+
+            }
+
+            val leftArguments = matrix(i)(k).keySet.filter{ _.mark == Sealed }
+            matrix(k)(j).keySet.filter{ _.attachmentDirection == LeftAttachment }.foreach{ h =>
+              leftArguments.foreach{ a =>
+                val thisArc = DirectedArc( h.obs, a.obs )
+
+                allArcs( thisArc ) = logSum(
+                  allArcs( thisArc ),
+                  g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,j) ) ) , NotStop ) +
+                    g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
+                      matrix(i)(k)(a).iScore + matrix(k)(j)(h).iScore + matrix(i)(j)(h).oScore -
+                        treeScore
+                )
+              }
+            }
+
+          }
+        }
+      }
+
+      allArcs.keys.toList.sortWith{ _ < _ }.map{ case DirectedArc( h, a ) =>
+        List( h.t, a.t, h.w, a.w, allArcs( DirectedArc( h, a ) ) )
+      }
+    }
+
     def computeMarginals {
       (0 to (s.length-1) ).foreach{ i =>
         ( (i+1) to s.length ).foreach{ j =>
@@ -1563,7 +1612,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
   }
 
   def maxMarginalParse( corpus:List[AbstractTimedSentence], prefix:String ) =
-    corpus.par.map{ _ match {
+    corpus/*.par*/.map{ _ match {
         case TimedSentence( id, s ) => {
           val chart = populateChart( s )
           prefix + ":dependency:" + id + " " + chart.toMaxMarginalDependencyParse + "\n" +
@@ -1576,6 +1625,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
         }
       }
     }
+
   def annotatedMaxMarginalParse( corpus:List[AbstractTimedSentence], prefix:String ) =
     corpus.par.map{ _ match {
         case TimedSentence( id, s ) => {
@@ -1595,6 +1645,21 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     //   a.destructivePlus(b);
     //   a
     // }
+
+  def arcProbabilitiesCSV( corpus:List[AbstractTimedSentence] ) =
+    corpus/*.par*/.map{ _ match {
+        case TimedSentence( id, s ) => {
+          populateChart( s ).arcProbabilities.map{ arcs =>
+            "arcProbabilities," + id + "," + arcs.mkString("",",","")
+          }.mkString("","\n","")
+        }
+        case TimedTwoStreamSentence( id, s ) => {
+          populateChart( s ).arcProbabilities.map{ arcs =>
+            "arcProbabilities," + id + "," + arcs.mkString("",",","")
+          }.mkString("","\n","")
+        }
+      }
+    }
 
   def partialCountsCSV( corpus:List[AbstractTimedSentence] ) =
     corpus.par.map{ _ match {
