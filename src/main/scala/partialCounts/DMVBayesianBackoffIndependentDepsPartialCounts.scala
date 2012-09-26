@@ -172,7 +172,9 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
     val backoffHeadCountsA = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
     val backoffHeadCountsB = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
 
-    val rootChooseCounts =
+    val rootChooseCountsA =
+      new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+    val rootChooseCountsB =
       new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
 
     chooseCounts.parents.foreach{ chooseKey =>
@@ -203,36 +205,32 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
                 noBackoffHeadCountsA.setValue(
                   chooseKey,
                   argA,
-                  //backoffArg,
                   logSum(
-                    noBackoffHeadCountsA( chooseKey, argA /*backoffArg*/ ),
+                    noBackoffHeadCountsA( chooseKey, argA ),
                     chooseCounts( chooseKey, arg )
                   )
                 )
                 noBackoffHeadCountsB.setValue(
                   chooseKey,
                   argB,
-                  //backoffArg,
                   logSum(
-                    noBackoffHeadCountsB( chooseKey, argB /*backoffArg*/ ),
+                    noBackoffHeadCountsB( chooseKey, argB ),
                     chooseCounts( chooseKey, arg )
                   )
                 )
                 backoffHeadCountsA.setValue(
                   backoffHeadKey,
                   argA,
-                  //backoffArg,
                   logSum(
-                    backoffHeadCountsA( backoffHeadKey, argA /*backoffArg*/ ),
+                    backoffHeadCountsA( backoffHeadKey, argA ),
                     chooseCounts( chooseKey, arg )
                   )
                 )
                 backoffHeadCountsB.setValue(
                   backoffHeadKey,
                   argB,
-                  //backoffArg,
                   logSum(
-                    backoffHeadCountsB( backoffHeadKey, argB /*backoffArg*/ ),
+                    backoffHeadCountsB( backoffHeadKey, argB ),
                     chooseCounts( chooseKey, arg )
                   )
                 )
@@ -245,15 +243,37 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
           }
         }
         case rootHead:AbstractRoot => {
+          val backoffHeadKey = ChooseArgument( Root, chooseKey.dir )
           chooseCounts(chooseKey).keySet.foreach{ arg =>
             arg match {
 
-              case WordPair( _, d2 ) => {
-                rootChooseCounts.setValue(
+              case WordPair( d1, d2 ) => {
+
+                val argA = Word( d1 )
+                val argB = Word( d2 )
+
+                chooseBackoffHeadInterpolationSums.setValue(
+                  chooseKey,
+                  NotBackoff,
+                  logSum(
+                    chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ),
+                    chooseCounts( chooseKey, arg )
+                  )
+                )
+
+                rootChooseCountsA.setValue(
+                  chooseKey,
+                  Word( d1 ),
+                  logSum(
+                    rootChooseCountsA( chooseKey, Word( d1 ) ),
+                    chooseCounts( chooseKey, arg )
+                  )
+                )
+                rootChooseCountsB.setValue(
                   chooseKey,
                   Word( d2 ),
                   logSum(
-                    rootChooseCounts( chooseKey, Word( d2 ) ),
+                    rootChooseCountsB( chooseKey, Word( d2 ) ),
                     chooseCounts( chooseKey, arg )
                   )
                 )
@@ -289,8 +309,8 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
 
     // Ok, now compute backed-off parameters
 
-    stopNoBackoffCounts.expDigammaNormalize( dmvRulesAlpha )
-    stopBackoffCounts.expDigammaNormalize( dmvRulesAlpha )
+    stopNoBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false)
+    stopBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false)
 
     val backedoffStop = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
     stopCounts.parents.foreach{ stopKey =>
@@ -340,7 +360,8 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
     backoffHeadCountsB.expDigammaNormalize( dmvRulesAlpha )
     noBackoffHeadCountsA.expDigammaNormalize( dmvRulesAlpha )
     noBackoffHeadCountsB.expDigammaNormalize( dmvRulesAlpha )
-    rootChooseCounts.expDigammaNormalize( dmvRulesAlpha )
+    rootChooseCountsA.expDigammaNormalize( dmvRulesAlpha )
+    rootChooseCountsB.expDigammaNormalize( dmvRulesAlpha )
 
     val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]()
 
@@ -400,11 +421,12 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
           }
           case rootHead:AbstractRoot => {
             arg match {
-              case WordPair( _, d2 ) =>
+              case WordPair( d1, d2 ) =>
                 backedoffChoose.setValue(
                   chooseKey,
                   arg,
-                  rootChooseCounts( chooseKey, Word( d2 ) )
+                  rootChooseCountsA( chooseKey, Word( d1 ) ) +
+                  rootChooseCountsB( chooseKey, Word( d2 ) )
                 )
               case rootArg:AbstractRoot =>
             }
@@ -446,7 +468,8 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
         noBackoffHeadCountsB,
         backoffHeadCountsA,
         backoffHeadCountsB,
-        rootChooseCounts
+        rootChooseCountsA,
+        rootChooseCountsB
       )
     )
 

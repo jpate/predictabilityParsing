@@ -30,7 +30,9 @@ class DMVBayesianBackoffIndependentDepsGrammar(
   val backoffHeadAScore = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
   val backoffHeadBScore = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
 
-  val rootChooseScore =
+  val rootChooseAScore =
+    new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+  val rootChooseBScore =
     new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
 
 
@@ -136,7 +138,13 @@ class DMVBayesianBackoffIndependentDepsGrammar(
     val thisScore =
       chooseKey.h match {
         case rootHead:AbstractRoot => {
-          rootChooseScore( chooseKey, arg )
+          arg match {
+            case rootArg:AbstractRoot => Double.NegativeInfinity
+            case WordPair( d1, d2 ) => {
+              rootChooseAScore( chooseKey, Word(d1) ) +
+              rootChooseBScore( chooseKey, Word(d2) )
+            }
+          }
         }
         case WordPair( _, h2 ) => {
           arg match {
@@ -186,7 +194,8 @@ class DMVBayesianBackoffIndependentDepsGrammar(
       newNoBackoffHeadBScore,
       newBackoffHeadAScore,
       newBackoffHeadBScore,
-      newRootChooseScore
+      newRootChooseAScore,
+      newRootChooseBScore
     ) = parameters
 
     p_stop.setCPT( newBackedoffStop )
@@ -205,7 +214,8 @@ class DMVBayesianBackoffIndependentDepsGrammar(
     backoffHeadAScore.setCPT( newBackoffHeadAScore )
     backoffHeadBScore.setCPT( newBackoffHeadBScore )
 
-    rootChooseScore.setCPT( newRootChooseScore )
+    rootChooseAScore.setCPT( newRootChooseAScore )
+    rootChooseBScore.setCPT( newRootChooseBScore )
 
 
     // p_order.setCPT( otherP_order )
@@ -334,7 +344,8 @@ class DMVBayesianBackoffIndependentDepsGrammar(
       noBackoffHeadBScore,
       backoffHeadAScore,
       backoffHeadBScore,
-      rootChooseScore
+      rootChooseAScore,
+      rootChooseBScore
     )
   }
 

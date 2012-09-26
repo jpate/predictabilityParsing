@@ -378,7 +378,8 @@ case class DMVBayesianBackoffIndependentDepsParameters(
   noBackoffHeadBScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
   backoffHeadAScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
   backoffHeadBScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
-  rootChooseScore:AbstractLog2dTable[ChooseArgument,ObservedLabel]
+  rootChooseAScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
+  rootChooseBScore:AbstractLog2dTable[ChooseArgument,ObservedLabel]
 ) extends DMVParameters
 
 case class DMVBayesianBackoffThreeStreamParameters(
@@ -390,6 +391,21 @@ case class DMVBayesianBackoffThreeStreamParameters(
   stopNoBackoffScore:AbstractLog2dTable[StopOrNot,StopDecision],
   stopBackoffOnceScore:AbstractLog2dTable[StopOrNot,StopDecision],
   stopBackoffTwiceScore:AbstractLog2dTable[StopOrNot,StopDecision],
+  chooseBackoffHeadFirstInterpolationScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
+  chooseBackoffHeadSecondInterpolationScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
+  noBackoffHeadScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
+  backoffHeadOnceScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
+  backoffHeadTwiceScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],
+  rootChooseScore:AbstractLog2dTable[ChooseArgument,ObservedLabel]
+) extends DMVParameters
+
+case class DMVBayesianBackoffFullyConditionalAndBackedOffParameters(
+  //freeEnergy:Double,
+  backedoffStop:LogCPT[StopOrNot,StopDecision],
+  backedoffChoose:LogCPT[ChooseArgument,ObservedLabel],
+  stopBackoffInterpolationScore:AbstractLog2dTable[StopOrNot,BackoffDecision],
+  stopNoBackoffScore:AbstractLog2dTable[StopOrNot,StopDecision],
+  stopBackoffScore:AbstractLog2dTable[StopOrNot,StopDecision],
   chooseBackoffHeadFirstInterpolationScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
   chooseBackoffHeadSecondInterpolationScore:AbstractLog2dTable[ChooseArgument,BackoffDecision],
   noBackoffHeadScore:AbstractLog2dTable[ChooseArgument,ObservedLabel],

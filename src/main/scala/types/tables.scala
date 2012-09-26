@@ -137,14 +137,14 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
 
 
   // right now assumes symmetric prior
-  def expDigammaNormalize( pseudoCount:Double = 1D ) {
+  def expDigammaNormalize( pseudoCount:Double = 1D, alphaUnk:Boolean = true ) {
     val logPseudoCount = log( pseudoCount )
     val maxes = Map(
       cpt.keySet.map( parent =>
         if( cpt( parent ).values.size > 0 )
           parent -> expDigamma(
             // child count plus one to allow for unseen children
-            logSum(log( pseudoCount * ( cpt(parent).values.size + 1 ) )::cpt(parent).values.toList)
+            logSum(log( pseudoCount * ( cpt(parent).values.size + { if( alphaUnk ) 1 else 0 } ) )::cpt(parent).values.toList)
           )
         else
           parent -> Double.NegativeInfinity

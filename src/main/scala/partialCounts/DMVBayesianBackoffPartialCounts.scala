@@ -272,8 +272,8 @@ class DMVBayesianBackoffPartialCounts(
 
     // Ok, now compute backed-off parameters
 
-    stopNoBackoffCounts.expDigammaNormalize( dmvRulesAlpha )
-    stopBackoffCounts.expDigammaNormalize( dmvRulesAlpha )
+    stopNoBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false )
+    stopBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false )
 
     val backedoffStop = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
     stopCounts.parents.foreach{ stopKey =>

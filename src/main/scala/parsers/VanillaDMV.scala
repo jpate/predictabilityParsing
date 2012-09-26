@@ -1514,12 +1514,13 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     }
 
     def arcProbabilities = {
-      // This is like toPartialCounts except we distinguish different tokens of the same word, and
-      // also keep track of arc probabilities in a local array of arrays.
+      // This is like toPartialCounts except we condition on the fact that we are generating some
+      // arc, distinguish different tokens of the same word, and also keep track of arc
+      // probabilities in a local array of arrays.
 
       val allArcs = collection.mutable.Map[DirectedArc,Double]().withDefaultValue( Double.NegativeInfinity )
-      (0 to (s.length-2) ).foreach{ i =>
-        ( (i+1) to ( s.length -1) ).foreach{ j =>
+      (0 to (s.length-1) ).foreach{ i =>
+        ( (i+1) to ( s.length ) ).foreach{ j =>
           ( (i+1) to (j-1) ).foreach{ k =>
 
             val rightArguments = matrix(k)(j).keySet.filter{ _.mark == Sealed }
@@ -1529,10 +1530,9 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
                 allArcs( thisArc ) = logSum(
                   allArcs( thisArc ),
-                  g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
-                    g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
-                      matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore -
-                        treeScore
+                  g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
+                    matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore -
+                      treeScore
                 )
               }
 
@@ -1545,10 +1545,9 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
                 allArcs( thisArc ) = logSum(
                   allArcs( thisArc ),
-                  g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,j) ) ) , NotStop ) +
-                    g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
-                      matrix(i)(k)(a).iScore + matrix(k)(j)(h).iScore + matrix(i)(j)(h).oScore -
-                        treeScore
+                  g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
+                    matrix(i)(k)(a).iScore + matrix(k)(j)(h).iScore + matrix(i)(j)(h).oScore -
+                      treeScore
                 )
               }
             }

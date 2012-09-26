@@ -225,19 +225,15 @@ class DMVBayesianBackoffJointDepsPartialCounts(
         }
         case rootHead:AbstractRoot => {
           chooseCounts(chooseKey).keySet.foreach{ arg =>
-            arg match {
-
-              case WordPair( _, d2 ) => {
-                rootChooseCounts.setValue(
-                  chooseKey,
-                  Word( d2 ),
-                  logSum(
-                    rootChooseCounts( chooseKey, Word( d2 ) ),
-                    chooseCounts( chooseKey, arg )
-                  )
-                )
-              }
-            }
+            // if we _ever_ generate durations, we must _always_ generate durations
+            rootChooseCounts.setValue(
+              chooseKey,
+              arg,
+              logSum(
+                rootChooseCounts( chooseKey, arg ),
+                chooseCounts( chooseKey, arg )
+              )
+            )
           }
         }
       }
@@ -267,8 +263,8 @@ class DMVBayesianBackoffJointDepsPartialCounts(
 
     // Ok, now compute backed-off parameters
 
-    stopNoBackoffCounts.expDigammaNormalize( dmvRulesAlpha )
-    stopBackoffCounts.expDigammaNormalize( dmvRulesAlpha )
+    stopNoBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false )
+    stopBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false )
 
     val backedoffStop = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
     stopCounts.parents.foreach{ stopKey =>
@@ -347,10 +343,10 @@ class DMVBayesianBackoffJointDepsPartialCounts(
       chooseCounts(chooseKey).keySet.foreach{ arg =>
       //argVocab.foreach{ arg =>
         chooseKey.h match {
-          case WordPair( h1, h2 ) => {
+          case WordPair( _, h2 ) => {
             val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
             arg match {
-              case WordPair( a1, a2 ) => {
+              case WordPair( _, _ ) => {
 
                 //val backoffArg = Word(a2)
 
@@ -371,15 +367,11 @@ class DMVBayesianBackoffJointDepsPartialCounts(
             }
           }
           case rootHead:AbstractRoot => {
-            arg match {
-              case WordPair( _, d2 ) =>
-                backedoffChoose.setValue(
-                  chooseKey,
-                  arg,
-                  rootChooseCounts( chooseKey, Word( d2 ) )
-                )
-              case rootArg:AbstractRoot =>
-            }
+            backedoffChoose.setValue(
+              chooseKey,
+              arg,
+              rootChooseCounts( chooseKey, arg )
+            )
           }
         }
       }

@@ -244,7 +244,7 @@ class DMVPartialCounts {
 
     //orderCounts.expDigammaNormalize(partialCounts)
     orderCounts.normalize
-    stopCounts.expDigammaNormalize(partialCounts)
+    stopCounts.expDigammaNormalize(partialCounts, alphaUnk=false)
     stopCounts.setDefault(
       expDigamma( 0D ) - expDigamma( math.log( stopCounts.parents.size ) )
     )
