@@ -1729,7 +1729,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
       }
 
       stopEvents.keys.toList.sortWith{ _ < _ }.map{ case StopEvent( h, dir, adj, dec ) =>
-        List( h.w, h.t, adj, dec, stopEvents( StopEvent( h, dir, adj, dec ) ) )
+        List( h.w, h.t, dir, adj, dec, stopEvents( StopEvent( h, dir, adj, dec ) ) )
       }
     }
 
