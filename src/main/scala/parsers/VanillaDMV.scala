@@ -1463,10 +1463,10 @@ class VanillaDMVEstimator extends AbstractDMVParser{
                 pc.incrementStopCounts(
                   StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ),
                   NotStop,
-                   g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
-                     g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
-                       matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore -
-                        treeScore
+                    g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
+                      g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
+                        matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore -
+                         treeScore
                 )
 
               }
@@ -1514,13 +1514,35 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     }
 
     def arcProbabilities = {
-      // This is like toPartialCounts except we condition on the fact that we are generating some
-      // arc, distinguish different tokens of the same word, and also keep track of arc
-      // probabilities in a local array of arrays.
+      // This is like toPartialCounts except we  distinguish different tokens of the same word, and
+      // also keep track of arc probabilities in a local array of arrays.
+
+      object Seal extends ObservedLabel( "SEAL" )
+      case class TimedSeal(time:Int) extends TimedObservedLabel( Seal, time )
+
 
       val allArcs = collection.mutable.Map[DirectedArc,Double]().withDefaultValue( Double.NegativeInfinity )
       (0 to (s.length-1) ).foreach{ i =>
+
         ( (i+1) to ( s.length ) ).foreach{ j =>
+          val curSpan = Span( i, j )
+
+          matrix(i)(j).keySet.filterNot{ _.seal.isEmpty }.foreach{ h =>
+            val thisSeal =
+              if( h.attachmentDirection == RightAttachment )
+                DirectedArc( h.obs, TimedSeal( j ) )
+              else
+                DirectedArc( h.obs, TimedSeal( i ) )
+
+            allArcs( thisSeal ) = logSum(
+              allArcs( thisSeal ),
+              matrix(i)(j)(h).iScore +
+                g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, curSpan) ) , Stop ) +
+                  matrix(i)(j)(h.seal.get).oScore -
+                    treeScore
+            )
+          }
+
           ( (i+1) to (j-1) ).foreach{ k =>
 
             val rightArguments = matrix(k)(j).keySet.filter{ _.mark == Sealed }
@@ -1530,9 +1552,10 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
                 allArcs( thisArc ) = logSum(
                   allArcs( thisArc ),
-                  g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
-                    matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore -
-                      treeScore
+                  g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
+                    g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
+                      matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore -
+                        treeScore
                 )
               }
 
@@ -1545,9 +1568,10 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
                 allArcs( thisArc ) = logSum(
                   allArcs( thisArc ),
-                  g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
-                    matrix(i)(k)(a).iScore + matrix(k)(j)(h).iScore + matrix(i)(j)(h).oScore -
-                      treeScore
+                  g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,j) ) ) , NotStop ) +
+                    g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
+                      matrix(i)(k)(a).iScore + matrix(k)(j)(h).iScore + matrix(i)(j)(h).oScore -
+                        treeScore
                 )
               }
             }
@@ -1558,6 +1582,154 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
       allArcs.keys.toList.sortWith{ _ < _ }.map{ case DirectedArc( h, a ) =>
         List( h.t, a.t, h.w, a.w, allArcs( DirectedArc( h, a ) ) )
+      }
+    }
+
+    def stopProbabilities = {
+      // This is like toPartialCounts except we  distinguish different tokens of the same word and
+      // only track stop decisions (i.e. averaging over dependents)
+
+      // object Seal extends ObservedLabel( "SEAL" )
+      // case class TimedSeal(time:Int) extends TimedObservedLabel( Seal, time )
+      case class StopEvent( w:TimedObservedLabel, dir: AttachmentDirection, adj:Boolean,
+      dec:StopDecision ) {
+        def <(s2:StopEvent) =
+          if( w.w < s2.w.w )
+            true
+          else if( w.w > s2.w.w )
+            false
+          else
+            if( w.t < s2.w.t )
+              true
+            else if( w.t > s2.w.t )
+              false
+            else
+              if( dir < s2.dir )
+                true
+              else if( dir > s2.dir )
+                false
+              else
+                if( adj < s2.adj )
+                  true
+                else if( adj > s2.adj )
+                  false
+                else
+                  if( adj < s2.adj )
+                    true
+                  else if( adj > s2.adj )
+                    false
+                  else
+                    if( dec == Stop )
+                      true
+                    else
+                      false
+
+        def >(s2:StopEvent) =
+          if( w.w > s2.w.w )
+            true
+          else if( w.w < s2.w.w )
+            false
+          else
+            if( w.t > s2.w.t )
+              true
+            else if( w.t < s2.w.t )
+              false
+            else
+              if( dir > s2.dir )
+                true
+              else if( dir < s2.dir )
+                false
+              else
+                if( adj > s2.adj )
+                  true
+                else if( adj < s2.adj )
+                  false
+                else
+                  if( adj > s2.adj )
+                    true
+                  else if( adj < s2.adj )
+                    false
+                  else
+                    if( dec == NotStop )
+                      true
+                    else
+                      false
+
+      }
+
+
+      val stopEvents = collection.mutable.Map[StopEvent,Double]().withDefaultValue( Double.NegativeInfinity )
+      (0 to (s.length-1) ).foreach{ i =>
+
+        ( (i+1) to ( s.length ) ).foreach{ j =>
+          val curSpan = Span( i, j )
+
+          matrix(i)(j).keySet.filterNot{ _.seal.isEmpty }.foreach{ h =>
+            val stoppage = StopEvent(
+              h.obs,
+              h.attachmentDirection,
+              adj( h, curSpan ),
+              Stop
+            )
+
+            stopEvents( stoppage ) = logSum(
+              stopEvents( stoppage ),
+              matrix(i)(j)(h).iScore +
+                g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, curSpan) ) , Stop ) +
+                  matrix(i)(j)(h.seal.get).oScore -
+                    treeScore
+            )
+          }
+
+          ( (i+1) to (j-1) ).foreach{ k =>
+
+            val rightArguments = matrix(k)(j).keySet.filter{ _.mark == Sealed }
+            matrix(i)(k).keySet.filter{ _.attachmentDirection == RightAttachment }.foreach{ h =>
+              rightArguments.foreach{ a =>
+                val stoppage = StopEvent(
+                  h.obs,
+                  RightAttachment,
+                  adj( h, curSpan ),
+                  NotStop
+                )
+
+                stopEvents( stoppage ) = logSum(
+                  stopEvents( stoppage ),
+                  g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
+                    g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
+                      matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore -
+                        treeScore
+                )
+              }
+
+            }
+
+            val leftArguments = matrix(i)(k).keySet.filter{ _.mark == Sealed }
+            matrix(k)(j).keySet.filter{ _.attachmentDirection == LeftAttachment }.foreach{ h =>
+              leftArguments.foreach{ a =>
+                val stoppage = StopEvent(
+                  h.obs,
+                  LeftAttachment,
+                  adj( h, curSpan ),
+                  NotStop
+                )
+
+                stopEvents( stoppage ) = logSum(
+                  stopEvents( stoppage ),
+                  g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,j) ) ) , NotStop ) +
+                    g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
+                      matrix(i)(k)(a).iScore + matrix(k)(j)(h).iScore + matrix(i)(j)(h).oScore -
+                        treeScore
+                )
+              }
+            }
+
+          }
+        }
+      }
+
+      stopEvents.keys.toList.sortWith{ _ < _ }.map{ case StopEvent( h, dir, adj, dec ) =>
+        List( h.w, h.t, adj, dec, stopEvents( StopEvent( h, dir, adj, dec ) ) )
       }
     }
 
@@ -1656,6 +1828,44 @@ class VanillaDMVEstimator extends AbstractDMVParser{
           populateChart( s ).arcProbabilities.map{ arcs =>
             "arcProbabilities," + id + "," + arcs.mkString("",",","")
           }.mkString("","\n","")
+        }
+      }
+    }
+
+  def stopProbabilitiesCSV( corpus:List[AbstractTimedSentence] ) =
+    corpus/*.par*/.map{ _ match {
+        case TimedSentence( id, s ) => {
+          populateChart( s ).stopProbabilities.map{ stoppages =>
+            "stopProbabilities," + id + "," + stoppages.mkString("",",","")
+          }.mkString("","\n","")
+        }
+        case TimedTwoStreamSentence( id, s ) => {
+          populateChart( s ).stopProbabilities.map{ stoppages =>
+            "stopProbabilities," + id + "," + stoppages.mkString("",",","")
+          }.mkString("","\n","")
+        }
+      }
+    }
+
+  def stopAndArcProbabilitiesCSV( corpus:List[AbstractTimedSentence] ) =
+    corpus/*.par*/.map{ _ match {
+        case TimedSentence( id, s ) => {
+          val chart = populateChart( s )
+          chart.arcProbabilities.map{ arcs =>
+            "arcProbabilities," + id + "," + arcs.mkString("",",","")
+          }.mkString("","\n","\n") +
+          chart.stopProbabilities.map{ stoppages =>
+            "stopProbabilities," + id + "," + stoppages.mkString("",",","")
+          }.mkString("","\n","")
+        }
+        case TimedTwoStreamSentence( id, s ) => {
+          val chart = populateChart( s )
+          chart.arcProbabilities.map{ arcs =>
+            "arcProbabilities," + id + "," + arcs.mkString("",",","")
+          }.mkString("","\n","") +
+          chart.stopProbabilities.map{ stoppages =>
+            "stopProbabilities," + id + "," + stoppages.mkString("",",","")
+          }.mkString("","\n","\n")
         }
       }
     }
