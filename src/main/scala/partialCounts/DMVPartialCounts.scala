@@ -245,9 +245,9 @@ class DMVPartialCounts {
     //orderCounts.expDigammaNormalize(partialCounts)
     orderCounts.normalize
     stopCounts.expDigammaNormalize(partialCounts, alphaUnk=false)
-    stopCounts.setDefault(
-      expDigamma( 0D ) - expDigamma( math.log( stopCounts.parents.size ) )
-    )
+    // stopCounts.setDefault(
+    //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( 2 ) )
+    // )
     stopCounts.setDefaultChildMap(
       Map[StopDecision,Double](
         NotStop -> {

@@ -321,9 +321,9 @@ class DMVBayesianBackoffPartialCounts(
     noBackoffHeadCounts.expDigammaNormalize( dmvRulesAlpha )
     rootChooseCounts.expDigammaNormalize( dmvRulesAlpha )
 
-    rootChooseCounts.setDefault(
-      expDigamma( 0 ) - expDigamma( math.log( rootChooseCounts.parents.size ) )
-    )
+    // rootChooseCounts.setDefault(
+    //   expDigamma( 0 ) - expDigamma( math.log( rootChooseCounts.parents.size ) )
+    // )
 
     val argVocab = chooseCounts.values.flatMap{ _.keySet }.toSet
 
