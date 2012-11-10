@@ -1520,8 +1520,34 @@ class VanillaDMVEstimator extends AbstractDMVParser{
       object Seal extends ObservedLabel( "SEAL" )
       case class TimedSeal(time:Int) extends TimedObservedLabel( Seal, time )
 
+      case class DirectedArcWithValence( head:TimedObservedLabel,
+      arg:TimedObservedLabel, v:Boolean )
+        extends HiddenLabel( head + " " + "-" +v+ "-> " + arg ) {
+        def <( a2:DirectedArcWithValence) =
+          if( head.t < a2.head.t )
+            true
+          else if( head.t > a2.head.t )
+            false
+          else
+            if( arg.t < a2.arg.t )
+              true
+            else
+              false
 
-      val allArcs = collection.mutable.Map[DirectedArc,Double]().withDefaultValue( Double.NegativeInfinity )
+        def >( a2:DirectedArcWithValence) =
+          if( head.t > a2.head.t )
+            true
+          else if( head.t < a2.head.t )
+            false
+          else
+            if( arg.t > a2.arg.t )
+              true
+            else
+              false
+      }
+
+
+      val allArcs = collection.mutable.Map[DirectedArcWithValence,Double]().withDefaultValue( Double.NegativeInfinity )
       (0 to (s.length-1) ).foreach{ i =>
 
         ( (i+1) to ( s.length ) ).foreach{ j =>
@@ -1530,9 +1556,9 @@ class VanillaDMVEstimator extends AbstractDMVParser{
           matrix(i)(j).keySet.filterNot{ _.seal.isEmpty }.foreach{ h =>
             val thisSeal =
               if( h.attachmentDirection == RightAttachment )
-                DirectedArc( h.obs, TimedSeal( j ) )
+                DirectedArcWithValence( h.obs, TimedSeal( j ), adj( h, curSpan ) )
               else
-                DirectedArc( h.obs, TimedSeal( i ) )
+                DirectedArcWithValence( h.obs, TimedSeal( i ), adj( h, curSpan ) )
 
             allArcs( thisSeal ) = logSum(
               allArcs( thisSeal ),
@@ -1548,7 +1574,8 @@ class VanillaDMVEstimator extends AbstractDMVParser{
             val rightArguments = matrix(k)(j).keySet.filter{ _.mark == Sealed }
             matrix(i)(k).keySet.filter{ _.attachmentDirection == RightAttachment }.foreach{ h =>
               rightArguments.foreach{ a =>
-                val thisArc = DirectedArc( h.obs, a.obs )
+                val thisArc =
+                  DirectedArcWithValence( h.obs, a.obs, adj( h, curSpan ) )
 
                 allArcs( thisArc ) = logSum(
                   allArcs( thisArc ),
@@ -1564,7 +1591,8 @@ class VanillaDMVEstimator extends AbstractDMVParser{
             val leftArguments = matrix(i)(k).keySet.filter{ _.mark == Sealed }
             matrix(k)(j).keySet.filter{ _.attachmentDirection == LeftAttachment }.foreach{ h =>
               leftArguments.foreach{ a =>
-                val thisArc = DirectedArc( h.obs, a.obs )
+                val thisArc =
+                  DirectedArcWithValence( h.obs, a.obs, adj( h, curSpan ) )
 
                 allArcs( thisArc ) = logSum(
                   allArcs( thisArc ),
@@ -1580,8 +1608,9 @@ class VanillaDMVEstimator extends AbstractDMVParser{
         }
       }
 
-      allArcs.keys.toList.sortWith{ _ < _ }.map{ case DirectedArc( h, a ) =>
-        List( h.t, a.t, h.w, a.w, allArcs( DirectedArc( h, a ) ) )
+      allArcs.keys.toList.sortWith{ _ < _ }.map{ case DirectedArcWithValence( h,
+      a, v ) =>
+        List( h.t, a.t, h.w, a.w, v, allArcs( DirectedArcWithValence( h, a, v ) ) )
       }
     }
 
