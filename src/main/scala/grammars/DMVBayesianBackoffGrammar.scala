@@ -13,7 +13,9 @@ class DMVBayesianBackoffGrammar(
     // decisions are drawn
   noBackoffAlpha:Double = 35,
   backoffAlpha:Double = 70,
-  dmvRulesAlpha:Double = 1
+  //dmvRulesAlpha:Double = 1
+  chooseAlpha:Double = 1,
+  stopAlpha:Double = 1
 ) extends DMVGrammar {
 
   val stopBackoffInterpolationScore = new Log2dTable( Set[StopOrNot](), dmv.backoffDecision )
@@ -35,6 +37,20 @@ class DMVBayesianBackoffGrammar(
       case LeftFirst => Double.NegativeInfinity
       case RightFirst => 0D
     }
+    // word match {
+    //   case rootHead:AbstractRoot => {
+    //     pref match {
+    //       case LeftFirst => 0D
+    //       case RightFirst => Double.NegativeInfinity
+    //     }
+    //   }
+    //   case _ => {
+    //     pref match {
+    //       case LeftFirst => Double.NegativeInfinity
+    //       case RightFirst => 0D
+    //     }
+    //   }
+    // }
 
   protected def stop_aux( stopKey:StopOrNot, stopDecision:StopDecision ) = {
     val thisScore = 
@@ -66,6 +82,33 @@ class DMVBayesianBackoffGrammar(
     thisScore
   }
 
+    // override def forNewSentences = {
+    //   val toReturn = new DMVBayesianBackoffGrammar(
+    //     noBackoffAlpha,
+    //     backoffAlpha,
+    //     chooseAlpha,
+    //     stopAlpha
+    //   )
+
+    //   toReturn.setParams(
+    //     DMVBayesianBackoffParameters(
+    //       //backedoffStop.asLogCPT,
+    //       new LogCPT( Set[StopOrNot](), dmv.stopDecision ),
+    //       //backedoffChoose.asLogCPT,
+    //       new LogCPT( Set[ChooseArgument](), Set[ObservedLabel]() ),
+    //       stopBackoffInterpolationScore,
+    //       stopNoBackoffScore,
+    //       stopBackoffScore,
+    //       chooseBackoffHeadInterpolationScore,
+    //       noBackoffHeadScore,
+    //       backoffHeadScore,
+    //       rootChooseScore
+    //     )
+    //   )
+
+    //   toReturn
+    // }
+
   override def stopScore( stopKey:StopOrNot, stopDecision:StopDecision ) =
     if( p_stop.definedAt( stopKey, stopDecision ) )
       p_stop( stopKey, stopDecision )
@@ -83,6 +126,19 @@ class DMVBayesianBackoffGrammar(
             case rootArg:AbstractRoot => Double.NegativeInfinity
             case WordPair( _, d2 ) => {
               val backoffArg = Word( d2 )
+              // println( "Never done seen " + ( chooseKey, arg ) + " before" )
+              // println( "It occurs with prob: " +
+              //   math.exp( chooseBackoffHeadInterpolationScore( chooseKey, NotBackoff ) ) + " * " +
+              //     math.exp( noBackoffHeadScore( chooseKey, backoffArg ) ) + " + " +
+              //   math.exp( chooseBackoffHeadInterpolationScore( chooseKey, Backoff ) ) + " * " +
+              //     math.exp( backoffHeadScore( ChooseArgument( Word(h2), chooseKey.dir ), backoffArg ) ) +
+              //     " = " + math.exp( logSum( Seq( 
+              //       chooseBackoffHeadInterpolationScore( chooseKey, NotBackoff ) +
+              //         noBackoffHeadScore( chooseKey, backoffArg ),
+              //       chooseBackoffHeadInterpolationScore( chooseKey, Backoff ) +
+              //         backoffHeadScore( ChooseArgument( Word(h2), chooseKey.dir ), backoffArg )
+              //     ) ) )
+              // )
               logSum(
                 Seq(
                   chooseBackoffHeadInterpolationScore( chooseKey, NotBackoff ) +
@@ -203,7 +259,9 @@ class DMVBayesianBackoffGrammar(
   override def emptyPartialCounts = new DMVBayesianBackoffPartialCounts(
     noBackoffAlpha,
     backoffAlpha,
-    dmvRulesAlpha//,
+    //dmvRulesAlpha//,
+    stopAlpha,
+    chooseAlpha
     // stopBackoffScore,
     // headBackoffScore
   )
@@ -213,15 +271,18 @@ class DMVBayesianBackoffGrammar(
     "Alphas:\n" +
     "\tnoBackoffAlpha: " + noBackoffAlpha + "\n" +
     "\tbackoffAlpha: " + backoffAlpha + "\n" +
-    "\tdmvRulesAlpha: " + dmvRulesAlpha + "\n" +
+    "\tstopAlpha: " + stopAlpha + "\n" +
+    "\tchooseAlpha: " + chooseAlpha + "\n" +
     "P_Stop (" + math.exp( p_stop.getDefault ) + "):\n" + p_stop +
-    "P_Choose (" + math.exp( p_choose.getDefault ) + "):\n" + p_choose +
-    "stopBackoffInterpolationScore:\n" + stopBackoffInterpolationScore + "\n" +
-    "stopNoBackoffScore:\n" + stopNoBackoffScore + "\n" +
-    "stopBackoffScore:\n" + stopBackoffScore + "\n" +
-    "chooseBackoffHeadInterpolationScore:\n" + chooseBackoffHeadInterpolationScore + "\n" +
-    "noBackoffHeadScore:\n" + noBackoffHeadScore + "\n" +
-    "backoffHeadScore:\n" + backoffHeadScore + "\n"
+    "P_Choose (" + math.exp( p_choose.getDefault ) + "):\n" + p_choose //+
+    // "stopBackoffInterpolationScore (" + math.exp( stopBackoffInterpolationScore.getDefault ) + "):\n" +
+    //   stopBackoffInterpolationScore + "\n" +
+    // "stopNoBackoffScore (" + math.exp( stopNoBackoffScore.getDefault ) + "):\n" + stopNoBackoffScore + "\n" +
+    // "stopBackoffScore (" +  math.exp(stopBackoffScore.getDefault ) + "):\n" + stopBackoffScore + "\n" +
+    // "chooseBackoffHeadInterpolationScore (" + math.exp( chooseBackoffHeadInterpolationScore.getDefault ) + "):\n" +
+    //   chooseBackoffHeadInterpolationScore + "\n" +
+    // "noBackoffHeadScore (" + math.exp(noBackoffHeadScore.getDefault) + "):\n" + noBackoffHeadScore + "\n" +
+    // "backoffHeadScore (" + math.exp(backoffHeadScore.getDefault) + "):\n" + backoffHeadScore + "\n"
 
 }
 

@@ -236,7 +236,7 @@ class DMVPartialCounts {
     toDMVGrammar
   }
 
-  def toVariationalDMVGrammar( partialCounts:Double = 1D) = {
+  def toVariationalDMVGrammar( stopAlpha:Double = 1D, chooseAlpha:Double = 1D ) = {
     // val toReturn = new DMVGrammar( orderCounts.parents.toSet )
     val toReturn = associatedGrammar
 
@@ -244,23 +244,78 @@ class DMVPartialCounts {
 
     //orderCounts.expDigammaNormalize(partialCounts)
     orderCounts.normalize
-    stopCounts.expDigammaNormalize(partialCounts, alphaUnk=false)
-    // stopCounts.setDefault(
-    //   Math.expDigamma( 0D ) - Math.expDigamma( math.log( 2 ) )
-    // )
-    stopCounts.setDefaultChildMap(
-      Map[StopDecision,Double](
-        NotStop -> {
-          Math.expDigamma( 0 ) - Math.expDigamma( math.log( 2 ) )
-        },
-        Stop -> {
-          Math.expDigamma( 0 ) - Math.expDigamma( math.log( 2 ) )
-        }
-      )
+    stopCounts.expDigammaNormalize(stopAlpha, alphaUnk=false)
+    stopCounts.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      Stop,
+      0D
+    )
+    stopCounts.setValue(
+      StopOrNot( Root, RightAttachment, true ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    stopCounts.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      Stop,
+      0D
+    )
+    stopCounts.setValue(
+      StopOrNot( Root, RightAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
     )
 
+    stopCounts.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      NotStop,
+      0D
+    )
+    stopCounts.setValue(
+      StopOrNot( Root, LeftAttachment, true ),
+      Stop,
+      Double.NegativeInfinity
+    )
 
-    chooseCounts.expDigammaNormalize(partialCounts)
+    stopCounts.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      NotStop,
+      Double.NegativeInfinity
+    )
+    stopCounts.setValue(
+      StopOrNot( Root, LeftAttachment, false ),
+      Stop,
+      0D
+    )
+    // val denom =
+    //   Math.expDigamma( math.log( 2 * partialCounts ) )
+    // stopCounts.setDefault(
+    //    Math.expDigamma( math.log( partialCounts ) ) -
+    //     denom
+    // )
+    // stopCounts.setDefaultChildMap(
+    //   Map[StopDecision,Double](
+    //     NotStop -> {
+    //       Math.expDigamma( math.log( partialCounts ) ) -
+    //         denom
+    //     },
+    //     Stop -> {
+    //       Math.expDigamma( math.log( partialCounts ) ) -
+    //         denom
+    //     }
+    //   )
+    // )
+
+
+    chooseCounts.expDigammaNormalize(chooseAlpha)
+    // val argVocab = chooseCounts.values.flatMap{ _.keySet }.toSet
+    // val eachChildScore =
+    //   Math.expDigamma( math.log( partialCounts ) ) - Math.expDigamma( math.log( (argVocab.size+1) * partialCounts ) )
+    //chooseCounts.setDefault( eachChildScore )
+      //Map[ObservedLabel,Double](
+        //argVocab.map{ child:ObservedLabel => child -> eachChildScore }.toSeq:_*
+      //)
+    //)
 
     toReturn.setParams(
       VanillaDMVParameters(
@@ -275,7 +330,7 @@ class DMVPartialCounts {
   }
 
   override def toString =
-    "orderCounts:\n" + orderCounts +
+    //"orderCounts:\n" + orderCounts +
     "chooseCounts:\n" + chooseCounts +
     "stopCounts:\n" + stopCounts
 

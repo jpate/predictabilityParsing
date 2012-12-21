@@ -23,7 +23,8 @@ class DMVBayesianBackoffPartialCounts(
     // decisions are drawn
   noBackoffAlpha:Double = 35,
   backoffAlpha:Double = 70,
-  dmvRulesAlpha:Double = 1
+  stopAlpha:Double = 1,
+  chooseAlpha:Double = 1
 ) extends DMVPartialCounts {
 
 
@@ -32,7 +33,9 @@ class DMVBayesianBackoffPartialCounts(
   override def associatedGrammar = new DMVBayesianBackoffGrammar(
     noBackoffAlpha,
     backoffAlpha,
-    dmvRulesAlpha
+    //dmvRulesAlpha
+    stopAlpha,
+    chooseAlpha
   )
 
 
@@ -152,18 +155,6 @@ class DMVBayesianBackoffPartialCounts(
 
     stopBackoffInterpolationSums.expDigammaNormalize( backoffAlphaMap )
 
-    stopBackoffInterpolationSums.setDefaultChildMap(
-      Map[BackoffDecision,Double](
-        Backoff -> {
-          Math.expDigamma( math.log( backoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-        },
-        NotBackoff -> {
-          Math.expDigamma( math.log( noBackoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-        }
-      )
-    )
 
 
 
@@ -257,25 +248,13 @@ class DMVBayesianBackoffPartialCounts(
     }
 
     chooseBackoffHeadInterpolationSums.expDigammaNormalize( backoffAlphaMap )
-    chooseBackoffHeadInterpolationSums.setDefaultChildMap(
-      Map[BackoffDecision,Double](
-        Backoff -> {
-          Math.expDigamma( math.log( backoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-        },
-        NotBackoff -> {
-          Math.expDigamma( math.log( noBackoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-        }
-      )
-    )
 
-    // Ok, now compute backed-off parameters
-
-    stopNoBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false )
-    stopBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false )
+    stopNoBackoffCounts.expDigammaNormalize( stopAlpha, alphaUnk = false )
+    stopBackoffCounts.expDigammaNormalize( stopAlpha, alphaUnk = false )
 
     val backedoffStop = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
+    val defaultStopParentMap = collection.mutable.Map[StopOrNot,Double]()
+
     stopCounts.parents.foreach{ stopKey =>
       dmv.stopDecision.foreach{ stopDecision =>
         stopKey.w match {
@@ -289,6 +268,13 @@ class DMVBayesianBackoffPartialCounts(
                 stopBackoffInterpolationSums( stopKey, Backoff ) + stopBackoffCounts( backoffHeadKey, stopDecision )
               )
             )
+            defaultStopParentMap += ( stopKey -> logSum(
+              stopBackoffInterpolationSums( stopKey, NotBackoff ) +
+                stopNoBackoffCounts.getParentDefault( stopKey ),
+              stopBackoffInterpolationSums( stopKey, Backoff ) +
+                stopBackoffCounts.getParentDefault( backoffHeadKey )
+            ) )
+
 
           }
           case rootHead:AbstractRoot => {
@@ -302,32 +288,23 @@ class DMVBayesianBackoffPartialCounts(
       }
     }
 
-    backedoffStop.setDefault(
-      expDigamma( 0D ) - expDigamma( math.log( backedoffStop.parents.size ) )
-    )
+    backedoffStop.setDefaultParentMap( defaultStopParentMap )
 
-    backedoffStop.setDefaultChildMap(
-      Map[StopDecision,Double](
-        NotStop -> {
-          Math.expDigamma( 0 ) - Math.expDigamma( math.log( 2 ) )
-        },
-        Stop -> {
-          Math.expDigamma( 0 ) - Math.expDigamma( math.log( 2 ) )
-        }
-      )
-    )
+    backoffHeadCounts.expDigammaNormalize( chooseAlpha )
+    noBackoffHeadCounts.expDigammaNormalize( chooseAlpha )
+    rootChooseCounts.expDigammaNormalize( chooseAlpha )
 
-    backoffHeadCounts.expDigammaNormalize( dmvRulesAlpha )
-    noBackoffHeadCounts.expDigammaNormalize( dmvRulesAlpha )
-    rootChooseCounts.expDigammaNormalize( dmvRulesAlpha )
 
-    // rootChooseCounts.setDefault(
-    //   expDigamma( 0 ) - expDigamma( math.log( rootChooseCounts.parents.size ) )
-    // )
+    val argVocab = chooseCounts.values.flatMap{ _.keySet }.toSet.map{ pair:ObservedLabel =>
+      pair match {
+        case WordPair( _, d2 ) => Word( d2 )
+      }
+    }
 
-    val argVocab = chooseCounts.values.flatMap{ _.keySet }.toSet
 
     val backedoffChoose = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
+    val defaultChooseParentMap = collection.mutable.Map[ChooseArgument,Double]()
+
     chooseCounts.parents.foreach{ chooseKey =>
 
       chooseCounts(chooseKey).keySet.foreach{ arg =>
@@ -343,14 +320,18 @@ class DMVBayesianBackoffPartialCounts(
                   chooseKey,
                   arg,
                   logSum(
-                    Seq(
                       chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
                         noBackoffHeadCounts( chooseKey, backoffArg ),
                       chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
                         backoffHeadCounts( backoffHeadKey, backoffArg )
-                    )
                   )
                 )
+                defaultChooseParentMap += ( chooseKey -> logSum(
+                  chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
+                    noBackoffHeadCounts.getParentDefault( chooseKey ),
+                  chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
+                    backoffHeadCounts.getParentDefault( backoffHeadKey )
+                ) )
               }
               case rootArg:AbstractRoot => { /* Intentionally empty */ }
             }
@@ -370,8 +351,7 @@ class DMVBayesianBackoffPartialCounts(
       }
     }
 
-
-    backedoffChoose.setDefault( expDigamma( 0 ) - expDigamma( math.log( argVocab.size ) ) )
+    backedoffChoose.setDefaultParentMap( defaultChooseParentMap )
 
 
     println( "Done!" )
@@ -382,7 +362,9 @@ class DMVBayesianBackoffPartialCounts(
     toReturn.setParams(
       DMVBayesianBackoffParameters(
         backedoffStop.asLogCPT,
+        //new LogCPT( Set[StopOrNot](), dmv.stopDecision ),
         backedoffChoose.asLogCPT,
+        //new LogCPT( Set[ChooseArgument](), Set[ObservedLabel]() ),
         stopBackoffInterpolationSums,
         stopNoBackoffCounts,
         stopBackoffCounts,

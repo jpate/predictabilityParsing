@@ -22,5 +22,5 @@ libraryDependencies  ++= Seq(
   "org.scalala" % "scalala_2.9.1" % "1.0.0.RC2"
 )
 
-
+publishArtifact in packageDoc := false
 

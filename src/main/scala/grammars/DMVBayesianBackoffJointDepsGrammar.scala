@@ -223,13 +223,13 @@ class DMVBayesianBackoffJointDepsGrammar(
     "\tbackoffAlpha: " + backoffAlpha + "\n" +
     "\tdmvRulesAlpha: " + dmvRulesAlpha + "\n" +
     "P_Stop (" + math.exp( p_stop.getDefault ) + "):\n" + p_stop +
-    "P_Choose (" + math.exp( p_choose.getDefault ) + "):\n" + p_choose +
-    "stopBackoffInterpolationScore:\n" + stopBackoffInterpolationScore + "\n" +
-    "stopNoBackoffScore:\n" + stopNoBackoffScore + "\n" +
-    "stopBackoffScore:\n" + stopBackoffScore + "\n" +
-    "chooseBackoffHeadInterpolationScore:\n" + chooseBackoffHeadInterpolationScore + "\n" +
-    "noBackoffHeadScore:\n" + noBackoffHeadScore + "\n" +
-    "backoffHeadScore:\n" + backoffHeadScore + "\n"
+    "P_Choose (" + math.exp( p_choose.getDefault ) + "):\n" + p_choose //+
+    // "stopBackoffInterpolationScore:\n" + stopBackoffInterpolationScore + "\n" +
+    // "stopNoBackoffScore:\n" + stopNoBackoffScore + "\n" +
+    // "stopBackoffScore:\n" + stopBackoffScore + "\n" +
+    // "chooseBackoffHeadInterpolationScore:\n" + chooseBackoffHeadInterpolationScore + "\n" +
+    // "noBackoffHeadScore:\n" + noBackoffHeadScore + "\n" +
+    // "backoffHeadScore:\n" + backoffHeadScore + "\n"
 
 }
 

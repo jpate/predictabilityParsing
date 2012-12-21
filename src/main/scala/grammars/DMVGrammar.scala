@@ -158,6 +158,7 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
 
   def randomize( vocab:Set[_<:ObservedLabel] ):Unit = randomize( vocab, 15, 10 )
   def randomize( vocab:Set[_<:ObservedLabel], seed:Int ):Unit = randomize( vocab, seed, 10 )
+  def randomize( vocab:Set[_<:ObservedLabel], seed:Double ):Unit = randomize( vocab, seed.toInt, 10 )
   def randomize( vocab:Set[_<:ObservedLabel], seed:Int, centeredOn:Int ):Unit = {
     p_order.setCPTMap(
       Map(
@@ -361,6 +362,7 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
 
   }
 
+  // def forNewSentences = this
 
   override def toString =
     "P_Order (" + math.exp( p_order.getDefault ) + "):\n" + p_order +

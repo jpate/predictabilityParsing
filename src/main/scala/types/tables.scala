@@ -144,7 +144,7 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
         if( cpt( parent ).values.size > 0 )
           parent -> expDigamma(
             // child count plus one to allow for unseen children
-            logSum(log( pseudoCount * ( cpt(parent).values.size + { if( alphaUnk ) pseudoCount else 0 } ) )::cpt(parent).values.toList)
+            logSum(log( pseudoCount * ( cpt(parent).values.size + { if( alphaUnk ) 1D else 0D } ) )::cpt(parent).values.toList)
           )
         else
           parent -> Double.NegativeInfinity
@@ -179,18 +179,19 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       }
     )
 
-    setDefaultParentMap(
-      Map(
-        cpt.keySet.map{ parent =>
-          parent -> { expDigamma( logPseudoCount ) - maxes( parent ) }
-        }.toSeq:_*
-      )/*.withDefaultValue( 
-        expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size) + logPseudoCount )
-      )*/
-    )
-    // setDefault(
-    //   expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size +1 ) + logPseudoCount )
-    // )
+    if( alphaUnk )
+      setDefaultParentMap(
+        Map(
+          cpt.keySet.map{ parent =>
+            parent -> { expDigamma( logPseudoCount ) - maxes( parent ) }
+          }.toSeq:_*
+        )/*.withDefaultValue( 
+          expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size) + logPseudoCount )
+        )*/
+      )
+      // setDefault(
+      //   expDigamma( logPseudoCount ) - expDigamma( math.log( parents.size +1 ) + logPseudoCount )
+      // )
   }
 
   // right now assumes symmetric prior
@@ -300,8 +301,8 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       }
     )
 
-    val defaultDenom = logSum( logPseudoCountMap.values.toSeq )
-    setDefaultChildMap( logPseudoCountMap.mapValues{ alpha => alpha - defaultDenom } )
+    val defaultDenom = expDigamma( logSum( logPseudoCountMap.values.toSeq ) )
+    setDefaultChildMap( logPseudoCountMap.mapValues{ alpha => expDigamma( alpha ) - defaultDenom } )
 
       // logPseudoCountMap.mapValues{ alpha =>
       //   alpha - logSum( logPseudoCountMap.values.toSeq )

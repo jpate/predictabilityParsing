@@ -19,7 +19,8 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     cAttach:Double = 15.0,
     cStop:Double = 3.0,
     cNotStop:Double = 1.0,
-    stopUniformity:Double = 20.0
+    stopUniformity:Double = 20.0,
+    uniformRoot:Boolean = false
   ) {
     val pc = g.emptyPartialCounts
     println( "Hardline Stop Harmonic Grammar" )
@@ -105,11 +106,18 @@ class VanillaDMVEstimator extends AbstractDMVParser{
             cNotStopScore
           )
 
-        pc.incrementChooseCounts(
-          ChooseArgument( Root, LeftAttachment ),
-          s(i).w,
-          cAttachScore
-        )
+        if( uniformRoot )
+          pc.setChooseCounts(
+            ChooseArgument( Root, LeftAttachment ),
+            s(i).w,
+            0D
+          )
+        else
+          pc.incrementChooseCounts(
+            ChooseArgument( Root, LeftAttachment ),
+            s(i).w,
+            cAttachScore
+          )
         // order initialization
         pc.setOrderCounts( s(i).w, RightFirst, 0D )
         pc.setOrderCounts( s(i).w, LeftFirst, Double.NegativeInfinity )
