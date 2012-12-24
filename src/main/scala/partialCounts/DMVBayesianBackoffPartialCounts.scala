@@ -39,7 +39,7 @@ class DMVBayesianBackoffPartialCounts(
   )
 
 
-  override def toDMVGrammar = {
+  override def toDMVGrammar( posteriorMode:Boolean = false ) = {
     print( "Computing DMVBayesianBackoffGrammar..." )
 
     // println( "stopCounts:\n" + stopCounts + "\n\n" )
@@ -153,7 +153,10 @@ class DMVBayesianBackoffPartialCounts(
     )
 
 
-    stopBackoffInterpolationSums.expDigammaNormalize( backoffAlphaMap )
+    if( posteriorMode )
+      stopBackoffInterpolationSums.posteriorModeNormalize( backoffAlphaMap )
+    else
+      stopBackoffInterpolationSums.expDigammaNormalize( backoffAlphaMap )
 
 
 
@@ -247,10 +250,18 @@ class DMVBayesianBackoffPartialCounts(
       )
     }
 
-    chooseBackoffHeadInterpolationSums.expDigammaNormalize( backoffAlphaMap )
+    if( posteriorMode )
+      chooseBackoffHeadInterpolationSums.posteriorModeNormalize( backoffAlphaMap )
+    else
+      chooseBackoffHeadInterpolationSums.expDigammaNormalize( backoffAlphaMap )
 
-    stopNoBackoffCounts.expDigammaNormalize( stopAlpha, alphaUnk = false )
-    stopBackoffCounts.expDigammaNormalize( stopAlpha, alphaUnk = false )
+    if( posteriorMode ) {
+      stopNoBackoffCounts.posteriorModeNormalize( stopAlpha, alphaUnk = false )
+      stopBackoffCounts.posteriorModeNormalize( stopAlpha, alphaUnk = false )
+    } else {
+      stopNoBackoffCounts.expDigammaNormalize( stopAlpha, alphaUnk = false )
+      stopBackoffCounts.expDigammaNormalize( stopAlpha, alphaUnk = false )
+    }
 
     val backedoffStop = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
     val defaultStopParentMap = collection.mutable.Map[StopOrNot,Double]()
@@ -290,9 +301,15 @@ class DMVBayesianBackoffPartialCounts(
 
     backedoffStop.setDefaultParentMap( defaultStopParentMap )
 
-    backoffHeadCounts.expDigammaNormalize( chooseAlpha )
-    noBackoffHeadCounts.expDigammaNormalize( chooseAlpha )
-    rootChooseCounts.expDigammaNormalize( chooseAlpha )
+    if( posteriorMode ) {
+      backoffHeadCounts.posteriorModeNormalize( chooseAlpha )
+      noBackoffHeadCounts.posteriorModeNormalize( chooseAlpha )
+      rootChooseCounts.posteriorModeNormalize( chooseAlpha )
+    } else {
+      backoffHeadCounts.expDigammaNormalize( chooseAlpha )
+      noBackoffHeadCounts.expDigammaNormalize( chooseAlpha )
+      rootChooseCounts.expDigammaNormalize( chooseAlpha )
+    }
 
 
     val argVocab = chooseCounts.values.flatMap{ _.keySet }.toSet.map{ pair:ObservedLabel =>

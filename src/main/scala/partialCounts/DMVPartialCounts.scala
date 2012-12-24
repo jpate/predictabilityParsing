@@ -167,7 +167,7 @@ class DMVPartialCounts {
    * digamma function (or something) for variational bayes.
    *
    */
-  def toDMVGrammar = {
+  def toDMVGrammar( posteriorMode:Boolean = false )  = {
     // val toReturn = new DMVGrammar( orderCounts.parents.toSet )
     val toReturn = associatedGrammar
 
@@ -233,10 +233,10 @@ class DMVPartialCounts {
       }
     }
 
-    toDMVGrammar
+    toDMVGrammar()
   }
 
-  def toVariationalDMVGrammar( stopAlpha:Double = 1D, chooseAlpha:Double = 1D ) = {
+  def toVariationalDMVGrammar( stopAlpha:Double = 1D, chooseAlpha:Double = 1D, posteriorMode:Boolean = false ) = {
     // val toReturn = new DMVGrammar( orderCounts.parents.toSet )
     val toReturn = associatedGrammar
 
@@ -244,7 +244,11 @@ class DMVPartialCounts {
 
     //orderCounts.expDigammaNormalize(partialCounts)
     orderCounts.normalize
-    stopCounts.expDigammaNormalize(stopAlpha, alphaUnk=false)
+    if( posteriorMode )
+      stopCounts.posteriorModeNormalize(stopAlpha, alphaUnk=false)
+    else
+      stopCounts.expDigammaNormalize(stopAlpha, alphaUnk=false)
+
     stopCounts.setValue(
       StopOrNot( Root, RightAttachment, true ),
       Stop,
@@ -287,35 +291,12 @@ class DMVPartialCounts {
       Stop,
       0D
     )
-    // val denom =
-    //   Math.expDigamma( math.log( 2 * partialCounts ) )
-    // stopCounts.setDefault(
-    //    Math.expDigamma( math.log( partialCounts ) ) -
-    //     denom
-    // )
-    // stopCounts.setDefaultChildMap(
-    //   Map[StopDecision,Double](
-    //     NotStop -> {
-    //       Math.expDigamma( math.log( partialCounts ) ) -
-    //         denom
-    //     },
-    //     Stop -> {
-    //       Math.expDigamma( math.log( partialCounts ) ) -
-    //         denom
-    //     }
-    //   )
-    // )
 
 
-    chooseCounts.expDigammaNormalize(chooseAlpha)
-    // val argVocab = chooseCounts.values.flatMap{ _.keySet }.toSet
-    // val eachChildScore =
-    //   Math.expDigamma( math.log( partialCounts ) ) - Math.expDigamma( math.log( (argVocab.size+1) * partialCounts ) )
-    //chooseCounts.setDefault( eachChildScore )
-      //Map[ObservedLabel,Double](
-        //argVocab.map{ child:ObservedLabel => child -> eachChildScore }.toSeq:_*
-      //)
-    //)
+    if( posteriorMode )
+      chooseCounts.posteriorModeNormalize(chooseAlpha)
+    else
+      chooseCounts.expDigammaNormalize(chooseAlpha)
 
     toReturn.setParams(
       VanillaDMVParameters(

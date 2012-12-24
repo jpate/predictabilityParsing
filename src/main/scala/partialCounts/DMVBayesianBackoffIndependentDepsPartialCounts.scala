@@ -33,7 +33,7 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
   )
 
 
-  override def toDMVGrammar = {
+  override def toDMVGrammar( posteriorMode:Boolean = false ) = {
     print( "Computing DMVBayesianBackoffGrammar..." )
 
     val backoffAlphaMap = Map( Backoff -> backoffAlpha, NotBackoff -> noBackoffAlpha )
@@ -144,21 +144,10 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
     )
 
 
-    stopBackoffInterpolationSums.expDigammaNormalize( backoffAlphaMap )
-
-    stopBackoffInterpolationSums.setDefaultChildMap(
-      Map[BackoffDecision,Double](
-        Backoff -> {
-          Math.expDigamma( math.log( backoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-        },
-        NotBackoff -> {
-          Math.expDigamma( math.log( noBackoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-        }
-      )
-    )
-
+    if( posteriorMode )
+      stopBackoffInterpolationSums.posteriorModeNormalize( backoffAlphaMap )
+    else
+      stopBackoffInterpolationSums.expDigammaNormalize( backoffAlphaMap )
 
 
     // whew, now let's get interpolation parameters for chooseScore
@@ -293,24 +282,20 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
       )
     }
 
-    chooseBackoffHeadInterpolationSums.expDigammaNormalize( backoffAlphaMap )
-    chooseBackoffHeadInterpolationSums.setDefaultChildMap(
-      Map[BackoffDecision,Double](
-        Backoff -> {
-          Math.expDigamma( math.log( backoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-        },
-        NotBackoff -> {
-          Math.expDigamma( math.log( noBackoffAlpha ) ) -
-            Math.expDigamma( math.log( noBackoffAlpha + backoffAlpha) )
-        }
-      )
-    )
+    if( posteriorMode )
+      chooseBackoffHeadInterpolationSums.posteriorModeNormalize( backoffAlphaMap )
+    else
+      chooseBackoffHeadInterpolationSums.expDigammaNormalize( backoffAlphaMap )
 
     // Ok, now compute backed-off parameters
 
-    stopNoBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false)
-    stopBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false)
+    if( posteriorMode ) {
+      stopNoBackoffCounts.posteriorModeNormalize( dmvRulesAlpha, alphaUnk = false )
+      stopBackoffCounts.posteriorModeNormalize( dmvRulesAlpha, alphaUnk = false )
+    } else {
+      stopNoBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false)
+      stopBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false)
+    }
 
     val backedoffStop = new Log2dTable( Set[StopOrNot](), dmv.stopDecision )
     stopCounts.parents.foreach{ stopKey =>
@@ -339,29 +324,22 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
       }
     }
 
-    // backedoffStop.setDefault(
-    //   expDigamma( 0D ) - expDigamma( math.log( backedoffStop.parents.size ) )
-    // )
 
-    backedoffStop.setDefaultChildMap(
-      Map[StopDecision,Double](
-        NotStop -> {
-          Math.expDigamma( 0 ) - Math.expDigamma( math.log( 2 ) )
-        },
-        Stop -> {
-          Math.expDigamma( 0 ) - Math.expDigamma( math.log( 2 ) )
-        }
-      )
-    )
-
-
-
-    backoffHeadCountsA.expDigammaNormalize( dmvRulesAlpha )
-    backoffHeadCountsB.expDigammaNormalize( dmvRulesAlpha )
-    noBackoffHeadCountsA.expDigammaNormalize( dmvRulesAlpha )
-    noBackoffHeadCountsB.expDigammaNormalize( dmvRulesAlpha )
-    rootChooseCountsA.expDigammaNormalize( dmvRulesAlpha )
-    rootChooseCountsB.expDigammaNormalize( dmvRulesAlpha )
+    if( posteriorMode ) {
+      backoffHeadCountsA.posteriorModeNormalize( dmvRulesAlpha )
+      backoffHeadCountsB.posteriorModeNormalize( dmvRulesAlpha )
+      noBackoffHeadCountsA.posteriorModeNormalize( dmvRulesAlpha )
+      noBackoffHeadCountsB.posteriorModeNormalize( dmvRulesAlpha )
+      rootChooseCountsA.posteriorModeNormalize( dmvRulesAlpha )
+      rootChooseCountsB.posteriorModeNormalize( dmvRulesAlpha )
+    } else {
+      backoffHeadCountsA.expDigammaNormalize( dmvRulesAlpha )
+      backoffHeadCountsB.expDigammaNormalize( dmvRulesAlpha )
+      noBackoffHeadCountsA.expDigammaNormalize( dmvRulesAlpha )
+      noBackoffHeadCountsB.expDigammaNormalize( dmvRulesAlpha )
+      rootChooseCountsA.expDigammaNormalize( dmvRulesAlpha )
+      rootChooseCountsB.expDigammaNormalize( dmvRulesAlpha )
+    }
 
     val chooseDefaults = collection.mutable.Map[ChooseArgument,Double]()
 
@@ -439,11 +417,6 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
         }
       }
     }
-
-        // backedoffChoose.setDefault(
-        //   expDigamma( 0D ) - expDigamma( math.log( backedoffChoose.parents.size ) )
-        // )
-    //backedoffChoose.setDefaultParentMap( chooseDefaults )
 
 
     println( "Done!" )

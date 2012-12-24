@@ -2,7 +2,7 @@ package predictabilityParsing.types.tables
 
 import scalala.library.Numerics.logSum
 import predictabilityParsing.types.labels._
-import predictabilityParsing.util.Math.expDigamma
+import predictabilityParsing.util.Math.{expDigamma,subtractLogProb}
 import scala.collection.mutable.Map
 import math.{exp,log}
 
@@ -21,6 +21,7 @@ abstract class AbstractTable {
 
 /*
  * Basic properties for a 2-dimensional table (with rows and columns)
+ * TODO factor out the dirichlet specific bits
  */
 abstract class AbstractLog2dTable[T<:Label,U<:Label]
   extends AbstractTable {
@@ -56,6 +57,10 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
   }
 
   def definedAt( parent:T, child:U ) = cpt.isDefinedAt(parent) && cpt(parent).isDefinedAt(child)
+
+  def delete( parent:T, child:U ) {
+    cpt(parent) -= child
+  }
 
   def getParentDefault( k:T ):Double = defaultParentMap.getOrElse( k, super.getDefault )
   def getChildDefault( k:U ):Double = defaultChildMap.getOrElse( k, super.getDefault )
@@ -135,6 +140,88 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     )
   }
 
+  def posteriorModeNormalize( pseudoCount:Double = 1D, alphaUnk:Boolean = true ) {
+    val logPseudoCount = log( pseudoCount )
+    val maxes = Map(
+      cpt.keySet.map( parent => {
+          val childCount = cpt( parent ).values.size
+          if( childCount > 0 )
+            parent -> subtractLogProb(
+              logSum(
+                log( pseudoCount*( childCount + { if( alphaUnk ) 1D else 0D } ) )::cpt(parent).values.toList
+              ),
+              log( childCount )
+            )
+          else
+            parent -> Double.NegativeInfinity
+            //parent -> 0D
+        }
+      ).toSeq:_*
+    )
+
+    cpt = Map(
+      cpt.keySet.map{ parent =>
+        parent -> Map(
+          cpt(parent).keySet.map{ child =>
+            if( maxes( parent ) == Double.NegativeInfinity )
+              child -> Double.NegativeInfinity
+            else
+              child -> ( subtractLogProb( logSum( this(parent, child), logPseudoCount ), 0D ) - maxes(parent) )
+          }.toSeq:_*
+        )
+      }.toSeq:_*
+    )
+
+    if( alphaUnk )
+      setDefaultParentMap(
+        Map(
+          cpt.keySet.map{ parent =>
+            parent -> { subtractLogProb( logPseudoCount, 0D ) - maxes( parent ) }
+          }.toSeq:_*
+        )
+      )
+  }
+
+  def posteriorModeNormalize( pseudoCountMap:scala.collection.Map[U,Double] ) {
+    val logPseudoCountMap = pseudoCountMap.mapValues( log( _ ) )
+    val maxes = Map(
+      cpt.keySet.map( parent => {
+          val childCount = cpt( parent ).values.size
+          if( childCount > 0 )
+            parent -> subtractLogProb(
+              logSum( log(pseudoCountMap.values.reduce(_+_))::cpt(parent).values.toList ),
+              log( childCount )
+            )
+          else
+            parent -> Double.NegativeInfinity
+        }
+      ).toSeq:_*
+    )
+
+    cpt = Map(
+      cpt.keySet.map{ parent =>
+        parent -> Map(
+          cpt(parent).keySet.map{ child =>
+            if( maxes( parent ) == Double.NegativeInfinity )
+              child -> Double.NegativeInfinity
+            else
+              child -> (
+                subtractLogProb(
+                  logSum( this(parent, child), logPseudoCountMap( child ) ),
+                  0D
+                ) - maxes(parent)
+              )
+          }.toSeq:_*
+        )
+      }.toSeq:_*
+    )
+
+    val defaultDenom = subtractLogProb(
+      logSum( logPseudoCountMap.values.toSeq ),
+      log( logPseudoCountMap.values.size )
+    )
+    setDefaultChildMap( logPseudoCountMap.mapValues{ alpha => subtractLogProb( alpha, 0D ) - defaultDenom } )
+  }
 
   // right now assumes symmetric prior
   def expDigammaNormalize( pseudoCount:Double = 1D, alphaUnk:Boolean = true ) {

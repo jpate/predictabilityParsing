@@ -190,7 +190,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
     //pc.clearInterpolationScores
     println( "VanillaDMVEstimator.setHardlineStopHarmonicGrammar: running toDMVGrammar" )
-    val newGrammar = pc.toDMVGrammar
+    val newGrammar = pc.toDMVGrammar()
     println( "VanillaDMVEstimator.setHardlineStopHarmonicGrammar: done running toDMVGrammar" )
 
     //newGrammar.clearInterpolationScores
@@ -369,7 +369,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
     //pc.clearInterpolationScores
     // println( "VanillaDMVEstimator.setHardlineStopHarmonicGrammar: running toDMVGrammar" )
-    // val newGrammar = pc.toDMVGrammar
+    // val newGrammar = pc.toDMVGrammar()
     // println( "VanillaDMVEstimator.setHardlineStopHarmonicGrammar: done running toDMVGrammar" )
 
     // //newGrammar.clearInterpolationScores
@@ -544,7 +544,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     )
 
     //pc.clearInterpolationScores
-    val newGrammar = pc.toDMVGrammar
+    val newGrammar = pc.toDMVGrammar()
     //newGrammar.clearInterpolationScores
     println( "setting harmonic initialization:" )
     setGrammar( newGrammar )
@@ -721,7 +721,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     )
 
     //pc.clearInterpolationScores
-    val newGrammar = pc.toDMVGrammar
+    val newGrammar = pc.toDMVGrammar()
     //newGrammar.clearInterpolationScores
     println( "setting harmonic initialization:" )
     setGrammar( newGrammar )
@@ -876,7 +876,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     )
 
     //pc.clearInterpolationScores
-    val newGrammar = pc.toDMVGrammar
+    val newGrammar = pc.toDMVGrammar()
     //newGrammar.clearInterpolationScores
     println( "setting harmonic initialization:" )
     setGrammar( newGrammar )
