@@ -35,7 +35,7 @@ class DMVBayesianBackoffJointDepsPartialCounts(
   )
 
 
-  override def toDMVGrammar( posteriorMode:Boolean = false ) = {
+  override def toDMVGrammar( posteriorMode:Boolean = false, posteriorMean:Boolean = false ) = {
     print( "Computing DMVBayesianBackoffGrammar..." )
 
     val backoffAlphaMap = Map( Backoff -> backoffAlpha, NotBackoff -> noBackoffAlpha )
@@ -148,6 +148,8 @@ class DMVBayesianBackoffJointDepsPartialCounts(
 
     if( posteriorMode )
       stopBackoffInterpolationSums.posteriorModeNormalize( backoffAlphaMap )
+    else if( posteriorMean )
+      stopBackoffInterpolationSums.posteriorMeanNormalize( backoffAlphaMap )
     else
       stopBackoffInterpolationSums.expDigammaNormalize( backoffAlphaMap )
 
@@ -238,6 +240,8 @@ class DMVBayesianBackoffJointDepsPartialCounts(
 
     if( posteriorMode )
       chooseBackoffHeadInterpolationSums.posteriorModeNormalize( backoffAlphaMap )
+    else if( posteriorMean )
+      chooseBackoffHeadInterpolationSums.posteriorMeanNormalize( backoffAlphaMap )
     else
       chooseBackoffHeadInterpolationSums.expDigammaNormalize( backoffAlphaMap )
 
@@ -246,6 +250,9 @@ class DMVBayesianBackoffJointDepsPartialCounts(
     if( posteriorMode ) {
       stopNoBackoffCounts.posteriorModeNormalize( dmvRulesAlpha, alphaUnk = false )
       stopBackoffCounts.posteriorModeNormalize( dmvRulesAlpha, alphaUnk = false )
+    } else if( posteriorMean ) {
+      stopNoBackoffCounts.posteriorMeanNormalize( dmvRulesAlpha, alphaUnk = false )
+      stopBackoffCounts.posteriorMeanNormalize( dmvRulesAlpha, alphaUnk = false )
     } else {
       stopNoBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false )
       stopBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false )
@@ -283,6 +290,10 @@ class DMVBayesianBackoffJointDepsPartialCounts(
       noBackoffHeadCounts.posteriorModeNormalize( dmvRulesAlpha )
       backoffHeadCounts.posteriorModeNormalize( dmvRulesAlpha )
       rootChooseCounts.posteriorModeNormalize( dmvRulesAlpha )
+    } else if( posteriorMean ) {
+      noBackoffHeadCounts.posteriorMeanNormalize( dmvRulesAlpha )
+      backoffHeadCounts.posteriorMeanNormalize( dmvRulesAlpha )
+      rootChooseCounts.posteriorMeanNormalize( dmvRulesAlpha )
     } else {
       noBackoffHeadCounts.expDigammaNormalize( dmvRulesAlpha )
       backoffHeadCounts.expDigammaNormalize( dmvRulesAlpha )

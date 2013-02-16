@@ -167,7 +167,7 @@ class DMVPartialCounts {
    * digamma function (or something) for variational bayes.
    *
    */
-  def toDMVGrammar( posteriorMode:Boolean = false )  = {
+  def toDMVGrammar( posteriorMode:Boolean = false, posteriorMean:Boolean = false )  = {
     // val toReturn = new DMVGrammar( orderCounts.parents.toSet )
     val toReturn = associatedGrammar
 
@@ -236,7 +236,12 @@ class DMVPartialCounts {
     toDMVGrammar()
   }
 
-  def toVariationalDMVGrammar( stopAlpha:Double = 1D, chooseAlpha:Double = 1D, posteriorMode:Boolean = false ) = {
+  def toVariationalDMVGrammar(
+    stopAlpha:Double = 1D,
+    chooseAlpha:Double = 1D,
+    posteriorMode:Boolean = false,
+    posteriorMean:Boolean = false
+  ) = {
     // val toReturn = new DMVGrammar( orderCounts.parents.toSet )
     val toReturn = associatedGrammar
 
@@ -246,6 +251,8 @@ class DMVPartialCounts {
     orderCounts.normalize
     if( posteriorMode )
       stopCounts.posteriorModeNormalize(stopAlpha, alphaUnk=false)
+    else if( posteriorMean )
+      stopCounts.posteriorMeanNormalize(stopAlpha, alphaUnk=false)
     else
       stopCounts.expDigammaNormalize(stopAlpha, alphaUnk=false)
 
@@ -295,6 +302,8 @@ class DMVPartialCounts {
 
     if( posteriorMode )
       chooseCounts.posteriorModeNormalize(chooseAlpha)
+    else if( posteriorMean )
+      chooseCounts.posteriorMeanNormalize(chooseAlpha)
     else
       chooseCounts.expDigammaNormalize(chooseAlpha)
 

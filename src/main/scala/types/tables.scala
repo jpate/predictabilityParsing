@@ -140,6 +140,81 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     )
   }
 
+  def posteriorMeanNormalize( pseudoCount:Double = 1D, alphaUnk:Boolean = true ) {
+    val logPseudoCount = log( pseudoCount )
+    val maxes = Map(
+      cpt.keySet.map( parent => {
+          val childCount = cpt( parent ).values.size
+          if( childCount > 0 )
+            parent -> logSum(
+              log( pseudoCount*( childCount + { if( alphaUnk ) 1D else 0D } ) )::cpt(parent).values.toList
+            )
+          else
+            parent -> Double.NegativeInfinity
+            //parent -> 0D
+        }
+      ).toSeq:_*
+    )
+
+    cpt = Map(
+      cpt.keySet.map{ parent =>
+        parent -> Map(
+          cpt(parent).keySet.map{ child =>
+            if( maxes( parent ) == Double.NegativeInfinity )
+              child -> Double.NegativeInfinity
+            else
+              child -> ( logSum( this(parent, child), logPseudoCount ) - maxes(parent) )
+          }.toSeq:_*
+        )
+      }.toSeq:_*
+    )
+
+    if( alphaUnk )
+      setDefaultParentMap(
+        Map(
+          cpt.keySet.map{ parent =>
+            parent -> { logPseudoCount - maxes( parent ) }
+          }.toSeq:_*
+        )
+      )
+  }
+
+  def posteriorMeanNormalize( pseudoCountMap:scala.collection.Map[U,Double] ) {
+    val logPseudoCountMap = pseudoCountMap.mapValues( log( _ ) )
+    val maxes = Map(
+      cpt.keySet.map( parent => {
+          val childCount = cpt( parent ).values.size
+          if( childCount > 0 )
+            parent ->
+              logSum( log(pseudoCountMap.values.reduce(_+_))::cpt(parent).values.toList )
+          else
+            parent -> Double.NegativeInfinity
+        }
+      ).toSeq:_*
+    )
+
+    cpt = Map(
+      cpt.keySet.map{ parent =>
+        parent -> Map(
+          cpt(parent).keySet.map{ child =>
+            if( maxes( parent ) == Double.NegativeInfinity )
+              child -> Double.NegativeInfinity
+            else
+              child -> (
+                logSum( this(parent, child), logPseudoCountMap( child ) ) - maxes(parent)
+              )
+          }.toSeq:_*
+        )
+      }.toSeq:_*
+    )
+
+    val defaultDenom = subtractLogProb(
+      logSum( logPseudoCountMap.values.toSeq ),
+      log( logPseudoCountMap.values.size )
+    )
+    setDefaultChildMap( logPseudoCountMap.mapValues{ alpha => alpha - defaultDenom } )
+  }
+
   def posteriorModeNormalize( pseudoCount:Double = 1D, alphaUnk:Boolean = true ) {
     val logPseudoCount = log( pseudoCount )
     val maxes = Map(

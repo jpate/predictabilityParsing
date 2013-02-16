@@ -1521,6 +1521,182 @@ class VanillaDMVEstimator extends AbstractDMVParser{
       pc
     }
 
+    def spanProbabilities = {
+      // This is like toPartialCounts except we  distinguish different tokens of the same word, and
+      // also keep track of arc probabilities in a local array of arrays.
+
+      object Seal extends ObservedLabel( "SEAL" )
+      case class TimedSeal(time:Int) extends TimedObservedLabel( Seal, time )
+
+      case class DirectedSpanWithValence(
+        head:TimedObservedLabel,
+        //arg:TimedObservedLabel,
+        dir:AttachmentDirection,
+        s:Int,
+        e:Int
+        // Valence is redundant with the span of the head of the directed span
+        // v:Boolean
+      ) extends HiddenLabel( head + " " + dir + " " + s + " -- " + e ) {
+        def <( a2:DirectedSpanWithValence) =
+          if( s < a2.s )
+            true
+          else if( s > a2.s )
+            false
+          else if( e < a2.e )
+            true
+          else
+            false
+
+        def >( a2:DirectedSpanWithValence) =
+          if( s > a2.s )
+            true
+          else if( s > a2.s )
+            false
+          else if( e > a2.e )
+            true
+          else
+            false
+      }
+
+
+      //val allArcs = collection.mutable.Map[DirectedSpanWithValence,Double]().withDefaultValue( Double.NegativeInfinity )
+      val allArcs = new predictabilityParsing.types.tables.Log2dTable(
+      Set[DirectedSpanWithValence](), Set[TimedObservedLabel]() )
+      (0 to (s.length-1) ).foreach{ i =>
+
+        ( (i+1) to ( s.length ) ).foreach{ j =>
+          val curSpan = Span( i, j )
+
+          matrix(i)(j).keySet.filterNot{ _.seal.isEmpty }.foreach{ h =>
+            val latentVar = DirectedSpanWithValence(
+              h.obs,
+              h.attachmentDirection,
+              if( h.attachmentDirection == RightAttachment ) h.obs.t else i,
+                                                            // +1 b/c words appear between indices
+              if( h.attachmentDirection == LeftAttachment ) h.obs.t+1 else j
+            )
+
+            val thisSeal = if( h.attachmentDirection == RightAttachment ) TimedSeal( j ) else TimedSeal( i )
+
+            if(
+              !(  // Don't bother sealing Root to the right
+                h.attachmentDirection == RightAttachment && h.obs.w.toString == "--Root--"
+              ) && !( // don't bother with second seals of Root to the left
+                h.obs.w.toString == "--Root--" && (latentVar.e - latentVar.s > 1 )
+              ) && !( // don't bother sealing the initial word to the left
+                h.attachmentDirection == LeftAttachment && latentVar.s == 0
+              ) && !( // finally, don't bother sealing the final word to the right (-1 b/c of Root)
+                h.attachmentDirection == RightAttachment && latentVar.e >= (s.length-1)
+              )
+            )
+              allArcs.setValue(
+                latentVar,
+                thisSeal,
+                logSum(
+                  allArcs( latentVar, thisSeal ),
+                  matrix(i)(j)(h).iScore +
+                    g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, curSpan) ) , Stop ) +
+                      matrix(i)(j)(h.seal.get).oScore -
+                        treeScore
+                )
+              )
+          }
+
+          ( (i+1) to (j-1) ).foreach{ k =>
+
+            val rightArguments = matrix(k)(j).keySet.filter{ _.mark == Sealed }
+            matrix(i)(k).keySet.filter{ _.attachmentDirection == RightAttachment }.foreach{ h =>
+              rightArguments.foreach{ a =>
+                val thisArc =
+                  DirectedSpanWithValence(
+                    h.obs,
+                    RightAttachment,
+                    h.obs.t,
+                    k
+                  )
+
+                // Root should never take a rightward argument or be an argument
+                if( h.obs.w.toString != "--Root--" && a.obs.w.toString != "--Root--" ) {
+                  allArcs.setValue(
+                    thisArc,
+                    a.obs,
+                    logSum(
+                      allArcs( thisArc, a.obs ),
+                      g.stopScore( StopOrNot( h.obs.w, RightAttachment, adj( h, Span(i,k) ) ) , NotStop ) +
+                        g.chooseScore( ChooseArgument( h.obs.w, RightAttachment ) , a.obs.w ) +
+                          matrix(i)(k)(h).iScore + matrix(k)(j)(a).iScore + matrix(i)(j)(h).oScore -
+                            treeScore
+                    )
+                  )
+                }
+              }
+
+            }
+
+            val leftArguments = matrix(i)(k).keySet.filter{ _.mark == Sealed }
+            matrix(k)(j).keySet.filter{ _.attachmentDirection == LeftAttachment }.foreach{ h =>
+              leftArguments.foreach{ a =>
+                val thisArc =
+                  DirectedSpanWithValence(
+                    h.obs,
+                    LeftAttachment,
+                    k,
+                    h.obs.t+1
+                  )
+
+                if( !(
+                  // Root should never take a second leftward argument
+                  h.obs.w.toString == "--Root--" && ( thisArc.e - thisArc.s ) > 1
+                ) ) {
+                  allArcs.setValue(
+                    thisArc,
+                    a.obs,
+                    logSum(
+                      allArcs( thisArc, a.obs ),
+                      g.stopScore( StopOrNot( h.obs.w, LeftAttachment, adj( h, Span(k,j) ) ) , NotStop ) +
+                        g.chooseScore( ChooseArgument( h.obs.w, LeftAttachment ) , a.obs.w ) +
+                          matrix(i)(k)(a).iScore + matrix(k)(j)(h).iScore + matrix(i)(j)(h).oScore -
+                            treeScore
+                    )
+                  )
+                }
+              }
+            }
+
+          }
+        }
+      }
+
+      allArcs.normalize
+      allArcs.parents.toList.sortWith{ _ < _ }.map{ case DirectedSpanWithValence( h, dir, s, e ) =>
+        Map(
+          "marginals" -> allArcs( DirectedSpanWithValence( h, dir, s, e ) ).keys.toList.map{ d =>
+            List(
+              s,
+              e,
+              h.t,
+              d.t,
+              h.w,
+              d.w,
+              dir,
+              allArcs( DirectedSpanWithValence( h, dir, s, e ), d )
+            ).mkString("",",","") // UGLY UGLY UGLY BAD BAD JOHN NO COOKIE FOR YOU
+          },
+          "entropy" -> List(
+            s,
+            e,
+            h.t,
+            h.w,
+            dir,
+            allArcs( DirectedSpanWithValence( h, dir, s, e ) ).keys.filterNot{ _.toString == "--Root--" }.map{ d =>
+              val x = allArcs( DirectedSpanWithValence( h, dir, s, e ), d )
+              if( x > Double.NegativeInfinity ) -1 * math.exp( x ) * x/math.log(2) else 0D
+            }.reduce(_+_)
+          )
+        )
+      }
+    }
+
     def arcProbabilities = {
       // This is like toPartialCounts except we  distinguish different tokens of the same word, and
       // also keep track of arc probabilities in a local array of arrays.
@@ -1906,6 +2082,49 @@ class VanillaDMVEstimator extends AbstractDMVParser{
         }
       }
     }
+
+  def spanProbabilitiesCSV( corpus:List[AbstractTimedSentence] ) = {
+    "spanVarScores,uttID," + List(
+      "s",
+      "e",
+      "h_index",
+      "d_index",
+      "h_word",
+      "d_word",
+      "dir",
+      "varScore"
+      ).mkString("",",","\n") +
+    "spanEntropy,uttID," + List(
+        "s",
+        "e",
+        "h_index",
+        "h_word",
+        "dir",
+        "entropy"
+      ).mkString("",",","\n")::corpus/*.par*/.map{ _ match {
+        case TimedSentence( id, s ) => {
+          val chart = populateChart( s )
+          chart.spanProbabilities.map{ spans =>
+            // spans("marginals").map{ spanVarScore =>
+            //   "spanVarScores"::id::spanVarScore//.mkString("",",","\n")
+            // }.mkString("",",","\n") +
+            spans("marginals").mkString("spanVarScores,"+id+",","\nspanVarScores,"+id+",","\n") +
+            "spanEntropy," + id + "," + spans("entropy").mkString("",",","\n")
+          }.mkString("","\n","\n")
+        }
+        case TimedTwoStreamSentence( id, s ) => {
+          val chart = populateChart( s )
+          chart.spanProbabilities.map{ spans =>
+            // spans("marginals").map{ spanVarScore =>
+            //   "spanVarScores" + id + "," + spanVarScore//.mkString("",",","\n")
+            // }.mkString("",",","\n") +
+            spans("marginals").mkString("spanVarScores,"+id+",","\nspanVarScores,"+id+",","\n") +
+            "spanEntropy," + id + "," + spans("entropy").mkString("",",","\n")
+          }.mkString("","\n","")
+        }
+      }
+    }
+  }
 
   def partialCountsCSV( corpus:List[AbstractTimedSentence] ) =
     corpus.par.map{ _ match {

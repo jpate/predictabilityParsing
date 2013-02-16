@@ -39,7 +39,7 @@ class DMVBayesianBackoffPartialCounts(
   )
 
 
-  override def toDMVGrammar( posteriorMode:Boolean = false ) = {
+  override def toDMVGrammar( posteriorMode:Boolean = false, posteriorMean:Boolean = false ) = {
     print( "Computing DMVBayesianBackoffGrammar..." )
 
     // println( "stopCounts:\n" + stopCounts + "\n\n" )
@@ -155,6 +155,8 @@ class DMVBayesianBackoffPartialCounts(
 
     if( posteriorMode )
       stopBackoffInterpolationSums.posteriorModeNormalize( backoffAlphaMap )
+    else if( posteriorMean )
+      stopBackoffInterpolationSums.posteriorMeanNormalize( backoffAlphaMap )
     else
       stopBackoffInterpolationSums.expDigammaNormalize( backoffAlphaMap )
 
@@ -252,12 +254,17 @@ class DMVBayesianBackoffPartialCounts(
 
     if( posteriorMode )
       chooseBackoffHeadInterpolationSums.posteriorModeNormalize( backoffAlphaMap )
+    else if( posteriorMean )
+      chooseBackoffHeadInterpolationSums.posteriorMeanNormalize( backoffAlphaMap )
     else
       chooseBackoffHeadInterpolationSums.expDigammaNormalize( backoffAlphaMap )
 
     if( posteriorMode ) {
       stopNoBackoffCounts.posteriorModeNormalize( stopAlpha, alphaUnk = false )
       stopBackoffCounts.posteriorModeNormalize( stopAlpha, alphaUnk = false )
+    } else if( posteriorMean ) {
+      stopNoBackoffCounts.posteriorMeanNormalize( stopAlpha, alphaUnk = false )
+      stopBackoffCounts.posteriorMeanNormalize( stopAlpha, alphaUnk = false )
     } else {
       stopNoBackoffCounts.expDigammaNormalize( stopAlpha, alphaUnk = false )
       stopBackoffCounts.expDigammaNormalize( stopAlpha, alphaUnk = false )
@@ -305,6 +312,10 @@ class DMVBayesianBackoffPartialCounts(
       backoffHeadCounts.posteriorModeNormalize( chooseAlpha )
       noBackoffHeadCounts.posteriorModeNormalize( chooseAlpha )
       rootChooseCounts.posteriorModeNormalize( chooseAlpha )
+    } else if( posteriorMean ) {
+      backoffHeadCounts.posteriorMeanNormalize( chooseAlpha )
+      noBackoffHeadCounts.posteriorMeanNormalize( chooseAlpha )
+      rootChooseCounts.posteriorMeanNormalize( chooseAlpha )
     } else {
       backoffHeadCounts.expDigammaNormalize( chooseAlpha )
       noBackoffHeadCounts.expDigammaNormalize( chooseAlpha )

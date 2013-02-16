@@ -33,7 +33,7 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
   )
 
 
-  override def toDMVGrammar( posteriorMode:Boolean = false ) = {
+  override def toDMVGrammar( posteriorMode:Boolean = false, posteriorMean:Boolean = false ) = {
     print( "Computing DMVBayesianBackoffGrammar..." )
 
     val backoffAlphaMap = Map( Backoff -> backoffAlpha, NotBackoff -> noBackoffAlpha )
@@ -146,6 +146,8 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
 
     if( posteriorMode )
       stopBackoffInterpolationSums.posteriorModeNormalize( backoffAlphaMap )
+    else if( posteriorMean )
+      stopBackoffInterpolationSums.posteriorMeanNormalize( backoffAlphaMap )
     else
       stopBackoffInterpolationSums.expDigammaNormalize( backoffAlphaMap )
 
@@ -284,6 +286,8 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
 
     if( posteriorMode )
       chooseBackoffHeadInterpolationSums.posteriorModeNormalize( backoffAlphaMap )
+    else if( posteriorMean )
+      chooseBackoffHeadInterpolationSums.posteriorMeanNormalize( backoffAlphaMap )
     else
       chooseBackoffHeadInterpolationSums.expDigammaNormalize( backoffAlphaMap )
 
@@ -292,6 +296,9 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
     if( posteriorMode ) {
       stopNoBackoffCounts.posteriorModeNormalize( dmvRulesAlpha, alphaUnk = false )
       stopBackoffCounts.posteriorModeNormalize( dmvRulesAlpha, alphaUnk = false )
+    } else if( posteriorMean ) {
+      stopNoBackoffCounts.posteriorMeanNormalize( dmvRulesAlpha, alphaUnk = false )
+      stopBackoffCounts.posteriorMeanNormalize( dmvRulesAlpha, alphaUnk = false )
     } else {
       stopNoBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false)
       stopBackoffCounts.expDigammaNormalize( dmvRulesAlpha, alphaUnk = false)
@@ -332,6 +339,13 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
       noBackoffHeadCountsB.posteriorModeNormalize( dmvRulesAlpha )
       rootChooseCountsA.posteriorModeNormalize( dmvRulesAlpha )
       rootChooseCountsB.posteriorModeNormalize( dmvRulesAlpha )
+    } else if( posteriorMean ) {
+      backoffHeadCountsA.posteriorMeanNormalize( dmvRulesAlpha )
+      backoffHeadCountsB.posteriorMeanNormalize( dmvRulesAlpha )
+      noBackoffHeadCountsA.posteriorMeanNormalize( dmvRulesAlpha )
+      noBackoffHeadCountsB.posteriorMeanNormalize( dmvRulesAlpha )
+      rootChooseCountsA.posteriorMeanNormalize( dmvRulesAlpha )
+      rootChooseCountsB.posteriorMeanNormalize( dmvRulesAlpha )
     } else {
       backoffHeadCountsA.expDigammaNormalize( dmvRulesAlpha )
       backoffHeadCountsB.expDigammaNormalize( dmvRulesAlpha )
@@ -346,77 +360,51 @@ class DMVBayesianBackoffIndependentDepsPartialCounts(
     val argVocab = chooseCounts.values.flatMap{ _.keySet }.toSet
 
     val backedoffChoose = new Log2dTable( Set[ChooseArgument](), Set[ObservedLabel]() )
-    chooseCounts.parents.foreach{ chooseKey =>
-      // chooseKey.h match {
-      // case WordPair( h1, h2 ) =>
-      //   val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
-      //   chooseDefaults +=
-      //     chooseKey -> 
-      //       logSum(
-      //         Seq(
-      //           chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
-      //             noBackoffHeadCountsA.getParentDefault( chooseKey ) +
-      //             noBackoffHeadCountsB.getParentDefault( chooseKey ),
-      //           chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
-      //             backoffHeadCountsA.getParentDefault( backoffHeadKey ) +
-      //             backoffHeadCountsB.getParentDefault( backoffHeadKey )
-      //         )
-      //       )
-      //   case rootHead:AbstractRoot => {
-      //     chooseDefaults +=
-      //       chooseKey -> rootChooseCounts.getParentDefault( chooseKey )
-      //   }
-      // }
+        // chooseCounts.parents.foreach{ chooseKey =>
+        //   //chooseCounts(chooseKey).keySet.foreach{ arg =>
+        //   argVocab.foreach{ arg =>
+        //     chooseKey.h match {
+        //       case WordPair( h1, h2 ) => {
+        //         val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
+        //         arg match {
+        //           case WordPair( a1, a2 ) => {
 
-      //chooseCounts(chooseKey).keySet.foreach{ arg =>
-      argVocab.foreach{ arg =>
-        chooseKey.h match {
-          case WordPair( h1, h2 ) => {
-            val backoffHeadKey = ChooseArgument( Word(h2), chooseKey.dir )
-            arg match {
-              case WordPair( a1, a2 ) => {
+        //             val argA = Word(a1)
+        //             val argB = Word(a2)
 
-                val argA = Word(a1)
-                val argB = Word(a2)
-
-                backedoffChoose.setValue(
-                  chooseKey,
-                  arg,
-                  logSum(
-                    Seq(
-                      chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
-                        noBackoffHeadCountsA( chooseKey, argA ) +
-                        noBackoffHeadCountsB( chooseKey, argB ),
-                      chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
-                        backoffHeadCountsA( backoffHeadKey, argA ) +
-                        backoffHeadCountsB( backoffHeadKey, argB )
-                    )
-                  )
-                )
-              }
-              case rootArg:AbstractRoot => { /* Intentionally empty */ }
-            }
-          }
-          case rootHead:AbstractRoot => {
-            arg match {
-              case WordPair( d1, d2 ) =>
-                backedoffChoose.setValue(
-                  chooseKey,
-                  arg,
-                  rootChooseCountsA( chooseKey, Word( d1 ) ) +
-                  rootChooseCountsB( chooseKey, Word( d2 ) )
-                )
-              case rootArg:AbstractRoot =>
-            }
-            // backedoffChoose.setValue(
-            //   chooseKey,
-            //   arg,
-            //   rootChooseCounts( chooseKey, arg )
-            // )
-          }
-        }
-      }
-    }
+        //             backedoffChoose.setValue(
+        //               chooseKey,
+        //               arg,
+        //               logSum(
+        //                 Seq(
+        //                   chooseBackoffHeadInterpolationSums( chooseKey, NotBackoff ) +
+        //                     noBackoffHeadCountsA( chooseKey, argA ) +
+        //                     noBackoffHeadCountsB( chooseKey, argB ),
+        //                   chooseBackoffHeadInterpolationSums( chooseKey, Backoff ) +
+        //                     backoffHeadCountsA( backoffHeadKey, argA ) +
+        //                     backoffHeadCountsB( backoffHeadKey, argB )
+        //                 )
+        //               )
+        //             )
+        //           }
+        //           case rootArg:AbstractRoot => { /* Intentionally empty */ }
+        //         }
+        //       }
+        //       case rootHead:AbstractRoot => {
+        //         arg match {
+        //           case WordPair( d1, d2 ) =>
+        //             backedoffChoose.setValue(
+        //               chooseKey,
+        //               arg,
+        //               rootChooseCountsA( chooseKey, Word( d1 ) ) +
+        //               rootChooseCountsB( chooseKey, Word( d2 ) )
+        //             )
+        //           case rootArg:AbstractRoot =>
+        //         }
+        //       }
+        //     }
+        //   }
+        // }
 
 
     println( "Done!" )
