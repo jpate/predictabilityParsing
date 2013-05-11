@@ -5,7 +5,7 @@ import collection.mutable.Map
 import predictabilityParsing.types.labels._
 import predictabilityParsing.types.tables._
 import predictabilityParsing.partialCounts.DMVPartialCounts
-import predictabilityParsing.util.Math
+import predictabilityParsing.util.Math.logSum
 
 //class DMVGrammar( vocabulary:Set[ObservedLabel] ) {
 abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
@@ -78,7 +78,8 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
     p_choose.setCPT( otherGram.p_choose.getCPT )
   }*/
 
-  def orderScore( word:ObservedLabel, pref:AttachmentOrder ) = p_order( word, pref )
+  def orderScore( word:ObservedLabel, pref:AttachmentOrder ) =// p_order( word, pref )
+    if( pref == RightFirst ) 0D else Double.NegativeInfinity
   def stopScore( stopKey:StopOrNot, stopDecision:StopDecision ) = p_stop( stopKey, stopDecision )
   def chooseScore( chooseKey:ChooseArgument, arg:ObservedLabel ) = {
     arg match{
@@ -114,7 +115,7 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
         p_stop.setValue(
           key,
           decision,
-          Math.sumLogProb(
+          logSum(
             p_stop( key, decision ),
             logSmooth
           )
@@ -133,7 +134,7 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
         p_choose.setValue(
           key,
           arg,
-          Math.sumLogProb(
+          logSum(
             p_choose( key, arg ),
             logSmooth
           )
@@ -156,10 +157,10 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
     }
   }
 
-  def randomize( vocab:Set[_<:ObservedLabel] ):Unit = randomize( vocab, 15, 10 )
-  def randomize( vocab:Set[_<:ObservedLabel], seed:Int ):Unit = randomize( vocab, seed, 10 )
-  def randomize( vocab:Set[_<:ObservedLabel], seed:Double ):Unit = randomize( vocab, seed.toInt, 10 )
-  def randomize( vocab:Set[_<:ObservedLabel], seed:Int, centeredOn:Int ):Unit = {
+  def randomize[O<:ObservedLabel]( vocab:Set[O] ):Unit = randomize( vocab, 15, 1 )
+  def randomize[O<:ObservedLabel]( vocab:Set[O], seed:Int ):Unit = randomize( vocab, seed, 1 )
+  def randomize[O<:ObservedLabel]( vocab:Set[O], seed:Double ):Unit = randomize( vocab, seed.toInt, 1 )
+  def randomize[O<:ObservedLabel]( vocab:Set[O], seed:Int, centeredOn:Int ):Unit = {
     p_order.setCPTMap(
       Map(
         (vocab).map{ w =>
@@ -260,10 +261,10 @@ abstract class AbstractDMVGrammar {//( vocabulary:Set[ObservedLabel] ) {
     p_choose.randomize( seed, centeredOn)
   }
 
-  def setUniform( vocab:Set[_<:ObservedLabel] ):Unit = {
+  def setUniform[O<:ObservedLabel]( vocab:Set[O] ):Unit = {
     p_order.setCPTMap(
       Map(
-        (vocab).map{ w =>
+        vocab.map{ w =>
           w -> Map(
             LeftFirst -> Double.NegativeInfinity,
             RightFirst -> 0D

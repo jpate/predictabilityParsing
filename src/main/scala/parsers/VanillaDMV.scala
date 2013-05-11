@@ -1,12 +1,12 @@
 package predictabilityParsing.parsers
 
-import scalala.library.Numerics.logSum
+// import scalala.library.Numerics.logSum
 import predictabilityParsing.grammars.AbstractDMVGrammar
 import predictabilityParsing.grammars.DMVGrammar
 import predictabilityParsing.partialCounts.DMVPartialCounts
 import predictabilityParsing.types.labels._
-import predictabilityParsing.util.Math
-import math.log
+import predictabilityParsing.util.Math.logSum
+import math.{log,exp}
 
 
 class VanillaDMVEstimator extends AbstractDMVParser{
@@ -897,6 +897,8 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     // Ok, stupidly simple entry class
     class Entry( val label:MarkedObservation, val span:Span ) {
 
+      // println( "Inserting entry " + label + " into span " + span )
+
       var iScore:Double = label.mark match {
         case UnsealedLeftFirst =>
           if( span.start - span.end == 1 )
@@ -908,32 +910,50 @@ class VanillaDMVEstimator extends AbstractDMVParser{
             g.orderScore( label.obs.w, RightFirst )
           else
             Double.NegativeInfinity
-        case SealedRight | SealedLeft | Sealed =>
-          (label.peel.toSet & matrix(span.start)(span.end).keySet).foldLeft(
-          Double.NegativeInfinity) { (x, peeledH ) =>
+        case SealedRight => {
+          // println( "initializing " + label + " in " + span )
+          if( label.obs.t == span.start ) {
+            g.stopScore( StopOrNot( label.obs.w, RightAttachment, adj( label.peel.head, span ) ), Stop ) +
+              matrix(span.start)(span.end)( label.peel.head ).iScore
+          } else {
+            Double.NegativeInfinity
+          }
+        }
+        case SealedLeft => {
+          // println( "initializing " + label + " in " + span )
+          if( label.obs.t+1 == span.end ) {
+            g.stopScore( StopOrNot( label.obs.w, LeftAttachment, adj( label.peel.head, span ) ), Stop ) +
+              matrix(span.start)(span.end)( label.peel.head ).iScore
+          } else {
+            Double.NegativeInfinity
+          }
+        }
+        case Sealed => {
+          // println( "initializing " + label + " in " + span )
+          (label.peel.toSet ).foldLeft( Double.NegativeInfinity) { (x, peeledH ) =>
+                // println(
+                //   "factor: " + StopOrNot( label.obs.w, peeledH.attachmentDirection, adj( peeledH, span )
+                //   ) + " " + Stop + " " +
+                //   exp( g.stopScore( StopOrNot( label.obs.w, peeledH.attachmentDirection, adj( peeledH,
+                //   span ) ), Stop ) ) + " " + span
+                // )
             val base = 
               g.stopScore( StopOrNot( label.obs.w, peeledH.attachmentDirection, adj( peeledH, span ) ), Stop ) +
                 matrix(span.start)(span.end)( peeledH ).iScore
-            // if( !( base <= 0D ) ) {
-            //   println(
-            //     g.stopScore( StopOrNot( label.obs.w, peeledH.attachmentDirection, adj( peeledH, span
-            //     ) ), Stop )  + " + " +
-            //       matrix(span.start)(span.end)( peeledH ).iScore + " = " + base
-            //   )
-            // }
-            Math.sumLogProb(
+            logSum(
               x,
               base
             )
           }
+        }
       }
 
       var oScore = Double.NegativeInfinity
       var score = Double.NegativeInfinity
       def computeMarginal { score = oScore + iScore - treeScore }
 
-      def incrementIScore( inc:Double ) { iScore = Math.sumLogProb( iScore, inc ) }
-      def incrementOScore( inc:Double ) { oScore = Math.sumLogProb( oScore, inc ) }
+      def incrementIScore( inc:Double ) { iScore = logSum( iScore, inc ) }
+      def incrementOScore( inc:Double ) { oScore = logSum( oScore, inc ) }
 
       def setOScore( x:Double ) { oScore = x }
 
@@ -943,11 +963,38 @@ class VanillaDMVEstimator extends AbstractDMVParser{
         val h = headEntry.label
         assert( label == h )
         val a = argEntry.label
+
+            // println( "attaching " + argEntry.label + " to " + headEntry.label + " in " + span )
+            // println(
+            //   "factor: " + StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) + " " +
+            //   NotStop + " " +
+            //   exp( g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) ,
+            //   NotStop ) ) + " " + 
+            //   span
+            // )
+            // println( "factor: " + ChooseArgument( h.obs.w, h.attachmentDirection ) + " " + a.obs.w +
+            //   " " +
+            //   exp( g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) ) + " " +
+            //   span
+            // )
+
         val inc = 
           g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) +
           g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) +
           argEntry.iScore +
           headEntry.iScore
+
+        // if(
+        //   ( label.mark == UnsealedRightFirst || label.mark == SealedRight ) &&
+        //   ( a.obs.w != Root )
+        // )
+        //   println( "    attaching " + argEntry.label + " to " + label + " with score " + 
+        //     g.stopScore( StopOrNot( h.obs.w, h.attachmentDirection, adj( h, headEntry.span ) ) , NotStop ) + " + " +
+        //     g.chooseScore( ChooseArgument( h.obs.w, h.attachmentDirection ) , a.obs.w ) + " + " +
+        //     argEntry.iScore + " + " +
+        //     headEntry.iScore + " = " + inc )
+        // else if ( inc > Double.NegativeInfinity ) 
+        //   print( "shit; attaching " + argEntry.label + " to " + label + " with score " + inc )
 
 
         incrementIScore( inc )
@@ -982,12 +1029,12 @@ class VanillaDMVEstimator extends AbstractDMVParser{
                 if( bestArg.isEmpty )
                   bestHead.score
                 else
-                  Math.sumLogProb( bestHead.score, bestArg.get.score )
+                  logSum( bestHead.score, bestArg.get.score )
               } > {
                 if( newArg.isEmpty )
                   newHead.score
                 else
-                  Math.sumLogProb( newHead.score, newArg.get.score )
+                  logSum( newHead.score, newArg.get.score )
               }
             )
               currentBest
@@ -1024,12 +1071,12 @@ class VanillaDMVEstimator extends AbstractDMVParser{
                 if( bestArg.isEmpty )
                   bestHead.score
                 else
-                  Math.sumLogProb( bestHead.score, bestArg.get.score )
+                  logSum( bestHead.score, bestArg.get.score )
               } > {
                 if( newArg.isEmpty )
                   newHead.score
                 else
-                  Math.sumLogProb( newHead.score, newArg.get.score )
+                  logSum( newHead.score, newArg.get.score )
               }
             )
               currentBest
@@ -1071,12 +1118,12 @@ class VanillaDMVEstimator extends AbstractDMVParser{
                 if( bestArg.isEmpty )
                   bestHead.score
                 else
-                  Math.sumLogProb( bestHead.score, bestArg.get.score )
+                  logSum( bestHead.score, bestArg.get.score )
               } > {
                 if( newArg.isEmpty )
                   newHead.score
                 else
-                  Math.sumLogProb( newHead.score, newArg.get.score )
+                  logSum( newHead.score, newArg.get.score )
               }
             )
               currentBest
@@ -1151,8 +1198,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
 
     def rootEntry = matrix( 0 )( s.length )( MarkedObservation( FinalRoot(s.length-1), Sealed ) )
-    def treeScore =
-      rootEntry.iScore
+    def treeScore = rootEntry.iScore
       //matrix( 0 )( s.length )( MarkedObservation( FinalRoot( s.length-1 ), Sealed ) ).iScore
 
     def toMaxMarginalDependencyParse =
@@ -1164,6 +1210,7 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
     // Re-wrote lexFill so we don't explicitly touch iScore at all, only add entries.
     def lexFill( index:Int ) {
+      //println( (index,index+1) )
       val w = s(index)
 
       // Add possible unsealed preterminals with attachment order preference.
@@ -1192,18 +1239,22 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
     // Re-wrote synFill so we don't explicitly touch iScore at all, only add entries and dependents.
     def synFill( start:Int, end:Int ) {
+      //println( (start,end) )
       // First, let's just add all the possible heads with possible dependencies. Since we are
       // guaranteed that end-start>1, we cannot have any seals until we have added heads to the
       // current span.
 
       ( (start+1) to (end-1) ).foreach{ k =>
+        // println( "  " + (start,k,end) )
         val rightArguments = matrix(k)(end).keySet.filter{ _.mark == Sealed }
         val leftArguments = matrix(start)(k).keySet.filter{ _.mark == Sealed }
 
         val unsealedLeftHeads = matrix(start)(k).keySet.filter{ _.mark == UnsealedRightFirst }
         unsealedLeftHeads.foreach{ h =>
-          if( !( matrix(start)(end).contains( h ) ) )
+          if( !( matrix(start)(end).keySet.contains( h ) ) ) {
+                // println( "Adding " + h + " to " + (start,end) )
             matrix(start)(end) += h -> new Entry( h, Span(start,end) )
+          }
           rightArguments.foreach( a =>
             matrix(start)(end)(h).addDependency(
               matrix(start)(k)(h),
@@ -1214,8 +1265,10 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
         val unsealedRightHeads = matrix(k)(end).keySet.filter{ _.mark == UnsealedLeftFirst }
         unsealedRightHeads.foreach{ h =>
-          if( !( matrix(start)(end).contains( h ) ) )
+          if( !( matrix(start)(end).keySet.contains( h ) ) ) {
+              // println( "Adding " + h + " to " + (start,end) )
             matrix(start)(end) += h -> new Entry( h, Span(start,end) )
+          }
 
           leftArguments.foreach( a => 
             matrix(start)(end)(h).addDependency(
@@ -1230,8 +1283,10 @@ class VanillaDMVEstimator extends AbstractDMVParser{
         val halfSealedLeftHeads =
           matrix(start)(k).keySet.filter{ _.mark == SealedLeft }
         halfSealedLeftHeads.foreach{ h =>
-          if( !( matrix(start)(end).contains( h ) ) )
+          if( !( matrix(start)(end).keySet.contains( h ) ) ) {
+                // println( "Adding " + h + " to " + (start,end) )
             matrix(start)(end) += h -> new Entry( h, Span(start,end) )
+          }
           rightArguments.foreach( a =>
             matrix(start)(end)(h).addDependency(
               matrix(start)(k)(h),
@@ -1243,8 +1298,10 @@ class VanillaDMVEstimator extends AbstractDMVParser{
         val halfSealedRightHeads =
           matrix(k)(end).keySet.filter{ _.mark == SealedRight }
         halfSealedRightHeads.foreach{ h =>
-          if( !( matrix(start)(end).contains( h ) ) )
+          if( !( matrix(start)(end).keySet.contains( h ) ) ) {
+                // println( "Adding " + h + " to " + (start,end) )
             matrix(start)(end) += h -> new Entry( h, Span(start,end) )
+          }
           leftArguments.foreach( a =>
             matrix(start)(end)(h).addDependency(
               matrix(k)(end)(h),
@@ -1258,14 +1315,18 @@ class VanillaDMVEstimator extends AbstractDMVParser{
       matrix(start)(end).keySet.filter{ h =>
         (h.mark == UnsealedLeftFirst ) | (h.mark == UnsealedRightFirst)
       }.foreach( h =>
-        if( !( matrix(start)(end).contains( h.seal.get ) ) )
+        if( !( matrix(start)(end).keySet.contains( h.seal.get ) ) ) {
+              // println( "Adding " + h + " to " + (start,end) )
           matrix(start)(end) += h.seal.get -> new Entry( h.seal.get, Span(start,end) )
+        }
       )
       matrix(start)(end).keySet.filter{ h =>
         (h.mark == SealedLeft ) | (h.mark == SealedRight)
       }.foreach( h =>
-        if( !( matrix(start)(end).contains( h.seal.get ) ) )
+        if( !( matrix(start)(end).keySet.contains( h.seal.get ) ) ) {
+              // println( "Adding " + h + " to " + (start,end) )
           matrix(start)(end) += h.seal.get -> new Entry( h.seal.get, Span(start,end) )
+        }
       )
     }
 
@@ -1517,6 +1578,9 @@ class VanillaDMVEstimator extends AbstractDMVParser{
       }
       assert( treeScore <= 0D )
       pc.setTotalScore( treeScore )
+
+      // println( "This partial counts:\n" + pc )
+      // println( " ---END PARTIAL COUNTS--- " )
 
       pc
     }
@@ -1947,8 +2011,8 @@ class VanillaDMVEstimator extends AbstractDMVParser{
     }
 
     def computeMarginals {
-      (0 to (s.length-1) ).foreach{ i =>
-        ( (i+1) to s.length ).foreach{ j =>
+      (0 to ((s.length)-1) ).foreach{ i =>
+        ( (i+1) to (s.length) ).foreach{ j =>
           matrix(i)(j).values.foreach( _.computeMarginal )
         }
       }
@@ -1956,13 +2020,939 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
     def size = s.size
 
-    override def toString =
+    override def toString = {
       matrix.map{ row =>
         row.map{ x =>
           if( x != null )
             x.values.mkString( "\n", "\n", "\n" )
         }.mkString("\n","\n","\n")
       }.mkString("\n","\n","\n\n")
+    }
+  }
+
+  class FoldUnfoldChart( s:List[TimedObservedLabel] ) {
+
+    case class SpannedChildren( head:Entry, dependent:Option[Entry] )
+
+    abstract class FoldUnfoldLabel
+
+    abstract class SingleLabel extends FoldUnfoldLabel {
+      val obs:TimedObservedLabel
+      val v:Boolean
+      // def subsequentHead[H<:SingleLabel]:H
+    }
+    case class LeftwardLabel( obs:TimedObservedLabel, v:Boolean ) extends SingleLabel {
+      override def toString = "H_"+obs+".<"+"."+v
+      def subsequentHead = LeftwardLabel( obs, false )
+    }
+    case class RightwardLabel( obs:TimedObservedLabel, v:Boolean ) extends SingleLabel {
+      override def toString = "H_"+obs+".>"+"."+v
+      def subsequentHead = RightwardLabel( obs, false )
+    }
+
+    // This is the "M" label of Johnson (2007)
+    // case class SplitLabel( leftObs:LeftwardLabel, rightObs:RightwardLabel ) extends FoldUnfoldLabel {
+    // abstract class SplitLabel extends FoldUnfoldLabel
+    case class SplitLabel( leftLabel:RightwardLabel, rightLabel:LeftwardLabel )
+      extends FoldUnfoldLabel {
+      override def toString = leftLabel+".M."+rightLabel
+    }
+    /*
+    case class LeftwardSplit( leftObs:TimedObservedLabel, rightLabel:LeftwardLabel )
+      extends SplitLabel {
+      override def toString = leftObs+".M."+rightLabel
+    }
+    */
+
+    case class RootLabel( leftLabel:LeftwardLabel, rightLabel:RightwardLabel ) extends FoldUnfoldLabel {
+      override def toString = leftLabel.obs+".R."+rightLabel.obs
+    }
+
+    case object StartLabel extends FoldUnfoldLabel {
+      override def toString = "S"
+    }
+
+
+    protected val matrix = Array.fill( (2*s.length)+1, (2*s.length)+1 )(
+      collection.mutable.Map[FoldUnfoldLabel,Entry]()
+    )
+
+    def addEntry( newEntry:Entry ) {
+          // println( "Inserting " + newEntry.label + " to " + newEntry.span + " with score " +
+          // newEntry.iScore )
+      val Span( from, to ) = newEntry.span
+      matrix( from ) ( to ) += newEntry.label -> newEntry
+    }
+    addEntry( StartEntry )
+
+    def apply( start:Int, end:Int ) = matrix(start)(end)
+
+    abstract class Entry( val label:FoldUnfoldLabel, val span:Span ) {
+
+      var iScore = Double.NegativeInfinity
+      var oScore = Double.NegativeInfinity
+      var score = Double.NegativeInfinity
+      def computeMarginal { score = oScore + iScore - treeScore }
+
+      def incrementIScore( inc:Double ) { iScore = logSum( iScore, inc ) }
+      def incrementOScore( inc:Double ) {
+          // println( "    inc is " + inc  + "; " + exp(inc) )
+          // println( "    before " + oScore + " after " + logSum( oScore, inc ) )
+        oScore = logSum( oScore, inc )
+          // println( "    actually is " + oScore )
+      }
+
+      def setOScore( x:Double ) { oScore = x }
+
+      var children = Set[SpannedChildren]()
+
+      def addDependency( headEntry:Entry, argEntry:Entry ):Unit
+
+
+
+      override def toString = 
+        span + ": " + label +
+          "\n  iScore: " + math.exp( iScore ) +
+          "\n  oScore: " + math.exp( oScore ) +
+          "\n  score: " +  math.exp( score  ) 
+    }
+
+    // This is the entry for the "M" label of Johnson (2007) and the "Y" label of Headden et al (2009)
+    class SplitEntry( val yNode:SplitLabel, span:Span ) extends Entry( yNode, span ) {
+
+      // val leftObs = yNode.leftLabel.obs
+      // val leftV = yNode.leftLabel.v
+      // val rightObs = yNode.rightLabel.obs
+      // val rightV = yNode.rightLabel.v
+
+      def addDependency( headEntry:Entry, argEntry:Entry ) = {}
+
+      // iScore = logSum(
+      //   g.stopScore( StopOrNot( leftObs.w, RightAttachment, leftV ) , Stop ) +
+      //     matrix(span.start)(yNode.leftLabel.span.end)( yNode.leftLabel ).iScore ,
+      //   g.stopScore( StopOrNot( rightObs.w, LeftAttachment, rightV ) , Stop ) +
+      //     matrix(rightObs.t)(span.end)( yNode.rightLabel ).iScore
+      //   
+      // )
+
+    }
+
+    object StartEntry extends Entry( StartLabel, Span( 0, 2*s.length ) ) {
+      oScore = 0D
+      def addDependency( headEntry:Entry, argEntry:Entry ) = {}
+    }
+
+    class RootEntry( val root:RootLabel, span:Span ) extends Entry( root, span ) {
+      assert( root.leftLabel.obs == root.rightLabel.obs )
+      val t = root.leftLabel.obs.t
+      val r = root.leftLabel.obs.w
+
+
+      iScore =
+        g.stopScore( StopOrNot( r, LeftAttachment, t == 0 ), Stop ) +
+        g.stopScore( StopOrNot( r, RightAttachment, t == (s.length-1) ), Stop )  +
+            matrix( 0 )( (2*t)+1 )( root.leftLabel ).iScore +
+              matrix( (2*t)+1 )( 2*(s.length) )( root.rightLabel ).iScore
+
+      def addDependency( headEntry:Entry, argEntry:Entry ) = {}
+
+    }
+
+
+    class LeftwardEntry( h:SingleLabel, span:Span ) extends Entry( h, span ) {
+      def addDependency( headEntry:Entry, argEntry:Entry ) = {
+        val SplitLabel( aLabel, hLabel ) = headEntry.label
+        assert( h.obs == hLabel.obs )
+
+        val LeftwardLabel( argEntryObs, argEntryV ) = argEntry.label
+        assert( argEntryObs == aLabel.obs )
+
+        assert( argEntryV == ( (2*argEntryObs.t) == argEntry.span.start ) )
+
+
+        val inc = 
+          g.stopScore( StopOrNot( aLabel.obs.w, RightAttachment, aLabel.v  ) , Stop ) +
+          g.stopScore( StopOrNot( aLabel.obs.w, LeftAttachment, argEntryV ) , Stop ) +
+            g.stopScore( StopOrNot( hLabel.obs.w, LeftAttachment, hLabel.v ) , NotStop ) +
+            g.chooseScore( ChooseArgument( hLabel.obs.w, LeftAttachment ) , aLabel.obs.w ) +
+              argEntry.iScore + headEntry.iScore
+
+        incrementIScore( inc )
+
+        children += SpannedChildren( headEntry, Some(argEntry) )
+      }
+    }
+    class LeftwardLexEntry( h:SingleLabel, span:Span ) extends LeftwardEntry( h, span ) {
+      iScore = 0D
+    }
+
+    class RightwardEntry( h:SingleLabel, span:Span ) extends Entry( h, span ) {
+      def addDependency( headEntry:Entry, argEntry:Entry ) = {
+        val SplitLabel( hLabel, aLabel ) = headEntry.label
+        assert( h.obs == hLabel.obs )
+
+          // println( "Attaching " + argEntry.label + " to " + hLabel )
+
+        val RightwardLabel( argEntryObs, argEntryV ) = argEntry.label
+        assert( argEntryV == ( 2*(argEntryObs.t+1) == argEntry.span.end ) )
+
+
+        val inc = 
+          g.stopScore( StopOrNot( aLabel.obs.w, LeftAttachment, aLabel.v ) , Stop ) +
+          g.stopScore( StopOrNot( aLabel.obs.w, RightAttachment, argEntryV ) , Stop ) +
+            g.stopScore( StopOrNot( hLabel.obs.w, RightAttachment, hLabel.v ) , NotStop ) +
+            g.chooseScore( ChooseArgument( hLabel.obs.w, RightAttachment ) , aLabel.obs.w ) +
+              argEntry.iScore + headEntry.iScore
+
+        incrementIScore( inc )
+
+        children += SpannedChildren( headEntry, Some(argEntry) )
+      }
+    }
+    class RightwardLexEntry( h:SingleLabel, span:Span ) extends RightwardEntry( h, span ) {
+      iScore = 0D
+    }
+
+
+    // TODO figure out what to do with root now...
+    // def rootEntry = matrix( 0 )( s.length )( rootLabel )
+    def treeScore = { matrix( 0 )( 2*s.length )( StartLabel ).iScore }
+
+
+    // Re-wrote lexFill so we don't explicitly touch iScore at all, only add entries.
+    def lexFill( index:Int ) {
+
+        // these are lexical entries so we are guaranteed to have no deps yet, hence v = true
+      if( index%2 == 0 ) {
+        val w = s(index/2)
+        val leftward = LeftwardLabel( w, true )
+        addEntry( new LeftwardLexEntry( leftward, Span( index, index+1 ) ) )
+      } else {
+        val w = s((index-1)/2)
+        val rightward = RightwardLabel( w, true )
+        addEntry( new RightwardLexEntry( rightward, Span( index, index+1 ) ) )
+      }
+    }
+
+    def synFill( i:Int, j:Int ) {
+      //println( "synFill for " + (i, j) )
+
+
+      ( (i+1) to (j-1) ).foreach{ k =>
+
+        // println( (i,k,j) + " " + (i%2==0, k%2==0, j%2==0) )
+
+        (i%2==0, k%2==0, j%2==0) match {
+          case (true, false, true) => {
+            // matrix(i)(k): leftward
+            // matrix(k)(j): rightward
+            // action: Add root if i == 0 and j == 2*s.length
+            if( i == 0 && j == (2*s.length) ) {
+              val t = (k-1)/2
+              val left = LeftwardLabel( s(t), t == 0 )
+              val right = RightwardLabel( s(t), (t+1) == s.length )
+              val rootLabel = RootLabel( left, right )
+
+              addEntry( new RootEntry( rootLabel, Span( 0, 2*s.length ) ) )
+
+              matrix( 0 )( 2*s.length )( StartLabel ).incrementIScore(
+                g.chooseScore( ChooseArgument( Root, LeftAttachment ), s(t).w ) +
+                  matrix( 0 )( (2*s.length) )( rootLabel ).iScore
+              )
+            }
+
+          }
+          case (false, true, false) => {
+            // matrix(i)(k): rightward
+            // matrix(k)(j): leftward
+            // action: add M node
+
+            val rightwardHeads = matrix(i)(k).keySet
+            val leftwardHeads = matrix(k)(j).keySet
+            assert(
+              rightwardHeads.forall{ _ match { case RightwardLabel(_,_) => true ; case _ => false } }
+            )
+              // println( leftwardHeads.mkString( "{ ", ", ", " }" ) )
+            assert(
+              leftwardHeads.forall{ _ match { case LeftwardLabel(_,_) => true ; case _ => false } }
+            )
+
+            (
+              for {left <- rightwardHeads ; right <- leftwardHeads } yield (left, right )
+            ).foreach{ case( left:RightwardLabel, right:LeftwardLabel ) =>
+              val split = SplitLabel( left, right )
+
+              if( ! matrix( i )( j ).keySet.contains( split ) )
+                addEntry( new SplitEntry( split, Span( i, j ) ) )
+
+              // assert( left.v == ( (left.obs.t+1) == k ) )
+              // assert( right.v == ( right.obs.t == k ) )
+
+              // increment split category iScore for stops on the left and right
+              matrix( i )( j )( split ).incrementIScore(
+                  matrix( i )( k )( left ).iScore + matrix( k )( j )( right ).iScore
+              )
+            }
+          }
+          case (false, false, true) => {
+            // matrix(i)(k): M node
+            // matrix(k)(j): rightward
+            // action: rightward attachment
+            val splits = matrix(i)(k).keySet
+              /// println( splits.mkString( "< ", ", ", " >" ) )
+            assert(
+              splits.forall{ _ match { case SplitLabel(_,_) => true ; case _ => false } }
+            )
+            splits.foreach{ split =>
+              val SplitLabel( leftHead, rightHead ) = split
+
+              val leftParent = RightwardLabel( leftHead.obs, false )
+              val rightArg = RightwardLabel( rightHead.obs, ( 2*(rightHead.obs.t+1) ) == j )
+
+              if( ! matrix( i )( j ).keySet.contains( leftParent ) )
+                addEntry( new RightwardEntry( leftParent, Span( i, j ) ) )
+              matrix( i )( j )( leftParent ).addDependency(
+                matrix( i )( k )( split ),
+                matrix( k )( j )( rightArg )
+              )
+            }
+          }
+          case (true, false, false) => {
+            // matrix(i)(k): leftward
+            // matrix(k)(j): M node
+            // action: leftward attachment
+            val splits = matrix(k)(j).keySet
+            assert(
+              splits.forall{ _ match { case SplitLabel(_,_) => true ; case _ => false } }
+            )
+            splits.foreach{ split =>
+              val SplitLabel( leftHead, rightHead ) = split
+
+              val rightParent = LeftwardLabel( rightHead.obs, false )
+              val leftArg = LeftwardLabel( leftHead.obs, (2*leftHead.obs.t) == i )
+
+              if( ! matrix( i )( j ).keySet.contains( rightParent ) )
+                addEntry( new LeftwardEntry( rightParent, Span( i, j ) ) )
+              matrix( i )( j )( rightParent ).addDependency(
+                matrix( k )( j )( split ),
+                matrix( i )( k )( leftArg )
+              )
+            }
+          }
+          case (true, true, true) => {
+            // matrix(i)(k): nothing
+            // matrix(k)(j): nothing
+            // action: nothing
+          }
+          case (true, true, false) => {
+            // matrix(i)(k): nothing
+            // matrix(k)(j): leftward
+            // action: nothing
+          }
+          case (false, true, true) => {
+            // matrix(i)(k): rightward
+            // matrix(k)(j): nothing
+            // action: nothing
+          }
+          case (false, false, false) => {
+            // matrix(i)(k): M node
+            // matrix(k)(j): M node
+            // action: nothing
+          }
+        }
+
+
+      }
+
+    }
+
+    // TODO: modify this for fold-unfold transformed version.
+    def outsidePass {
+      import math.exp
+      val n = 2*s.length
+
+        // println( toString )
+
+      // Each outside score summand is a product of:
+      //  - the probability of the rule generating that node as a child
+      //  - the inside score of the node's sibling (according to the rule)
+      //  - the outside score of the node's parent (according to the rule)
+
+      // Root first
+        // println( "Special case S -> L_w R_w  rules" )
+      matrix(0)(n).values.filter{
+        _ match { case e:RootEntry => true; case _ => false }
+      }.foreach{ e =>
+        val RootLabel( left, right ) = e.label
+        e.incrementOScore(
+          g.chooseScore( ChooseArgument( Root, LeftAttachment ), left.obs.w ) +
+            matrix(0)(n)(StartLabel).oScore
+        )
+      }
+
+
+
+      // rootEntry.setOScore( 0D )
+      ( 1 to n ).reverse.foreach( length =>
+        ( 0 to ( n - length ) ).foreach{ i =>
+          val j = i + length
+          val curSpan = Span(i,j)
+
+          ( i%2 == 0, j%2 == 0 ) match {
+            case (true,true) => {
+              // Label type: Root
+              if( i == 0 && j == n ) {
+                ( 0 to (s.length-1)).foreach{ t =>
+                  val k = (2*t)+1
+                  val left = LeftwardLabel( s(t), t == 0 )
+                  val right = RightwardLabel( s(t), t == (s.length-1) )
+                  val rootLabel = RootLabel( left, right )
+
+                  matrix(0)(k)(left).incrementOScore(
+                    g.stopScore( StopOrNot( left.obs.w, LeftAttachment, k == 1 ), Stop ) +
+                      g.stopScore( StopOrNot( left.obs.w, RightAttachment, k == (n-1) ), Stop ) +
+                        matrix(0)(n)(rootLabel).oScore + matrix( k )( n )( right ).iScore
+                  )
+
+                  matrix(k)(n)( right ).incrementOScore(
+                    g.stopScore( StopOrNot( left.obs.w, LeftAttachment, k == 1 ), Stop ) +
+                      g.stopScore( StopOrNot( left.obs.w, RightAttachment, k == (n-1) ), Stop ) +
+                        matrix(0)(n)(rootLabel).oScore + matrix( 0 )( k )( left ).iScore
+                  )
+
+                }
+              }
+            }
+            case (true,false) => {
+              // Label type: LeftwardLabel
+              // Two types of parent for LeftwardLabel: M node, and LeftwardLabel
+
+              // Let's do M node first. 
+              ( 0 to ((i/2)-1) ).foreach{ leftBoundary =>
+                val k = (2*leftBoundary) + 1
+                assert( k < i )
+                  // println( "  " + (k,i,j) + " M parent" )
+                val leftwardHeads = matrix(i)(j).keySet
+                val rightwardHeads = matrix(k)(i).keySet
+                assert(
+                  rightwardHeads.forall{ _ match { case RightwardLabel(_,_) => true ; case _ => false } }
+                )
+                assert(
+                  ! rightwardHeads.isEmpty
+                )
+                assert(
+                  leftwardHeads.forall{ _ match { case LeftwardLabel(_,_) => true ; case _ => false } }
+                )
+                assert(
+                  ! leftwardHeads.isEmpty
+                )
+
+                // var splits = matrix(k)(j).keySet
+                (
+                  for {left <- rightwardHeads ; right <- leftwardHeads } yield (left, right )
+                ).foreach{ case( left:RightwardLabel, right:LeftwardLabel ) =>
+                // splits.foreach{ case SplitLabel( left, right ) =>
+                  val split = SplitLabel( left, right )
+
+                  matrix(i)(j)(right).incrementOScore(
+                    matrix(k)(j)(split).oScore + matrix(k)(i)(left).iScore
+                  )
+                  // splits -= split
+                }
+                // assert(
+                //   splits.isEmpty ||
+                //   splits.forall{ case SplitLabel( _, right ) => right.obs != s( (j-1)/2) ; }
+                // )
+              }
+
+
+              // Hokay, now let's do LeftwardLabel parent.
+              (((j+3)/2) to (s.length) ).foreach{ headBoundary =>
+                val k = (2*headBoundary) - 1
+                  // println( "  " + (i,j,k) + " Leftward parent")
+                assert( k > j )
+                val leftArgs = matrix(i)(j).keySet
+                val splits = matrix(j)(k).keySet
+
+                assert(
+                  leftArgs.forall{ _ match { case LeftwardLabel(_,_) => true ; case _ => false } }
+                )
+                assert(
+                  !( leftArgs.isEmpty )
+                )
+                assert(
+                  splits.forall{ _ match { case SplitLabel(_,_) => true ; case _ => false } }
+                )
+                assert(
+                  !( splits.isEmpty )
+                )
+
+                (
+                  for { leftArg <- leftArgs ; split <- splits } yield (leftArg, split )
+                ).foreach{ case( leftArg:LeftwardLabel, split:SplitLabel ) =>
+
+                  val SplitLabel( leftHead, rightHead ) = split
+
+                  val rightParent = LeftwardLabel( rightHead.obs, false )
+
+                  assert( leftArg.obs == leftHead.obs )
+
+                      // println(
+                      //   "P( " + Stop  + " | " + 
+                      //     StopOrNot( leftHead.obs.w, LeftAttachment, leftArg.v ) +
+                      //   " ) + P( " +
+                      //     Stop + " | " + StopOrNot( leftHead.obs.w, RightAttachment, leftHead.v ) +
+                      //   " ) + P( " + NotStop + " | " + StopOrNot( rightHead.obs.w, LeftAttachment,
+                      //     rightHead.v ) +
+                      //   ") + P( " + leftHead.obs.w + " | " + ChooseArgument( rightHead.obs.w,
+                      //     LeftAttachment ) + ") + " +
+                      //   (i,k,rightParent) + ".iScore + " +
+                      //   (j,k,split) + ".iScore = " +
+                      //   g.stopScore( StopOrNot( leftHead.obs.w, LeftAttachment, leftArg.v ) , Stop ) + " + " +
+                      //   g.stopScore( StopOrNot( leftHead.obs.w, RightAttachment, leftHead.v ) , Stop ) + " + " +
+                      //     g.stopScore( StopOrNot( rightHead.obs.w, LeftAttachment, rightHead.v ) , NotStop ) + " + " +
+                      //       g.chooseScore( ChooseArgument( rightHead.obs.w, LeftAttachment ) , leftHead.obs.w ) + " + " +
+                      //       matrix( i )( k )( rightParent ).oScore + " + " + matrix( j )( k )( split
+                      //       ).iScore +
+                      //   " = " + ( g.stopScore( StopOrNot( leftHead.obs.w, LeftAttachment, leftArg.v ) , Stop ) +
+                      //   g.stopScore( StopOrNot( leftHead.obs.w, RightAttachment, leftHead.v ) , Stop ) +
+                      //     g.stopScore( StopOrNot( rightHead.obs.w, LeftAttachment, rightHead.v ) , NotStop ) +
+                      //       g.chooseScore( ChooseArgument( rightHead.obs.w, LeftAttachment ) , leftHead.obs.w ) +
+                      //       matrix( i )( k )( rightParent ).oScore + matrix( j )( k )( split ).iScore
+                      //   )
+                      // )
+                  matrix( i )( j )( leftArg ).incrementOScore(
+                    g.stopScore( StopOrNot( leftHead.obs.w, LeftAttachment, leftArg.v ) , Stop ) +
+                    g.stopScore( StopOrNot( leftHead.obs.w, RightAttachment, leftHead.v ) , Stop ) +
+                      g.stopScore( StopOrNot( rightHead.obs.w, LeftAttachment, rightHead.v ) , NotStop ) +
+                        g.chooseScore( ChooseArgument( rightHead.obs.w, LeftAttachment ) , leftHead.obs.w ) +
+                        matrix( i )( k )( rightParent ).oScore + matrix( j )( k )( split ).iScore
+                  )
+                }
+
+              }
+            }
+            case (false,true) => {
+              // Label type: RightwardLabel
+
+              // Two types of parent for RightwardLabel: M node, and RightwardLabel
+
+              // Let's do M node first. 
+              ( ((j/2)+1) to (s.length) ).foreach{ rightBoundary =>
+                val k = (2*rightBoundary)-1
+                  // println( "  " + (i,j,k) + " M parent" )
+                assert( k > j )
+                val rightwardHeads = matrix(i)(j).keySet
+                val leftwardHeads = matrix(j)(k).keySet
+                assert(
+                  rightwardHeads.forall{ _ match { case RightwardLabel(_,_) => true ; case _ => false } }
+                )
+                assert(
+                  ! rightwardHeads.isEmpty
+                )
+                assert(
+                  leftwardHeads.forall{ _ match { case LeftwardLabel(_,_) => true ; case _ => false } }
+                )
+                assert(
+                  ! leftwardHeads.isEmpty
+                )
+
+                // var splits = matrix(i)(k).keySet
+                // println( splits.mkString( ">>>[ ", ", ", " ]>>>" ) )
+                (
+                  for {left <- rightwardHeads ; right <- leftwardHeads } yield (left, right )
+                ).foreach{ case( left:RightwardLabel, right:LeftwardLabel ) =>
+                // splits.foreach{ case SplitLabel( left, right ) =>
+                  val split = SplitLabel( left, right )
+
+                  // println( "      } " + (left,right) + " { " )
+
+                  matrix(i)(j)(left).incrementOScore(
+                    matrix(i)(k)(split).oScore + matrix(j)(k)(right).iScore
+                  )
+                  // splits -= split
+                }
+                // println( splits.mkString( "===[ ", ", ", " ]===" ) )
+                // assert(
+                //   splits.isEmpty ||
+                //   splits.forall{ case SplitLabel( left, _ ) => left.obs != s( (i-1)/2) ; }
+                // )
+              }
+
+
+              // Hokay, now let's do RightwardLabel parent.
+              (0 to ((i-3)/2)).foreach{ headBoundary =>
+                val k = (2*headBoundary) + 1
+                  // println( "  " + (k,i,j) + " Rightward parent" )
+                assert( k < i )
+                val splits = matrix(k)(i).keySet
+                val rightArgs = matrix(i)(j).keySet
+
+                assert(
+                  splits.forall{ _ match { case SplitLabel(_,_) => true ; case _ => false } }
+                )
+                assert(
+                  ! splits.isEmpty
+                )
+                assert(
+                  ! rightArgs.isEmpty
+                )
+
+                (
+                  for {split <- splits ; rightArg <- rightArgs } yield (split, rightArg )
+                ).foreach{ case( split:SplitLabel, rightArg:RightwardLabel ) =>
+
+                  val SplitLabel( leftHead, rightHead ) = split
+
+                  val leftParent = RightwardLabel( leftHead.obs, false )
+
+                  assert( rightArg.obs == rightHead.obs )
+
+                  matrix( i )( j )( rightArg ).incrementOScore(
+                    g.stopScore( StopOrNot( rightHead.obs.w, RightAttachment, rightArg.v ) , Stop ) +
+                    g.stopScore( StopOrNot( rightHead.obs.w, LeftAttachment, rightHead.v ) , Stop ) +
+                      g.stopScore( StopOrNot( leftHead.obs.w, RightAttachment, leftHead.v ) , NotStop ) +
+                        g.chooseScore( ChooseArgument( leftHead.obs.w, RightAttachment ) , rightHead.obs.w ) +
+                        matrix( k )( j )( leftParent ).oScore + matrix( k )( i )( split ).iScore
+                  )
+                }
+
+              }
+            }
+            case (false,false) => {
+              // Label type: SplitLabel
+              (0 to ((i-1)/2)).foreach{ argBoundary =>
+                val k = 2*argBoundary
+                  // println( "  " + (k,i,j) + " Leftward parent" )
+                assert( k < i )
+                val splits = matrix(i)(j).keySet
+                val leftArgs = matrix(k)(i).keySet
+                assert(
+                  leftArgs.forall{ _ match { case LeftwardLabel(_,_) => true ; case _ => false } }
+                )
+                assert(
+                  ! splits.isEmpty
+                )
+                assert(
+                  ! leftArgs.isEmpty
+                )
+
+                (
+                  for {leftArg <- leftArgs ; split <- splits } yield (leftArg, split)
+                ).foreach{ case( leftArg:LeftwardLabel, split:SplitLabel ) =>
+                  val SplitLabel( leftHead, rightHead ) = split
+                  val rightParent = LeftwardLabel( rightHead.obs, false )
+
+                    // println( "      split is " + split )
+                    // println( "      " + rightHead + " --> " + (leftArg,leftHead) )
+
+                  assert( leftArg.obs == leftHead.obs )
+                  if( ( k == 2 * leftArg.obs.t ) )
+                    assert( leftArg.v == true )
+                  if( (j-1) == 2* leftHead.obs.t )
+                    assert( leftHead.v == true )
+                  if( (i+1) == 2* rightHead.obs.t )
+                    assert( rightHead.v == true )
+
+
+                  matrix( i )( j )( split ).incrementOScore(
+                    g.stopScore( StopOrNot( leftHead.obs.w, LeftAttachment, leftArg.v ) , Stop ) +
+                    g.stopScore( StopOrNot( leftHead.obs.w, RightAttachment, leftHead.v ) , Stop ) +
+                      g.stopScore( StopOrNot( rightHead.obs.w, LeftAttachment, rightHead.v ) , NotStop ) +
+                        g.chooseScore( ChooseArgument( rightHead.obs.w, LeftAttachment ) , leftHead.obs.w ) +
+                          matrix( k )( j )( rightParent ).oScore + matrix( k )( i )( leftArg ).iScore
+                  )
+                }
+
+              }
+              (((j+1)/2) to (s.length)).foreach{ argBoundary =>
+                val k = 2*(argBoundary)
+                assert( k > j )
+                  // println( "  " + (i,j,k) + " Rightward parent")
+                val splits = matrix(i)(j).keySet
+                val rightArgs = matrix(j)(k).keySet
+                assert(
+                  rightArgs.forall{ _ match { case RightwardLabel(_,_) => true ; case _ => false } }
+                )
+                assert(
+                  ! splits.isEmpty
+                )
+                assert(
+                  ! rightArgs.isEmpty
+                )
+                (
+                  for {split <- splits ; rightArg <- rightArgs } yield (split, rightArg )
+                ).foreach{ case( split:SplitLabel, rightArg:RightwardLabel ) =>
+                  val SplitLabel( leftHead, rightHead ) = split
+
+                  val leftParent = RightwardLabel( leftHead.obs, false )
+
+                    // println( "      split is " + split )
+                    // println( "      " + leftHead + " --> " + (rightHead,rightArg) )
+
+                  assert( rightArg.obs == rightHead.obs )
+                  if( k == 2*( rightArg.obs.t+1 ) )
+                    assert( rightArg.v == true )
+                  if( (j-1) == 2* leftHead.obs.t )
+                    assert( leftHead.v == true )
+                  if( (i+1) == 2* rightHead.obs.t )
+                    assert( rightHead.v == true )
+
+                  matrix( i )( j )( split ).incrementOScore(
+                    g.stopScore( StopOrNot( rightHead.obs.w, RightAttachment, rightArg.v ) , Stop ) +
+                    g.stopScore( StopOrNot( rightHead.obs.w, LeftAttachment, rightHead.v ) , Stop ) +
+                      g.stopScore( StopOrNot( leftHead.obs.w, RightAttachment, leftHead.v ) , NotStop ) +
+                        g.chooseScore( ChooseArgument( leftHead.obs.w, RightAttachment ) , rightHead.obs.w ) +
+                        matrix( i )( k )( leftParent ).oScore + matrix( j )( k )( rightArg ).iScore
+                  )
+                }
+
+
+              }
+            }
+          }
+
+
+        }
+      )
+    }
+
+
+    // TODO: modify this for fold-unfold transformed version.
+    def toPartialCounts = {
+      import collection.mutable.HashMap
+      val pc = g.emptyPartialCounts
+
+      val n = 2*s.length
+
+
+      pc.setStopCounts(
+        StopOrNot( Root, LeftAttachment, true ),
+        Stop,
+        Double.NegativeInfinity
+      )
+      pc.setStopCounts(
+        StopOrNot( Root, LeftAttachment, true ),
+        NotStop,
+        0D
+      )
+
+      pc.setStopCounts(
+        StopOrNot( Root, LeftAttachment, false ),
+        Stop,
+        0D
+      )
+      pc.setStopCounts(
+        StopOrNot( Root, LeftAttachment, false ),
+        NotStop,
+        Double.NegativeInfinity
+      )
+
+
+      pc.setStopCounts(
+        StopOrNot( Root, RightAttachment, true ),
+        Stop,
+        0D
+      )
+      pc.setStopCounts(
+        StopOrNot( Root, RightAttachment, true ),
+        NotStop,
+        Double.NegativeInfinity
+      )
+      pc.setStopCounts(
+        StopOrNot( Root, RightAttachment, false ),
+        Stop,
+        0D
+      )
+      pc.setStopCounts(
+        StopOrNot( Root, RightAttachment, false ),
+        NotStop,
+        Double.NegativeInfinity
+      )
+
+      matrix(0)(n).values.filter{
+        _ match { case e:RootEntry => true; case _ => false }
+      }.foreach{ e =>
+        val RootLabel( left, right ) = e.label
+        pc.incrementChooseCounts(
+          ChooseArgument( Root, LeftAttachment ),
+          left.obs.w,
+          e.iScore +
+            g.chooseScore( ChooseArgument( Root, LeftAttachment ), left.obs.w ) - treeScore
+        )
+
+        val k = (2*left.obs.t) + 1
+        val rootStoppingScore =
+          g.stopScore( StopOrNot( left.obs.w, LeftAttachment, left.v ), Stop ) +
+            g.stopScore( StopOrNot( left.obs.w, RightAttachment, right.v ), Stop ) +
+              matrix(0)(k)(left).iScore + matrix(k)(n)(right).iScore + e.oScore - treeScore
+
+        pc.incrementStopCounts(
+          StopOrNot( left.obs.w, LeftAttachment, left.v ),
+          Stop,
+          rootStoppingScore
+        )
+        pc.incrementStopCounts(
+          StopOrNot( left.obs.w, RightAttachment, right.v ),
+          Stop,
+          rootStoppingScore
+        )
+      }
+
+
+      (0 to (n-1) ).foreach{ i =>
+
+        ( (i+1) to n ).foreach{ j =>
+          val curSpan = Span( i, j )
+          ( (i+1) to (j-1) ).foreach{ k =>
+
+            (i%2==0, k%2==0, j%2==0) match {
+              case (false, false, true) => {
+                // matrix(i)(k): M node
+                // matrix(k)(j): rightward
+                // attachment type: rightward
+                val splits = matrix(i)(k).keySet
+                splits.foreach{ split =>
+                  val SplitLabel( leftHead, rightHead ) = split
+
+                  val leftParent = RightwardLabel( leftHead.obs, false )
+                  val rightArg = RightwardLabel( rightHead.obs, ( 2*(rightHead.obs.t+1) ) == j )
+
+                  val attScore =
+                    g.stopScore( StopOrNot( rightHead.obs.w, LeftAttachment, rightHead.v ) , Stop ) +
+                    g.stopScore( StopOrNot( rightHead.obs.w, RightAttachment, rightArg.v ) , Stop ) +
+                      g.stopScore( StopOrNot( leftHead.obs.w, RightAttachment, leftHead.v ) , NotStop ) +
+                      g.chooseScore( ChooseArgument( leftHead.obs.w, RightAttachment ) , rightHead.obs.w ) +
+                        matrix(i)(k)(split).iScore + matrix(k)(j)(rightArg).iScore +
+                        matrix(i)(j)(leftParent).oScore - treeScore
+                        // argEntry.iScore + headEntry.iScore
+
+                  pc.incrementStopCounts(
+                    StopOrNot( rightHead.obs.w, LeftAttachment, rightHead.v ),
+                    Stop,
+                    attScore
+                  )
+                  pc.incrementStopCounts(
+                    StopOrNot( rightHead.obs.w, RightAttachment, rightArg.v ),
+                    Stop,
+                    attScore
+                  )
+                  pc.incrementStopCounts(
+                    StopOrNot( leftHead.obs.w, RightAttachment, leftHead.v ),
+                    NotStop,
+                    attScore
+                  )
+                  pc.incrementChooseCounts(
+                    ChooseArgument( leftHead.obs.w, RightAttachment ),
+                    rightHead.obs.w,
+                    attScore
+                  )
+                }
+              }
+              case (true, false, false) => {
+                // matrix(i)(k): leftward
+                // matrix(k)(j): M node
+                // action: leftward attachment
+                val splits = matrix(k)(j).keySet
+                splits.foreach{ split =>
+                  val SplitLabel( leftHead, rightHead ) = split
+
+                  val rightParent = LeftwardLabel( rightHead.obs, false )
+                  val leftArg = LeftwardLabel( leftHead.obs, (2*leftHead.obs.t) == i )
+
+                  val attScore =
+                    g.stopScore( StopOrNot( leftHead.obs.w, RightAttachment, leftHead.v ) , Stop ) +
+                    g.stopScore( StopOrNot( leftHead.obs.w, LeftAttachment, leftArg.v ) , Stop ) +
+                      g.stopScore( StopOrNot( rightHead.obs.w, LeftAttachment, rightHead.v ) , NotStop ) +
+                      g.chooseScore( ChooseArgument( rightHead.obs.w, LeftAttachment ) , leftHead.obs.w ) +
+                        matrix(k)(j)(split).iScore + matrix(i)(k)(leftArg).iScore +
+                        matrix(i)(j)(rightParent).oScore - treeScore
+                        // argEntry.iScore + headEntry.iScore
+
+                  pc.incrementStopCounts(
+                    StopOrNot( leftHead.obs.w, RightAttachment, leftHead.v ),
+                    Stop,
+                    attScore
+                  )
+                  pc.incrementStopCounts(
+                    StopOrNot( leftHead.obs.w, LeftAttachment, leftArg.v ),
+                    Stop,
+                    attScore
+                  )
+                  pc.incrementStopCounts(
+                    StopOrNot( rightHead.obs.w, LeftAttachment, rightHead.v ),
+                    NotStop,
+                    attScore
+                  )
+                  pc.incrementChooseCounts(
+                    ChooseArgument( rightHead.obs.w, LeftAttachment ),
+                    leftHead.obs.w,
+                    attScore
+                  )
+                }
+              }
+              case (false, true, false) => {
+              }
+              case (true, false, true) => {
+              }
+              case (true, true, true) => {
+              }
+              case (true, true, false) => {
+              }
+              case (false, true, true) => {
+              }
+              case (false, false, false) => {
+              }
+            }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          }
+
+        }
+      }
+
+      if( !( treeScore <= 0D ) ) {
+        println( s.mkString("[ ", " ", " ]" ) )
+        println( treeScore )
+        println( this )
+      }
+      assert( treeScore <= 0D )
+      pc.setTotalScore( treeScore )
+
+      pc
+    }
+
+    def computeMarginals {
+      (0 to ((2*s.length)-1) ).foreach{ i =>
+        ( (i+1) to (2*s.length) ).foreach{ j =>
+          matrix(i)(j).values.foreach( _.computeMarginal )
+        }
+      }
+    }
+
+    def size = 2*s.size
+
+    override def toString = {
+      matrix.map{ row =>
+        row.map{ x =>
+          if( x != null )
+            x.values.mkString( "\n", "\n", "\n" )
+        }.mkString("\n","\n","\n")
+      }.mkString("\n","\n","\n\n")
+    }
   }
 
   /*
@@ -1989,8 +2979,28 @@ class VanillaDMVEstimator extends AbstractDMVParser{
 
     chart.computeMarginals
 
-    // println( "Chart for " + s.mkString( "[ ", ", ", " ]" ) )
-    // println( chart + "\n\n\n\n\n" )
+    chart
+  }
+
+  /*
+  * This is the CYK parsing algorithm with the Fold-Unfold transform (Johnson, 2007)
+  * @param s The input sentence (an array of terminals)
+  * @return A parse chart with inside and outside probabilities.
+  */
+  def efficientPopulateChart( s:List[TimedObservedLabel] ) = {
+    val chart = new FoldUnfoldChart( s )
+
+    (1 to ( chart.size )) foreach{ j =>
+      chart.lexFill( j-1 )
+      if( j > 1 )
+        (0 to (j-2)).reverse.foreach{ i =>
+          chart.synFill( i , j )
+        }
+    }
+
+    chart.outsidePass
+
+    // chart.computeMarginals
 
     chart
   }
@@ -2151,6 +3161,17 @@ class VanillaDMVEstimator extends AbstractDMVParser{
       a.destructivePlus(b);
       a
     }
+
+  def efficientComputePartialCounts( corpus:Iterable[List[TimedObservedLabel]] ) =
+    corpus.par.map{ s =>
+      val pc = efficientPopulateChart(s).toPartialCounts
+      pc
+    //}.toList.reduceLeft{(a,b) =>
+    }.toList.foldLeft( g.emptyPartialCounts ){(a,b) =>
+      a.destructivePlus(b);
+      a
+    }
+
 
 }
 
@@ -2325,7 +3346,7 @@ class VanillaDMVParser( val randomSeed:Int = 10 ) extends AbstractDMVParser{
 
         val unsealedLeftHeads = matrix(start)(k).keySet.filter{ _.mark == UnsealedRightFirst }
         unsealedLeftHeads.foreach{ h =>
-          if( !( matrix(start)(end).contains( h ) ) )
+          if( !( matrix(start)(end).keySet.contains( h ) ) )
             matrix(start)(end) += h -> new BinaryEntry( matrix(start)(k)(h), Span(start,end) )
 
           rightArguments.foreach{ a =>
@@ -2338,7 +3359,7 @@ class VanillaDMVParser( val randomSeed:Int = 10 ) extends AbstractDMVParser{
 
         val unsealedRightHeads = matrix(k)(end).keySet.filter{ _.mark == UnsealedLeftFirst }
         unsealedRightHeads.foreach{ h =>
-          if( !( matrix(start)(end).contains( h ) ) )
+          if( !( matrix(start)(end).keySet.contains( h ) ) )
             matrix(start)(end) += h -> new BinaryEntry( matrix(k)(end)(h), Span(start,end) )
 
           leftArguments.foreach{ a => 
@@ -2354,7 +3375,7 @@ class VanillaDMVParser( val randomSeed:Int = 10 ) extends AbstractDMVParser{
         val halfSealedLeftHeads =
           matrix(start)(k).keySet.filter{ _.mark == SealedLeft }
         halfSealedLeftHeads.foreach{ h =>
-          if( !( matrix(start)(end).contains( h ) ) )
+          if( !( matrix(start)(end).keySet.contains( h ) ) )
             matrix(start)(end) += h -> new BinaryEntry( matrix(start)(k)(h), Span(start,end) )
 
           rightArguments.foreach{ a =>
@@ -2368,7 +3389,7 @@ class VanillaDMVParser( val randomSeed:Int = 10 ) extends AbstractDMVParser{
         val halfSealedRightHeads =
           matrix(k)(end).keySet.filter{ _.mark == SealedRight }
         halfSealedRightHeads.foreach{ h =>
-          if( !( matrix(start)(end).contains( h ) ) )
+          if( !( matrix(start)(end).keySet.contains( h ) ) )
             matrix(start)(end) += h -> new BinaryEntry( matrix(k)(end)(h), Span(start,end) )
 
           leftArguments.foreach{ a =>
@@ -2384,13 +3405,13 @@ class VanillaDMVParser( val randomSeed:Int = 10 ) extends AbstractDMVParser{
       matrix(start)(end).keySet.filter{ h =>
         (h.mark == UnsealedLeftFirst ) | (h.mark == UnsealedRightFirst)
       }.foreach{ h =>
-        if( !( matrix(start)(end).contains( h.seal.get ) ) )
+        if( !( matrix(start)(end).keySet.contains( h.seal.get ) ) )
           matrix(start)(end) += h.seal.get -> new UnaryEntry( matrix(start)(end)(h) )
       }
       matrix(start)(end).keySet.filter{ h =>
         (h.mark == SealedLeft ) | (h.mark == SealedRight)
       }.foreach{ h =>
-        if( !( matrix(start)(end).contains( h.seal.get ) ) )
+        if( !( matrix(start)(end).keySet.contains( h.seal.get ) ) )
           matrix(start)(end) += h.seal.get -> new UnaryEntry( matrix(start)(end)(h) )
       }
     }
@@ -2398,13 +3419,20 @@ class VanillaDMVParser( val randomSeed:Int = 10 ) extends AbstractDMVParser{
 
     def size = s.size
 
+    def rootEntry = matrix( 0 )( s.length )( MarkedObservation( FinalRoot(s.length-1), Sealed ) )
+    def treeScore = rootEntry.score
+
     def toConstituencyParse =
       matrix(0)(s.length)( MarkedObservation( FinalRoot( s.length-1 ) , Sealed ) ).constituencyParse
+
+    def toConstituencyParseWithLogProb = ScoredParse( toConstituencyParse, treeScore )
 
     def toDependencyParse =
       matrix(0)(s.length)(
         MarkedObservation( FinalRoot( s.length-1 ) , Sealed )
       ).dependencyParse.toList.sortWith{ _.arg.t < _.arg.t }.map{_.head.t}.mkString( "[ ", ", ", " ] " )
+
+    def toDependencyParseWithLogProb = ScoredParse( toDependencyParse, treeScore )
 
     override def toString =
       matrix.map{ row =>
@@ -2415,12 +3443,439 @@ class VanillaDMVParser( val randomSeed:Int = 10 ) extends AbstractDMVParser{
       }.mkString("\n","\n","\n\n")
   }
 
+  case class ScoredParse( parse:String, logProb:Double )
+
+        // class FoldUnfoldVitChart( s:List[TimedObservedLabel] ) {
+
+        //   case class SpannedChildren( head:Entry, dependent:Option[Entry] )
+
+        //   abstract class FoldUnfoldLabel
+
+        //   abstract class SingleLabel extends FoldUnfoldLabel {
+        //     val obs:TimedObservedLabel
+        //     val v:Boolean
+        //   }
+        //   case class LeftwardLabel( obs:TimedObservedLabel, v:Boolean ) extends SingleLabel {
+        //     override def toString = "H_"+obs+".<"+"."+v
+        //     def subsequentHead = LeftwardLabel( obs, false )
+        //   }
+        //   case class RightwardLabel( obs:TimedObservedLabel, v:Boolean ) extends SingleLabel {
+        //     override def toString = "H_"+obs+".>"+"."+v
+        //     def subsequentHead = RightwardLabel( obs, false )
+        //   }
+
+        //   // This is the "M" label of Johnson (2007)
+        //   case class SplitLabel( leftLabel:RightwardLabel, rightLabel:LeftwardLabel )
+        //     extends FoldUnfoldLabel {
+        //     override def toString = leftLabel+".M."+rightLabel
+        //   }
+
+        //   case class RootLabel( leftLabel:LeftwardLabel, rightLabel:RightwardLabel ) extends FoldUnfoldLabel {
+        //     override def toString = leftLabel.obs+".R."+rightLabel.obs
+        //   }
+
+        //   case object StartLabel extends FoldUnfoldLabel {
+        //     override def toString = "S"
+        //   }
+
+
+        //   protected val matrix = Array.fill( (2*s.length)+1, (2*s.length)+1 )(
+        //     collection.mutable.Map[FoldUnfoldLabel,Entry]()
+        //   )
+
+        //   def addEntry( newEntry:Entry ) {
+        //     val Span( from, to ) = newEntry.span
+        //     matrix( from ) ( to ) += newEntry.label -> newEntry
+        //   }
+        //   addEntry( StartEntry )
+
+        //   def addRootEntry( newEntry:Entry ) {
+        //     assert( newEntry.span == Span( 0, 2 * s.length) )
+
+
+        //     val RootLabel( left, right ) = newEntry.label
+        //     val k = (2*left.obs.t) + 1
+        //     newEntry.children =
+        //       Some(
+        //         SpannedChildren(
+        //           matrix(0)(k)(left),
+        //           Some( matrix(k)(2*s.length)(right) )
+        //         )
+        //       )
+
+        //     matrix( 0 ) ( 2*s.length ) += newEntry.label -> newEntry
+
+        //     val newTreeScore =
+        //       newEntry.iScore +
+        //         g.chooseScore( ChooseArgument( Root, LeftAttachment ), left.obs.w )
+
+        //     if( newTreeScore > treeScore ) {
+        //       matrix( 0 )( 2*s.length )( StartLabel ).children =
+        //         Some( SpannedChildren( newEntry , None ) )
+        //       matrix( 0 )( 2*s.length )( StartLabel ).setIScore( newTreeScore )
+        //     }
+        //   }
+
+        //   def apply( start:Int, end:Int ) = matrix(start)(end)
+
+        //   def apply( span:Span ) = matrix( span.start )( span.end )
+
+        //   abstract class Entry( val label:FoldUnfoldLabel, val span:Span ) {
+
+        //     var iScore = Double.NegativeInfinity
+        //     var oScore = Double.NegativeInfinity
+        //     var score = Double.NegativeInfinity
+        //     def computeMarginal { score = oScore + iScore - treeScore }
+
+        //     def incrementIScore( inc:Double ) { iScore = logSum( iScore, inc ) }
+        //     def incrementOScore( inc:Double ) { oScore = logSum( oScore, inc ) }
+
+        //     def setOScore( x:Double ) { oScore = x }
+        //     def setIScore( x:Double ) { iScore = x }
+
+        //     // var children = Set[SpannedChildren]()
+        //     var children:Option[SpannedChildren] = None
+
+        //     def addDependency( headEntry:Entry, argEntry:Entry ):Unit
+
+        //     def dependencyParse:Set[DirectedArc]
+        //     def constituencyParse:String
+
+        //     override def toString = 
+        //       span + ": " + label +
+        //         "\n  iScore: " + math.exp( iScore ) +
+        //         "\n  oScore: " + math.exp( oScore ) +
+        //         "\n  score: " +  math.exp( score  ) 
+        //   }
+
+        //   // This is the entry for the "M" label of Johnson (2007) and the "Y" label of Headden et al (2009)
+        //   class SplitEntry( val yNode:SplitLabel, span:Span ) extends Entry( yNode, span ) {
+        //     def addDependency( left:Entry, right:Entry ) = {
+        //       val newIScore = left.iScore + right.iScore
+        //       if( newIScore > iScore ) {
+        //         setIScore( newIScore )
+        //         children = Some( SpannedChildren( left, Some( right ) ) )
+        //       }
+        //     }
+
+        //     lazy val SplitLabel( leftChild, rightChild ) = yNode
+        //     lazy val SpannedChildren( leftEntry, rightOption ) = children.get
+        //     lazy val rightEntry = rightOption.get
+
+        //     def dependencyParse =
+        //       leftEntry.dependencyParse ++
+        //         rightEntry.dependencyParse
+        //     def constituencyParse =
+        //       "(" + yNode + " " + leftEntry.constituencyParse + " " +
+        //       rightEntry.constituencyParse + " ) "
+        //   }
+
+        //   object StartEntry extends Entry( StartLabel, Span( 0, 2*s.length ) ) {
+        //     oScore = 0D
+        //     def addDependency( headEntry:Entry, argEntry:Entry ) = {}
+
+        //     lazy val SpannedChildren( child, _ ) = children.get
+        //     def dependencyParse = {
+        //       child.dependencyParse
+        //     }
+        //     def constituencyParse = "(S " + child.constituencyParse + " )"
+        //   }
+
+        //   class RootEntry( val root:RootLabel, span:Span ) extends Entry( root, span ) {
+        //     assert( root.leftLabel.obs == root.rightLabel.obs )
+        //     val t = root.leftLabel.obs.t
+        //     val r = root.leftLabel.obs.w
+
+
+        //     iScore =
+        //       g.stopScore( StopOrNot( r, LeftAttachment, t == 0 ), Stop ) +
+        //       g.stopScore( StopOrNot( r, RightAttachment, t == (s.length-1) ), Stop )  +
+        //           matrix( 0 )( (2*t)+1 )( root.leftLabel ).iScore +
+        //             matrix( (2*t)+1 )( 2*(s.length) )( root.rightLabel ).iScore
+
+        //     lazy val SpannedChildren( left, Some(right) ) = children.get
+        //     def dependencyParse =
+        //       left.dependencyParse ++
+        //         right.dependencyParse
+        //     def constituencyParse =
+        //       "(" + root +
+        //         left.constituencyParse +
+        //           right.constituencyParse +
+        //       " )"
+
+        //     def addDependency( headEntry:Entry, argEntry:Entry ) = {}
+
+        //   }
+
+
+        //   class LeftwardEntry( h:SingleLabel, span:Span ) extends Entry( h, span ) {
+
+        //     lazy val SpannedChildren( head, argOption ) = children.get
+        //     lazy val arg = argOption.get
+        //     lazy val LeftwardLabel( argObs, argV ) = arg.label
+
+
+        //     def dependencyParse =
+        //       Set( DirectedArc( h.obs, argObs ) ) ++
+        //       head.dependencyParse ++
+        //         arg.dependencyParse
+        //     def constituencyParse =
+        //       "(" + h +
+        //         arg.constituencyParse +
+        //           head.constituencyParse +
+        //       " )"
+
+        //     def addDependency( headEntry:Entry, argEntry:Entry ) = {
+        //       val SplitLabel( aLabel, hLabel ) = headEntry.label
+        //       assert( h.obs == hLabel.obs )
+
+        //       val LeftwardLabel( argEntryObs, argEntryV ) = argEntry.label
+        //       assert( argEntryObs == aLabel.obs )
+
+        //       assert( argEntryV == ( (2*argEntryObs.t) == argEntry.span.start ) )
+
+        //       val newIScore = 
+        //         g.stopScore( StopOrNot( aLabel.obs.w, RightAttachment, aLabel.v  ) , Stop ) +
+        //         g.stopScore( StopOrNot( aLabel.obs.w, LeftAttachment, argEntryV ) , Stop ) +
+        //           g.stopScore( StopOrNot( hLabel.obs.w, LeftAttachment, hLabel.v ) , NotStop ) +
+        //           g.chooseScore( ChooseArgument( hLabel.obs.w, LeftAttachment ) , aLabel.obs.w ) +
+        //             argEntry.iScore + headEntry.iScore
+
+        //       if( newIScore > iScore ) {
+        //         setIScore( newIScore )
+        //         children = Some( SpannedChildren( headEntry, Some( argEntry ) ) )
+        //       }
+
+
+        //     }
+        //   }
+        //   class LeftwardLexEntry( h:SingleLabel, span:Span ) extends LeftwardEntry( h, span ) {
+        //     iScore = 0D
+        //     children = None
+
+        //     override def dependencyParse = Set[DirectedArc]()
+        //     override def constituencyParse = "(" + h + " " + h.obs + " )"
+        //   }
+
+        //   class RightwardEntry( h:SingleLabel, span:Span ) extends Entry( h, span ) {
+
+        //     lazy val SpannedChildren( head, argOption ) = children.get
+        //     lazy val arg = argOption.get
+        //     lazy val RightwardLabel( argObs, argV ) = arg.label
+
+        //     def dependencyParse =
+        //       Set( DirectedArc( h.obs, argObs ) ) ++
+        //       head.dependencyParse ++
+        //         arg.dependencyParse
+        //     def constituencyParse =
+        //       "(" + h +
+        //         head.constituencyParse +
+        //           arg.constituencyParse +
+        //       " )"
+
+
+        //     def addDependency( headEntry:Entry, argEntry:Entry ) = {
+        //       val SplitLabel( hLabel, aLabel ) = headEntry.label
+        //       assert( h.obs == hLabel.obs )
+
+        //         // println( "Attaching " + argEntry.label + " to " + hLabel )
+
+        //       val RightwardLabel( argEntryObs, argEntryV ) = argEntry.label
+        //       // assert( argEntryObs == aLabel.obs )
+        //       assert( argEntryV == ( 2*(argEntryObs.t+1) == argEntry.span.end ) )
+
+
+        //       val newIScore = 
+        //         g.stopScore( StopOrNot( aLabel.obs.w, LeftAttachment, aLabel.v ) , Stop ) +
+        //         g.stopScore( StopOrNot( aLabel.obs.w, RightAttachment, argEntryV ) , Stop ) +
+        //           g.stopScore( StopOrNot( hLabel.obs.w, RightAttachment, hLabel.v ) , NotStop ) +
+        //           g.chooseScore( ChooseArgument( hLabel.obs.w, RightAttachment ) , aLabel.obs.w ) +
+        //             argEntry.iScore + headEntry.iScore
+
+        //       if( newIScore > iScore ) {
+        //         setIScore( newIScore )
+        //         children = Some( SpannedChildren( headEntry, Some( argEntry ) ) )
+        //       }
+
+        //     }
+        //   }
+        //   class RightwardLexEntry( h:SingleLabel, span:Span ) extends RightwardEntry( h, span ) {
+        //     iScore = 0D
+        //     children = None
+        //     override def dependencyParse = Set[DirectedArc]()
+        //     override def constituencyParse = "(" + h + " " + h.obs + " )"
+        //   }
+
+
+        //   // def rootEntry = matrix( 0 )( s.length )( rootLabel )
+        //   def treeScore = {
+        //     matrix( 0 )( 2*s.length )( StartLabel ).iScore
+        //   }
+
+
+        //   // Re-wrote lexFill so we don't explicitly touch iScore at all, only add entries.
+        //   def lexFill( index:Int ) {
+
+        //       // these are lexical entries so we are guaranteed to have no deps yet, hence v = true
+        //     if( index%2 == 0 ) {
+        //       val w = s(index/2)
+        //       val leftward = LeftwardLabel( w, true )
+        //       addEntry( new LeftwardLexEntry( leftward, Span( index, index+1 ) ) )
+        //     } else {
+        //       val w = s((index-1)/2)
+        //       val rightward = RightwardLabel( w, true )
+        //       addEntry( new RightwardLexEntry( rightward, Span( index, index+1 ) ) )
+        //     }
+        //   }
+
+        //   def synFill( i:Int, j:Int ) {
+        //     //println( "synFill for " + (i, j) )
+
+
+        //     ( (i+1) to (j-1) ).foreach{ k =>
+
+        //       // println( (i,k,j) + " " + (i%2==0, k%2==0, j%2==0) )
+
+        //       (i%2==0, k%2==0, j%2==0) match {
+        //         case (true, false, true) => {
+        //           // matrix(i)(k): leftward
+        //           // matrix(k)(j): rightward
+        //           // action: Add root if i == 0 and j == 2*s.length
+        //           if( i == 0 && j == (2*s.length) ) {
+        //             val t = (k-1)/2
+        //             val left = LeftwardLabel( s(t), t == 0 )
+        //             val right = RightwardLabel( s(t), (t+1) == s.length )
+        //             val rootLabel = RootLabel( left, right )
+
+        //             addRootEntry( new RootEntry( rootLabel, Span( 0, 2*s.length ) ) )
+        //           }
+
+        //         }
+        //         case (false, true, false) => {
+        //           // matrix(i)(k): rightward
+        //           // matrix(k)(j): leftward
+        //           // action: add M node
+
+        //           val rightwardHeads = matrix(i)(k).keySet
+        //           val leftwardHeads = matrix(k)(j).keySet
+        //           assert(
+        //             rightwardHeads.forall{ _ match { case RightwardLabel(_,_) => true ; case _ => false } }
+        //           )
+        //           assert(
+        //             leftwardHeads.forall{ _ match { case LeftwardLabel(_,_) => true ; case _ => false } }
+        //           )
+
+        //           (
+        //             for {left <- rightwardHeads ; right <- leftwardHeads } yield (left, right )
+        //           ).foreach{ case( left:RightwardLabel, right:LeftwardLabel ) =>
+        //             val split = SplitLabel( left, right )
+
+        //             if( ! matrix( i )( j ).keySet.contains( split ) )
+        //               addEntry( new SplitEntry( split, Span( i, j ) ) )
+
+        //             matrix( i )( j )( split ).addDependency(
+        //                 matrix( i )( k )( left ), matrix( k )( j )( right )
+        //                 // matrix( i )( k )( left ).iScore + matrix( k )( j )( right ).iScore
+        //             )
+        //           }
+        //         }
+        //         case (false, false, true) => {
+        //           // matrix(i)(k): M node
+        //           // matrix(k)(j): rightward
+        //           // action: rightward attachment
+        //           val splits = matrix(i)(k).keySet
+        //             /// println( splits.mkString( "< ", ", ", " >" ) )
+        //           assert(
+        //             splits.forall{ _ match { case SplitLabel(_,_) => true ; case _ => false } }
+        //           )
+        //           splits.foreach{ split =>
+        //             val SplitLabel( leftHead, rightHead ) = split
+
+        //             val leftParent = RightwardLabel( leftHead.obs, false )
+        //             val rightArg = RightwardLabel( rightHead.obs, ( 2*(rightHead.obs.t+1) ) == j )
+
+        //             if( ! matrix( i )( j ).keySet.contains( leftParent ) )
+        //               addEntry( new RightwardEntry( leftParent, Span( i, j ) ) )
+        //             matrix( i )( j )( leftParent ).addDependency(
+        //               matrix( i )( k )( split ),
+        //               matrix( k )( j )( rightArg )
+        //             )
+        //           }
+        //         }
+        //         case (true, false, false) => {
+        //           // matrix(i)(k): leftward
+        //           // matrix(k)(j): M node
+        //           // action: leftward attachment
+        //           val splits = matrix(k)(j).keySet
+        //           assert(
+        //             splits.forall{ _ match { case SplitLabel(_,_) => true ; case _ => false } }
+        //           )
+        //           splits.foreach{ split =>
+        //             val SplitLabel( leftHead, rightHead ) = split
+
+        //             val rightParent = LeftwardLabel( rightHead.obs, false )
+        //             val leftArg = LeftwardLabel( leftHead.obs, (2*leftHead.obs.t) == i )
+
+        //             if( ! matrix( i )( j ).keySet.contains( rightParent ) )
+        //               addEntry( new LeftwardEntry( rightParent, Span( i, j ) ) )
+        //             matrix( i )( j )( rightParent ).addDependency(
+        //               matrix( k )( j )( split ),
+        //               matrix( i )( k )( leftArg )
+        //             )
+        //           }
+        //         }
+        //         case (true, true, true) => {
+        //           // matrix(i)(k): nothing
+        //           // matrix(k)(j): nothing
+        //           // action: nothing
+        //         }
+        //         case (true, true, false) => {
+        //           // matrix(i)(k): nothing
+        //           // matrix(k)(j): leftward
+        //           // action: nothing
+        //         }
+        //         case (false, true, true) => {
+        //           // matrix(i)(k): rightward
+        //           // matrix(k)(j): nothing
+        //           // action: nothing
+        //         }
+        //         case (false, false, false) => {
+        //           // matrix(i)(k): M node
+        //           // matrix(k)(j): M node
+        //           // action: nothing
+        //         }
+        //       }
+
+
+        //     }
+
+        //   }
+
+        //   def size = 2*s.size
+
+        //   def toDependencyParse = matrix(0)(size)(StartLabel).dependencyParse.toList.sortWith{
+        //     _.arg.t < _.arg.t }.map{_.head.t}.mkString( "[ ", ", ", " ] " )
+        //   def toConstituencyParse = matrix(0)(size)(StartLabel).constituencyParse
+
+        //   override def toString = {
+        //     matrix.map{ row =>
+        //       row.map{ x =>
+        //         if( x != null )
+        //           x.values.mkString( "\n", "\n", "\n" )
+        //       }.mkString("\n","\n","\n")
+        //     }.mkString("\n","\n","\n\n")
+        //   }
+
+
+        // }
+
   /*
   * This is the CYK parsing algorithm.
   * @param s The input sentence (an array of terminals)
   * @return A parse chart with inside and outside probabilities.
   */
   def populateChart( s:List[TimedObservedLabel] ) = {
+    // val chart = new ViterbiChart( s )
     val chart =
       if( s.last != FinalRoot( s.length ) )
         new ViterbiChart( s :+ FinalRoot( s.length ) )
@@ -2437,6 +3892,27 @@ class VanillaDMVParser( val randomSeed:Int = 10 ) extends AbstractDMVParser{
 
     chart
   }
+
+        // /*
+        // * This is the CYK parsing algorithm with the Fold-Unfold transform (Johnson, 2007)
+        // * @param s The input sentence (an array of terminals)
+        // * @return A parse chart with inside and outside probabilities.
+        // */
+        // def efficientPopulateChart( s:List[TimedObservedLabel] ) = {
+        //   println( s.mkString( "[ ", ", ", " ]" ) )
+        //   val chart = new FoldUnfoldVitChart( s )
+
+        //   (1 to ( chart.size )) foreach{ j =>
+        //     chart.lexFill( j-1 )
+        //     if( j > 1 )
+        //       (0 to (j-2)).reverse.foreach{ i =>
+        //         println( (i, j ) )
+        //         chart.synFill( i , j )
+        //       }
+        //   }
+
+        //   chart
+        // }
 
 
   def constituencyParse( toParse: List[TimedSentence] ) =
@@ -2470,5 +3946,55 @@ class VanillaDMVParser( val randomSeed:Int = 10 ) extends AbstractDMVParser{
         }
       }
     }
+
+  def bothParsesWithLogProb( toParse: List[AbstractTimedSentence], prefix:String ) =
+    toParse.map{ _ match {
+        case TimedSentence( id, s ) => {
+          val chart = populateChart( s )
+          val ScoredParse( dep, viterbiParseLogProb ) = chart.toDependencyParseWithLogProb
+          val ScoredParse( con, _ ) = chart.toConstituencyParseWithLogProb
+          prefix + ":score:" + id + " " + viterbiParseLogProb + "\n" +
+          prefix + ":dependency:" + id + " " + dep + "\n" +
+          prefix + ":constituency:" + id + " " + con
+        }
+        case TimedTwoStreamSentence( id, s ) => {
+          val chart = populateChart( s )
+          val ScoredParse( dep, viterbiParseLogProb ) = chart.toDependencyParseWithLogProb
+          val ScoredParse( con, _ ) = chart.toConstituencyParseWithLogProb
+          prefix + ":score:" + id + " " + viterbiParseLogProb + "\n" +
+          prefix + ":dependency:" + id + " " + dep + "\n" +
+          prefix + ":constituency:" + id + " " + con
+        }
+        case TimedThreeStreamSentence( id, s ) => {
+          val chart = populateChart( s )
+          val ScoredParse( dep, viterbiParseLogProb ) = chart.toDependencyParseWithLogProb
+          val ScoredParse( con, _ ) = chart.toConstituencyParseWithLogProb
+          prefix + ":score:" + id + " " + viterbiParseLogProb + "\n" +
+          prefix + ":dependency:" + id + " " + dep + "\n" +
+          prefix + ":constituency:" + id + " " + con
+        }
+      }
+    }
+
+
+        // def efficientBothParses( toParse: List[AbstractTimedSentence], prefix:String ) =
+        //   toParse.map{ _ match {
+        //       case TimedSentence( id, s ) => {
+        //         val chart = efficientPopulateChart( s )
+        //         prefix + ":dependency:" + id + " " + chart.toDependencyParse + "\n" +
+        //         prefix + ":constituency:" + id + " " + chart.toConstituencyParse
+        //       }
+        //       case TimedTwoStreamSentence( id, s ) => {
+        //         val chart = efficientPopulateChart( s )
+        //         prefix + ":dependency:" + id + " " + chart.toDependencyParse + "\n" +
+        //         prefix + ":constituency:" + id + " " + chart.toConstituencyParse
+        //       }
+        //       case TimedThreeStreamSentence( id, s ) => {
+        //         val chart = efficientPopulateChart( s )
+        //         prefix + ":dependency:" + id + " " + chart.toDependencyParse + "\n" +
+        //         prefix + ":constituency:" + id + " " + chart.toConstituencyParse
+        //       }
+        //     }
+        //   }
 }
 

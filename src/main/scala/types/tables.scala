@@ -1,8 +1,8 @@
 package predictabilityParsing.types.tables
 
-import scalala.library.Numerics.logSum
+// import scalala.library.Numerics.logSum
 import predictabilityParsing.types.labels._
-import predictabilityParsing.util.Math.{expDigamma,subtractLogProb}
+import predictabilityParsing.util.Math.{expDigamma,subtractLogProb,logSum}
 import scala.collection.mutable.Map
 import math.{exp,log}
 
@@ -335,6 +335,10 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
       }.toSeq:_*
     )
 
+    if( !  cpt.keySet.forall{ parent => logSum( cpt( parent ).values.toSeq ) <= 0D } ) {
+      println( toString )
+    }
+
     assert(
       cpt.keySet.forall{ parent =>
         logSum( cpt( parent ).values.toSeq ) <= 0D
@@ -539,9 +543,9 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
     val r = new Random( seed )
 
     cpt = Map(
-      cpt.keySet.map{ parent =>
+    cpt.keySet.toList.sortWith{_>_}.map{ parent =>
         parent -> Map(
-          cpt(parent).keySet.map{ child =>
+          cpt(parent).keySet.toList.sortWith{_>_}.map{ child =>
             child -> ( log( r.nextDouble + centeredOn ) )
           }.toSeq:_*
         )
@@ -579,13 +583,13 @@ abstract class AbstractLog2dTable[T<:Label,U<:Label]
 
   override def toString =
   "\tdefaultChildMap:" + defaultChildMap.keySet.map{ child =>
-      child + ": " + math.exp( defaultChildMap( child ) ) + "\n"
+      child + ": " + /*math.exp(*/ defaultChildMap( child ) /*)*/ + "\n"
     }.mkString("\n\t\t","\n\t\t","\n") +
     parents.toList.sortWith( (a,b) => a < b ).map{ parent =>
-    "\n\t" + parent + " default: " + math.exp( getParentDefault( parent ) ) + 
+    "\n\t" + parent + " default: " + /*math.exp(*/ getParentDefault( parent ) /*)*/ + 
     this(parent).keySet.toList.sortWith( (a,b) => a < b ).map{ ch =>
       //parent + " --> " +ch + ":\t" + ( "%1.4f".format( exp( cpt(parent)(ch) ) ) )
-      parent + " --> " +ch + ":\t" + math.exp( cpt(parent)(ch) )
+      parent + " --> " +ch + ":\t" + /*math.exp(*/ cpt(parent)(ch) /*)*/
     }.mkString("\n\t","\n\t","")
   }.mkString("","\n","\n")
 }

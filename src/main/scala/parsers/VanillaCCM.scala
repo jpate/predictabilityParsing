@@ -3,7 +3,8 @@ package predictabilityParsing.parsers
 import predictabilityParsing.grammars.CCMGrammar
 import predictabilityParsing.partialCounts.CCMPartialCounts
 import predictabilityParsing.types.labels._
-import predictabilityParsing.util.{Math,CorpusManipulation}
+import predictabilityParsing.util.CorpusManipulation
+import predictabilityParsing.util.Math._
 import math.log
 
 class VanillaCCMEstimator(
@@ -160,8 +161,8 @@ class VanillaCCMEstimator(
     def setIScore( updatedScore:Double ) { iScore = updatedScore }
     def setOScore( updatedScore:Double ) { oScore = updatedScore }
 
-    def incrementIScore( inc:Double ) { iScore = Math.sumLogProb( iScore, inc ) }
-    def incrementOScore( inc:Double ) { oScore = Math.sumLogProb( oScore, inc ) }
+    def incrementIScore( inc:Double ) { iScore = logSum( iScore, inc ) }
+    def incrementOScore( inc:Double ) { oScore = logSum( oScore, inc ) }
 
     override def toString = context.toString
   }
@@ -201,7 +202,7 @@ class VanillaCCMEstimator(
         g.phi( BaseCCM( thisSpan, thisContext ) ) +
         ( (start+1) to (end - 1 ) ).map{ k =>
           matrix( start )( k ).iScore + matrix( k )( end ).iScore
-        }.reduceLeft{ Math.sumLogProb( _, _ ) }
+        }.reduceLeft{ logSum( _, _ ) }
       )
     }
 
@@ -219,7 +220,7 @@ class VanillaCCMEstimator(
 
           val leftSum =
             ( 0 to (i-1) ).foldLeft( Double.NegativeInfinity ){ (a, k) =>
-              Math.sumLogProb(
+              logSum(
                 a,
                 matrix(k)(i).iScore +
                 matrix(k)(j).oScore +
@@ -229,7 +230,7 @@ class VanillaCCMEstimator(
 
           val rightSum =
             ( (j+1) to (n) ).foldLeft( Double.NegativeInfinity ){ (a, k) =>
-              Math.sumLogProb(
+              logSum(
                 a,
                 matrix(j)(k).iScore +
                 matrix(i)(k).oScore +
@@ -237,7 +238,7 @@ class VanillaCCMEstimator(
               )
             }
 
-          matrix(i)(j).setOScore( Math.sumLogProb( leftSum, rightSum ) )
+          matrix(i)(j).setOScore( logSum( leftSum, rightSum ) )
         }
       )
     }
@@ -254,7 +255,7 @@ class VanillaCCMEstimator(
         }
       }
 
-      val p_tree = 0D - Math.log_space_binary_bracketings_count( s.length )
+      val p_tree = 0D - log_space_binary_bracketings_count( s.length )
       val fullStringIScore = matrix(0)(s.length).iScore
       val treeScore = fullStringIScore + distituentProduct + p_tree
 
@@ -264,7 +265,7 @@ class VanillaCCMEstimator(
           val thisSpan = thisEntry.span
           val thisContext = thisEntry.context
           val thisP_bracket = thisEntry.iScore + thisEntry.oScore - ( fullStringIScore )
-          val thisP_noBracket = Math.subtractLogProb( 0D, thisP_bracket )
+          val thisP_noBracket = subtractLogProb( 0D, thisP_bracket )
 
           pc.incrementSpanCounts(
             Constituent,

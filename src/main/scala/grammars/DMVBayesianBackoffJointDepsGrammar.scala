@@ -2,11 +2,11 @@ package predictabilityParsing.grammars
 
 import collection.mutable.Map
 
-import scalala.library.Numerics.logSum
+// import scalala.library.Numerics.logSum
 import predictabilityParsing.types.labels._
 import predictabilityParsing.types.tables._
 import predictabilityParsing.partialCounts.DMVBayesianBackoffJointDepsPartialCounts
-import predictabilityParsing.util.Math
+import predictabilityParsing.util.Math.logSum
 
 class DMVBayesianBackoffJointDepsGrammar(
     // These are hyperparameters (i.e. alphas) for the dirichlets from which choose and stop backoff

@@ -151,7 +151,7 @@ package object dmv {
   //     }
   //   }
 
-  def rootlessStopOrNotKeys( vocab:Set[_<:ObservedLabel] ) =
+  def rootlessStopOrNotKeys[O<:ObservedLabel]( vocab:Set[O] ) =
     vocab.flatMap{ w =>
       attachmentDirection.flatMap{ dir =>
         Set( StopOrNot( w, dir, true ), StopOrNot( w, dir, false ) )
@@ -165,7 +165,7 @@ package object dmv {
   //     }
   //   }
 
-  def rootlessChooseKeys( vocab:Set[_<:ObservedLabel] ) =
+  def rootlessChooseKeys[O<:ObservedLabel]( vocab:Set[O] ) =
     vocab.flatMap{ h =>
       attachmentDirection.map{ dir =>
         ChooseArgument( h, dir )

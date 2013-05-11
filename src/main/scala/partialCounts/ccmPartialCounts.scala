@@ -3,7 +3,7 @@ package predictabilityParsing.partialCounts
 import predictabilityParsing.types.labels._
 import predictabilityParsing.types.tables._
 import predictabilityParsing.grammars.CCMGrammar
-import predictabilityParsing.util.Math
+import predictabilityParsing.util.Math.logSum
 
 class CCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D ) {
   private val spanCounts = new Log2dTable( ccm.constituencyStatus, Set[Yield]() )
@@ -12,7 +12,7 @@ class CCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D 
 
   def setTotalScore( updatedTotalScore: Double ) { totalScore = updatedTotalScore }
   def incrementTotalScore( increment: Double ) 
-    { totalScore = Math.sumLogProb( totalScore, increment) }
+    { totalScore = logSum( totalScore, increment) }
   def multiplyTotalScore( multiplicand: Double ) { totalScore += multiplicand }
   def getTotalScore = totalScore
 
@@ -50,7 +50,7 @@ class CCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D 
     spanCounts.setValue(
       constituency,
       span,
-      Math.sumLogProb( getSpanCounts(constituency, span), increment )
+      logSum( getSpanCounts(constituency, span), increment )
     )
   }
   def setSpanCount( constituency:ConstituencyStatus, span:Yield, newCount:Double ) {
@@ -61,7 +61,7 @@ class CCMPartialCounts( val smoothTrue:Double = 2D, val smoothFalse:Double = 8D 
     contextCounts.setValue(
       constituency,
       context,
-      Math.sumLogProb( getContextCounts(constituency, context), increment )
+      logSum( getContextCounts(constituency, context), increment )
     )
   }
   def setContextCount( constituency:ConstituencyStatus, context:Context, newCount:Double ) {

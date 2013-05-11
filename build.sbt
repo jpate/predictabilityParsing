@@ -1,8 +1,8 @@
 name := "predictabilityParsing"
 
-version := "0.02-SNAPSHOT"
+version := "0.021-SNAPSHOT"
 
-scalaVersion := "2.9.2"
+scalaVersion := "2.10.0"
 
 unmanagedClasspath in Compile += Attributed.blank(new java.io.File("doesnotexist"))
 
@@ -18,8 +18,7 @@ resolvers ++= Seq(
 
 libraryDependencies  ++= Seq(
   "junit" % "junit" % "4.8" % "test",
-  "org.scalatest" % "scalatest_2.9.0" % "1.6.1" % "test",
-  "org.scalala" % "scalala_2.9.1" % "1.0.0.RC2"
+  "org.scalatest" % "scalatest_2.10.0" % "1.8" % "test"
 )
 
 publishArtifact in packageDoc := false

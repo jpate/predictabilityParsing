@@ -17,7 +17,7 @@ object Math {
     r + log(x) - 0.5/x + t;
   }
 
-  def sumLogProb( a:Double, b:Double ) =
+  def logSum( a:Double, b:Double ):Double =
     if( a == Double.NegativeInfinity )
       b
     else if( b == Double.NegativeInfinity )
@@ -26,6 +26,9 @@ object Math {
       a + log1p( exp( b - a ) )
     else
       b + log1p( exp( a - b ) )
+
+  def logSum( xs:Iterable[Double] ):Double =
+    xs.reduce( logSum( _, _ ) )
 
   // subtraction isn't commutative so I think I just need to do this straight
   def subtractLogProb( a:Double, b:Double ) =

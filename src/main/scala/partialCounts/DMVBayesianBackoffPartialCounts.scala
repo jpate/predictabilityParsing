@@ -1,11 +1,11 @@
 package predictabilityParsing.partialCounts
 
-import scalala.library.Numerics.logSum
+//import scalala.library.Numerics.logSum
 import predictabilityParsing.types.labels._
 import predictabilityParsing.types.tables._
 import predictabilityParsing.grammars.DMVBayesianBackoffGrammar
 import predictabilityParsing.grammars.AbstractDMVGrammar
-import predictabilityParsing.util.Math
+import predictabilityParsing.util.Math.logSum
 
 /*
  *  This is a class for a DMV which backs off to stream B for heads, emitting stream B only for

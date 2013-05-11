@@ -4,7 +4,7 @@ import predictabilityParsing.types.labels._
 import predictabilityParsing.types.tables._
 import predictabilityParsing.grammars.DMVGrammar
 import predictabilityParsing.grammars.AbstractDMVGrammar
-import predictabilityParsing.util.Math
+import predictabilityParsing.util.Math.logSum
 
 class DMVPartialCounts {
   val orderCounts = new Log2dTable( Set[ObservedLabel](), dmv.attachmentOrder )
@@ -32,7 +32,7 @@ class DMVPartialCounts {
 
   def setTotalScore( updatedTotalScore: Double ) { totalScore = updatedTotalScore }
   def incrementTotalScore( increment: Double ) 
-    { totalScore = Math.sumLogProb( totalScore, increment) }
+    { totalScore = logSum( totalScore, increment) }
   def multiplyTotalScore( multiplicand: Double ) { totalScore += multiplicand }
   def getTotalScore = totalScore
 
@@ -65,7 +65,7 @@ class DMVPartialCounts {
     orderCounts.setValue(
       w,
       order,
-      Math.sumLogProb( orderCounts(w,order), increment )
+      logSum( orderCounts(w,order), increment )
     )
   }
   def setOrderCounts( w:ObservedLabel, order:AttachmentOrder, newCount:Double ) {
@@ -76,7 +76,7 @@ class DMVPartialCounts {
     stopCounts.setValue(
       stopKey,
       decision,
-      Math.sumLogProb( stopCounts(stopKey,decision), increment )
+      logSum( stopCounts(stopKey,decision), increment )
     )
   }
   def setStopCounts( stopKey:StopOrNot, decision:StopDecision, newCount:Double ) {
@@ -84,11 +84,14 @@ class DMVPartialCounts {
   }
 
   def incrementChooseCounts( chooseKey:ChooseArgument, arg:ObservedLabel, increment:Double ) {
+    // println( "\n" + chooseKey + " --> " + arg + ": " + chooseCounts( chooseKey, arg ) )
+    // println( "increment " + chooseKey + " --> " + arg + " by " + increment )
     chooseCounts.setValue(
       chooseKey,
       arg,
-      Math.sumLogProb( chooseCounts(chooseKey,arg), increment )
+      logSum( chooseCounts(chooseKey,arg), increment )
     )
+    // println( chooseKey + " --> " + arg + ": " + chooseCounts( chooseKey, arg ) + "\n" )
   }
   def setChooseCounts( chooseKey:ChooseArgument, arg:ObservedLabel, newCount:Double ) {
     chooseCounts.setValue( chooseKey, arg, newCount )
@@ -173,7 +176,8 @@ class DMVPartialCounts {
 
     //println( "DMVPartialCounts.toDMVGrammar" )
 
-    //println( "StopCounts:\n" + stopCounts + "\n\n -- END STOP COUNTS ---\n\n" )
+    // println( "StopCounts:\n" + stopCounts + "\n\n -- END STOP COUNTS ---\n\n" )
+    // println( "ChooseCounts:\n" + chooseCounts + "\n\n -- END CHOOSE COUNTS ---\n\n" )
 
     toReturn.setParams(
       VanillaDMVParameters(
@@ -188,7 +192,7 @@ class DMVPartialCounts {
   }
 
 
-  def toLaplaceSmoothedGrammar(vocab:Set[_<:ObservedLabel], smooth:Double ) = {
+  def toLaplaceSmoothedGrammar[O<:ObservedLabel](vocab:Set[O], smooth:Double ) = {
     val logSmooth = math.log( smooth )
 
     val rightFirstValue = orderCounts( orderCounts.parents.head, RightFirst )
@@ -212,7 +216,7 @@ class DMVPartialCounts {
         stopCounts.setValue(
           key,
           decision,
-          Math.sumLogProb(
+          logSum(
             stopCounts( key, decision ),
             logSmooth
           )
@@ -225,7 +229,7 @@ class DMVPartialCounts {
         chooseCounts.setValue(
           key,
           arg,
-          Math.sumLogProb(
+          logSum(
             chooseCounts( key, arg ),
             logSmooth
           )
